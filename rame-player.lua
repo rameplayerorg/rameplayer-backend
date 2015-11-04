@@ -41,30 +41,36 @@ function player:next(id)
 end
 
 -- REST API: /player/
-local REST = {}
-
-function REST.play(hdr, args, path)
+local REST = {
+	GET  = { },
+	POST = { },
+}
+function REST.GET.play(hdr, args, path)
 	local fn = table.concat(path, "/", 3)
 	player:next(1)
-	return 200, "OK", RAME.hdrs.nocache
+	return 200
 end
 
-function REST.stop(hdr, args, path)
+function REST.GET.play()
+	return 500
+end
+
+function REST.GET.stop(hdr, args, path)
 	player:next(0)
-	return 200, "OK", RAME.hdrs.nocache
+	return 200
 end
 
-function REST.next(hdr, args, path)
+function REST.GET.next(hdr, args, path)
 	player:next()
-	return 200, "OK", RAME.hdrs.nocache
+	return 200
 end
 
-function REST.seek(hdr, args, path)
+function REST.GET.seek(hdr, args, path)
 	--dbus_omx:request("org.mpris.MediaPlayer2.Player", "Seek", nil, tonumber(path[3]))
-	return 200, "OK", RAME.hdrs.nocache
+	return 200
 end
 
-function REST.status()
+function REST.GET.status()
 	local omx = RAME.dbus_omx
 	local r
 	if player.__current then
@@ -93,14 +99,17 @@ function REST.status()
 			}
 		}
 	end
-	return 200, "OK", RAME.hdrs.json_nocache, json.encode(r)
+	return 200, json.encode(r)
 end
 
 local Plugin = {}
 
 function Plugin.init()
 	RAME.dbus_omx = RAME.dbus:get_proxy("org.mpris.MediaPlayer2.omxplayer", "/org/mpris/MediaPlayer2")
-	RAME.rest.player = REST
+	RAME.rest.player = function(ctx, reply)
+		reply.headers["Content-Type"] = "application/json"
+		return ctx:route(reply, REST)
+	end
 end
 
 function Plugin.main()

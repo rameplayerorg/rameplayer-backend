@@ -1,3 +1,4 @@
+local json = require 'cjson'
 local pldir = require 'pl.dir'
 local plfile = require 'pl.file'
 local plpath = require 'pl.path'
@@ -6,10 +7,11 @@ local plpath = require 'pl.path'
 local medialib = {}
 
 -- REST API: /media/
-local REST = function(hdr, args)
+local REST = function(ctx, reply)
 	local libs = {}
 	for name, obj in pairs(medialib) do table.insert(libs, obj) end
-	return 200, "OK", RAME.hdrs.json_nocache, json.encode(libs)
+	reply.headers["Content-Type"] = "application/json"
+	return 200, json.encode(libs)
 end
 
 
@@ -17,7 +19,7 @@ end
 local Plugin = {}
 
 function Plugin.init()
-	RAME.rest.media = REST
+	RAME.rest.media = function(ctx, reply) return ctx:route(reply, REST, true) end
 end
 
 function Plugin.media_changed(mountpoint, name)

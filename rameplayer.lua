@@ -9,19 +9,6 @@ local dbus = require 'cqp.dbus'
 RAME = {
 	version = "0.1",
 	plugins = {},
-	hdrs = {
-		nocache = {
-			"Access-Control-Allow-Origin: *",
-			"Cache-Control: no-cache",
-			"Pragma: no-cache",
-		},
-		json_nocache = {
-			"Access-Control-Allow-Origin: *",
-			"Content-Type: application/json",
-			"Cache-Control: no-cache",
-			"Pragma: no-cache",
-		}
-	}
 }
 
 function RAME:hook(hook, ...)
@@ -56,7 +43,22 @@ local function start_player()
 
 	load_plugins("/usr/share/rameplayer-backend/", "/etc/rameplayer", ".")
 	RAME:hook("early_init")
-	httpd.new{local_addr="0.0.0.0", port=8000, uri=RAME.rest}
+	httpd.new{
+		local_addr = "0.0.0.0",
+		port = 8000,
+		uri = function(ctx, reply)
+			reply.headers["Access-Control-Allow-Origin"] = "*"
+			if ctx.method == "OPTIONS" then
+				reply.headers["Access-Control-Allow-Methods"] = "POST,GET,OPTIONS"
+				reply.headers["Access-Control-Allow-Headers"] = "Content-Type"
+				reply.headers["Allow"] = "POST,GET,OPTIONS"
+				return 200
+			end
+			reply.headers["Cache-Control"] = "no-cache"
+			reply.headers["Pragma"] = "no-cache"
+			return ctx:route(reply, RAME.rest, true)
+		end
+	}
 
 	RAME:hook("init")
 	for _, p in ipairs(RAME.plugins) do
