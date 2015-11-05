@@ -105,11 +105,16 @@ end
 local Plugin = {}
 
 function Plugin.init()
+	RAME.dbus = dbus.get_bus()
 	RAME.dbus_omx = RAME.dbus:get_proxy("org.mpris.MediaPlayer2.omxplayer", "/org/mpris/MediaPlayer2")
 	RAME.rest.player = function(ctx, reply)
 		reply.headers["Content-Type"] = "application/json"
 		return ctx:route(reply, REST)
 	end
+end
+
+function Plugin.active()
+	return plpath.isfile("/usr/bin/omxplayer"), "omxplayer not found"
 end
 
 function Plugin.main()

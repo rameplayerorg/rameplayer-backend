@@ -1,13 +1,13 @@
 #!/usr/bin/dbus-run-session lua5.2
 
+-- package.path = "/path/to/lua-cqueues-pushy/?.lua;"..package.path
 local pldir = require 'pl.dir'
 local plpath = require 'pl.path'
 local cqueues = require 'cqueues'
 local httpd = require 'cqp.httpd'
-local dbus = require 'cqp.dbus'
 
 RAME = {
-	version = "0.1",
+	settings_path = "/media/mmcblk0p1/",
 	plugins = {},
 }
 
@@ -29,16 +29,26 @@ local function load_plugins(...)
 		if plpath.isdir(path) then
 			local files = pldir.getfiles(path, "rame-*.lua")
 			for _, f in pairs(files) do
-				print(("Loading %s"):format(f))
-				local plugin = dofile(f)
-				table.insert(RAME.plugins, plugin)
+				local ok, plugin = pcall(dofile, f)
+				local act, err = true
+				if ok then
+					if plugin.active then
+						act, err = plugin.active()
+					end
+				else
+					act, err = false, "failed to load: " .. plugin
+				end
+
+				print(("Plugin %s: %s"):format(f, act and "loaded" or "not active: "..(err or "disabled")))
+				if act then
+					table.insert(RAME.plugins, plugin)
+				end
 			end
 		end
 	end
 end
 
 local function start_player()
-	RAME.dbus = dbus.get_bus()
 	RAME.rest = {}
 
 	load_plugins("/usr/share/rameplayer-backend/", "/etc/rameplayer", ".")

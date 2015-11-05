@@ -18,6 +18,11 @@ local data_devices = {
 
 local Plugin = {}
 
+function Plugin.active()
+	-- Root required for mounting/unmounting
+	return posix.getuid() == 0, "not root"
+end
+
 function Plugin.main()
 	-- Mount existing nodes and setup notifications on them
 	local n = notify.opendir("/dev/", 0)
