@@ -23,7 +23,7 @@ local function ffprobe_file(fn)
 	-- reference: https://ffmpeg.org/ffprobe.html
 	local out = process.popen(
 		"ffprobe",
-			"-loglevel", "16",
+			"-probesize", "1000",
 			"-print_format", "json",
 			"-show_entries", "format",
 			"-show_chapters",
@@ -44,6 +44,7 @@ local function scan_file(fn, medias)
 	local ff_tags = ff_fmt.tags or {}
 
 	local out = {
+		uri = "rameplayer://"..fn,
 		filename = plpath.basename(fn),
 		created = plfile.modified_time(fn) * 1000,
 		title = ff_tags.title,
@@ -59,13 +60,13 @@ local function scan_file(fn, medias)
 		local starttime = tonumber(chff.start_time)
 		local endtime = tonumber(chff.end_time)
 		local m = {
+			uri = out.uri,
 			filename = out.filename,
 			created = out.created,
 			title = out.title and (chff.tags.title.." - "..out.title) or chff.tags.title,
 			startTime = starttime,
 			endTime = endtime,
 			duration = endtime - starttime,
-			--uri
 		}
 		table.insert(medias, m)
 	end

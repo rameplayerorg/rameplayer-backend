@@ -20,7 +20,7 @@ local function get_ip()
 end
 
 local function map_uri(uri)
-	local fn = uri:gsub("^rameplayer://", "/media/")
+	local fn = uri:gsub("^rameplayer://", "")
 	return fn
 end
 
@@ -45,32 +45,29 @@ local REST = {
 	GET  = { },
 	POST = { },
 }
-function REST.GET.play(hdr, args, path)
-	local fn = table.concat(path, "/", 3)
+function REST.GET.play(ctx, reply)
+	local fn = table.concat(ctx.paths, "/", ctx.path_num)
+	print(fn)
 	player:next(1)
 	return 200
 end
 
-function REST.GET.play()
-	return 500
-end
-
-function REST.GET.stop(hdr, args, path)
+function REST.GET.stop(ctx, reply)
 	player:next(0)
 	return 200
 end
 
-function REST.GET.next(hdr, args, path)
+function REST.GET.next(ctx, reply)
 	player:next()
 	return 200
 end
 
-function REST.GET.seek(hdr, args, path)
+function REST.GET.seek(ctx, reply)
 	--dbus_omx:request("org.mpris.MediaPlayer2.Player", "Seek", nil, tonumber(path[3]))
 	return 200
 end
 
-function REST.GET.status()
+function REST.GET.status(ctx, reply)
 	local omx = RAME.dbus_omx
 	local r
 	if player.__current then
@@ -121,8 +118,8 @@ function Plugin.main()
 	while true do
 		local item = nil
 		if player.__next_index then
-			player.__next_index = (player.__next_index - 1) % #player.playlist + 1
-			item = player.playlist[player.__next_index]
+			player.__next_index = (player.__next_index - 1) % #player.playlist.medias + 1
+			item = player.playlist.medias[player.__next_index]
 		end
 		if item then
 			player.__current = {
