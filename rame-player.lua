@@ -9,6 +9,17 @@ local process = require 'cqp.process'
 local httpd = require 'cqp.httpd'
 local dbus = require 'cqp.dbus'
 
+local OMXPlayerDBusAPI = {
+	-- Media Player interface
+	SetPosition = { interface = "org.mpris.MediaPlayer2.Player", args = "ox" },
+	Seek = { interface = "org.mpris.MediaPlayer2.Player", args = "x" },
+	Action = { interface = "org.mpris.MediaPlayer2.Player", args = "i" },
+	-- Properties interface
+	PlaybackStatus = { interface = "org.freedesktop.DBus.Properties", returns = "s" },
+	Duration = { interface = "org.freedesktop.DBus.Properties", returns = "t" },
+	Position = { interface = "org.freedesktop.DBus.Properties", returns = "t" },
+}
+
 local function get_ip()
 	local socket = require "socket"
 	local s = socket.udp()
@@ -46,10 +57,14 @@ local REST = {
 	POST = { },
 }
 function REST.GET.play(ctx, reply)
-	local fn = table.concat(ctx.paths, "/", ctx.path_num)
+	local fn = table.concat(ctx.paths, "/", ctx.path_pos)
 	print(fn)
 	player:next(1)
 	return 200
+end
+
+function REST.GET.pause(ctx, reply)
+	RAME.OMX:Action(16)
 end
 
 function REST.GET.stop(ctx, reply)
@@ -63,23 +78,26 @@ function REST.GET.next(ctx, reply)
 end
 
 function REST.GET.seek(ctx, reply)
-	--dbus_omx:request("org.mpris.MediaPlayer2.Player", "Seek", nil, tonumber(path[3]))
+	local pos = tonumber(ctx.paths[ctx.path_pos])
+	if pos == nil then return 500 end
+	RAME.OMX:SetPosition("/", pos * 1000000)
 	return 200
 end
 
 function REST.GET.status(ctx, reply)
-	local omx = RAME.dbus_omx
+	local OMX = RAME.OMX
 	local r
 	if player.__current then
 		if not player.__current.duration then
 			-- Cache duration
-			player.__current.duration = omx:request("org.freedesktop.DBus.Properties", "Duration")
+			player.__current.duration = OMX:Duration()
 		end
-		local status = omx:request("org.freedesktop.DBus.Properties", "PlaybackStatus")
-		local pos    = omx:request("org.freedesktop.DBus.Properties", "Position")
+		local status = OMX:PlaybackStatus()
+		local pos    = OMX:Position()
+		if type(pos) ~= "number" or pos < 0 then pos = 0.0 end
 		r = {
 			state = status == "Paused" and "paused" or "playing",
-			position = (pos or 0.0) / 1000000,
+			position = pos / 1000000,
 			media = {
 				uri = player.__current.item.uri,
 				index = player.__current.index,
@@ -103,7 +121,7 @@ local Plugin = {}
 
 function Plugin.init()
 	RAME.dbus = dbus.get_bus()
-	RAME.dbus_omx = RAME.dbus:get_proxy("org.mpris.MediaPlayer2.omxplayer", "/org/mpris/MediaPlayer2")
+	RAME.OMX = RAME.dbus:get_object("org.mpris.MediaPlayer2.omxplayer", "/org/mpris/MediaPlayer2", OMXPlayerDBusAPI)
 	RAME.rest.player = function(ctx, reply)
 		reply.headers["Content-Type"] = "application/json"
 		return ctx:route(reply, REST)
