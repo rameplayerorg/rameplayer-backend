@@ -1,4 +1,4 @@
-#!/usr/bin/dbus-run-session lua5.2
+#!/usr/bin/dbus-run-session lua5.3
 
 -- package.path = "/path/to/lua-cqueues-pushy/?.lua;"..package.path
 local pldir = require 'pl.dir'
