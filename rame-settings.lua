@@ -1,7 +1,6 @@
 -- Must be safe version of cjson-lib for errohandling
 local json = require 'cjson.safe'
 local plfile = require 'pl.file'
-local inspect = require 'inspect'
 
 -- REST API: /settings/
 local Settings = {
