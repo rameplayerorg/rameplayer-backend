@@ -12,7 +12,7 @@ RAME = {
 }
 
 function RAME:hook(hook, ...)
-	for _, p in ipairs(self.plugins) do
+	for _, p in pairs(self.plugins) do
 		local f = p[hook]
 		if f then f(...) end
 	end
@@ -41,7 +41,7 @@ local function load_plugins(...)
 
 				print(("Plugin %s: %s"):format(f, act and "loaded" or "not active: "..(err or "disabled")))
 				if act then
-					table.insert(RAME.plugins, plugin)
+					RAME.plugins[plpath.basename(f)] = plugin
 				end
 			end
 		end
@@ -71,7 +71,7 @@ local function start_player()
 	}
 
 	RAME:hook("init")
-	for _, p in ipairs(RAME.plugins) do
+	for _, p in pairs(RAME.plugins) do
 		if p.main then cqueues.running():wrap(p.main) end
 	end
 end
