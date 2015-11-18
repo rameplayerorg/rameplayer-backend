@@ -2,11 +2,12 @@ local plpath = require 'pl.path'
 local cqueues = require 'cqueues'
 local process = require 'cqp.process'
 
+local fbcputil = "/usr/bin/ramefbcp"
 local Plugin = {}
 
 function Plugin.active()
-	if not plpath.isfile("/usr/local/bin/fbcp") then
-		return nil, "fbcp not found"
+	if not plpath.isfile(fbcputil) then
+		return nil, fbcputil.." not found"
 	end
 	if not plpath.exists("/dev/fb1") then
 		return nil, "/dev/fb1 not found"
@@ -24,7 +25,7 @@ function Plugin.main()
 		playing = 2,
 		paused = 3,
 	}
-	local out = process.popenw("ramefbcp")
+	local out = process.popenw(fbcputil)
 	while true do
 		out:write(("S:%d\n"):format(statmap[RAME.status.state] or 1))
 		out:write(("X1:%s\n"):format(RAME.status.media.title or ""))
