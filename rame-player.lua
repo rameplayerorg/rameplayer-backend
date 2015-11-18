@@ -85,36 +85,7 @@ function REST.GET.seek(ctx, reply)
 end
 
 function REST.GET.status(ctx, reply)
-	local OMX = RAME.OMX
-	local r
-	if player.__current then
-		if not player.__current.duration then
-			-- Cache duration
-			player.__current.duration = OMX:Duration()
-		end
-		local status = OMX:PlaybackStatus()
-		local pos    = OMX:Position()
-		if type(pos) ~= "number" or pos < 0 then pos = 0.0 end
-		r = {
-			state = status == "Paused" and "paused" or "playing",
-			position = pos / 1000000,
-			media = {
-				uri = player.__current.item.uri,
-				index = player.__current.index,
-				title = player.__current.item.title,
-				duration = (player.__current.duration or 0.0) / 1000000,
-			}
-		}
-	else
-		r = {
-			state='stopped',
-			position = 0,
-			media = {
-				duration = 0,
-			}
-		}
-	end
-	return 200, json.encode(r)
+	return 200, json.encode(OMX.status)
 end
 
 local Plugin = {}
@@ -132,7 +103,38 @@ function Plugin.active()
 	return plpath.isfile("/usr/bin/omxplayer"), "omxplayer not found"
 end
 
+local function status_update()
+	local status = RAME.status
+	local OMX = RAME.OMX
+	while true do
+		if player.__current then
+			if not player.__current.duration then
+				-- Cache duration
+				player.__current.duration = OMX:Duration()
+			end
+			local pos = OMX:Position()
+			if type(pos) ~= "number" or pos < 0 then pos = 0.0 end
+
+			status.state = OMX:PlaybackStatus() == "Paused" and "paused" or "playing"
+			status.position = pos / 1000000
+			status.media.uri = player.__current.item.uri
+			status.media.index = player.__current.index
+			status.media.title = player.__current.item.title
+			status.media.duration = (player.__current.duration or 0.0) / 1000000
+		else
+			status.state = 'stopped'
+			status.position = 0
+			status.media.uri = nil
+			status.media.index = nil
+			status.media.title = nil
+			status.media.duration = 0
+		end
+		cqueues.poll(.2)
+	end
+end
+
 function Plugin.main()
+	cqueues.running():wrap(status_update)
 	while true do
 		local item = nil
 		if player.__next_index then

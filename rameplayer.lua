@@ -7,6 +7,7 @@ local cqueues = require 'cqueues'
 local httpd = require 'cqp.httpd'
 
 RAME = {
+	status = { media = {} },
 	settings_path = "/media/mmcblk0p1/",
 	plugins = {},
 }
