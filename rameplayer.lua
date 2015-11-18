@@ -7,6 +7,7 @@ local cqueues = require 'cqueues'
 local httpd = require 'cqp.httpd'
 
 RAME = {
+	ip = nil,
 	status = { media = {} },
 	settings_path = "/media/mmcblk0p1/",
 	plugins = {},
@@ -77,6 +78,20 @@ local function start_player()
 	end
 end
 
+local function update_ip()
+	while true do
+		local socket = require "socket"
+		local s = socket.udp()
+		s:setpeername("8.8.8.8", 80)
+		local ip, port = s:getsockname()
+		s:close()
+		RAME.ip = (tostring(ip) ~= "0.0.0.0") and ip or nil
+		print("IP", ip, RAME.ip)
+		cqueues.poll(15.0)
+	end
+end
+
 local loop = cqueues.new()
 loop:wrap(start_player)
+loop:wrap(update_ip)
 for e in loop:errors() do print(e) end

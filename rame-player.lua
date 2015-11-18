@@ -20,16 +20,6 @@ local OMXPlayerDBusAPI = {
 	Position = { interface = "org.freedesktop.DBus.Properties", returns = "t" },
 }
 
-local function get_ip()
-	local socket = require "socket"
-	local s = socket.udp()
-	s:setpeername("8.8.8.8", 80)
-	local ip, port = s:getsockname()
-	s:close()
-	if tostring(ip) == "0.0.0.0" then return nil end
-	return ip
-end
-
 local function map_uri(uri)
 	local fn = uri:gsub("^rameplayer://", "")
 	return fn
@@ -85,7 +75,7 @@ function REST.GET.seek(ctx, reply)
 end
 
 function REST.GET.status(ctx, reply)
-	return 200, json.encode(OMX.status)
+	return 200, json.encode(RAME.status)
 end
 
 local Plugin = {}
@@ -117,6 +107,7 @@ local function status_update()
 
 			status.state = OMX:PlaybackStatus() == "Paused" and "paused" or "playing"
 			status.position = pos / 1000000
+			status.media.filename = player.__current.item.filename
 			status.media.uri = player.__current.item.uri
 			status.media.index = player.__current.index
 			status.media.title = player.__current.item.title
@@ -124,6 +115,7 @@ local function status_update()
 		else
 			status.state = 'stopped'
 			status.position = 0
+			status.media.filename = nil
 			status.media.uri = nil
 			status.media.index = nil
 			status.media.title = nil
@@ -151,7 +143,7 @@ function Plugin.main()
 		else
 			player.__current = nil
 			player.__next_index = nil
-			player.proc = process.spawn("hellovg", get_ip() or "No Media")
+			player.proc = process.spawn("hellovg", RAME.ip or "No Media")
 		end
 		player.proc:wait()
 		player.proc = nil

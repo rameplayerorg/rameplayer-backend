@@ -27,9 +27,9 @@ function Plugin.main()
 	}
 	local out = process.popenw(fbcputil)
 	while true do
-		out:write(("S:%d\n"):format(statmap[RAME.status.state] or 1))
-		out:write(("X1:%s\n"):format(RAME.status.media.title or ""))
 		if RAME.status.position and RAME.status.position > 0.001 then
+			out:write(("S:%d\n"):format(statmap[RAME.status.state] or 1))
+			out:write(("X1:%s\n"):format(RAME.status.media.filename or ""))
 			if RAME.status.media.duration and RAME.status.media.duration > 0.001 then
 				out:write(("T:%.0f,%.0f\n"):format(RAME.status.position * 1000, RAME.status.media.duration * 1000))
 				out:write(("P:%.0f\n"):format(RAME.status.position / RAME.status.media.duration * 1000))
@@ -37,7 +37,7 @@ function Plugin.main()
 				out:write(("T:%.0f\nP:0\n"):format(RAME.status.position * 1000))
 			end
 		else
-			out:write("T:0\nP:0\n")
+			out:write(("S:0\nX1:IP %s\nX2:\nP:0\n"):format(RAME.ip or "(none)"))
 		end
 		cqueues.poll(0.2)
 	end
