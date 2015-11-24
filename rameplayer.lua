@@ -3,10 +3,14 @@
 -- package.path = "/path/to/lua-cqueues-pushy/?.lua;"..package.path
 local pldir = require 'pl.dir'
 local plpath = require 'pl.path'
+local plutils = require 'pl.utils'
 local cqueues = require 'cqueues'
 local httpd = require 'cqp.httpd'
+local process = require 'cqp.process'
+local posix = require 'posix'
 
 RAME = {
+	running = true,
 	ip = nil,
 	status = { media = {} },
 	settings_path = "/media/mmcblk0p1/",
@@ -78,6 +82,17 @@ local function start_player()
 	end
 end
 
+local function exit_handler()
+	local signal = require 'cqueues.signal'
+	signal.block(signal.SIGKILL, signal.SIGTERM, signal.SIGHUP)
+	local s = signal.listen(signal.SIGKILL, signal.SIGTERM, signal.SIGHUP)
+	cqueues.poll(2)
+	plutils.writefile('/var/run/cqpushy.pid', tostring(posix.getpid('pid')))
+	s:wait()
+	RAME.running = false
+	error("exit")
+end
+
 local function update_ip()
 	while true do
 		local socket = require "socket"
@@ -92,6 +107,11 @@ local function update_ip()
 end
 
 local loop = cqueues.new()
+loop:wrap(exit_handler)
 loop:wrap(start_player)
 loop:wrap(update_ip)
-for e in loop:errors() do print(e) end
+for e in loop:errors() do
+	if not RAME.running then break end
+	print(e)
+end
+process.killall(9)
