@@ -7,7 +7,6 @@ local plfile = require 'pl.file'
 local cqueues = require 'cqueues'
 local process = require 'cqp.process'
 local httpd = require 'cqp.httpd'
-local dbus = require 'cqp.dbus'
 
 local OMXPlayerDBusAPI = {
 	-- Media Player interface
@@ -81,6 +80,7 @@ end
 local Plugin = {}
 
 function Plugin.init()
+	local dbus = require 'cqp.dbus'
 	RAME.dbus = dbus.get_bus()
 	RAME.OMX = RAME.dbus:get_object("org.mpris.MediaPlayer2.omxplayer", "/org/mpris/MediaPlayer2", OMXPlayerDBusAPI)
 	RAME.rest.player = function(ctx, reply)
@@ -139,7 +139,7 @@ function Plugin.main()
 				item = item,
 			}
 			player.__next_index = player.__next_index + 1
-			player.proc = process.spawn("omxplayer", "--no-osd", "--no-keys", "--hdmiclocksync", "--adev", "hdmi", map_uri(item.uri))
+			player.proc = process.spawn("omxplayer", "--no-osd", "--no-keys", "--hdmiclocksync", "--adev", RAME.omxplayer_audio_out, map_uri(item.uri))
 		else
 			player.__current = nil
 			player.__next_index = nil
