@@ -116,7 +116,16 @@ local Version = {
 }
 
 function Version.GET(ctx, reply)
-	return read_json(RAME.settings_path .. "version-rame.json")
+	local data = {}
+	data["hw"] = plfile.read(RAME.path_version_hw)
+	if not data["hw"] then return 500, "file read error" end
+
+	-- last byte of hw ver data is special char that is left out
+	data["hw"] = data["hw"]:sub(1, (data["hw"]:len() - 1))
+	data["backend"] = RAME.version
+
+	local json_data = json.encode(data)
+	return json_data and 200 or 500, json_data
 end
 
 -- Plugin Hooks
