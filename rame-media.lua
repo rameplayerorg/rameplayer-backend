@@ -1,23 +1,12 @@
-local json = require 'cjson'
+local url = require 'socket.url'
+local posix = require 'posix'
 local pldir = require 'pl.dir'
 local plfile = require 'pl.file'
 local plpath = require 'pl.path'
 local process = require 'cqp.process'
+local RAME = require 'rame'
 
--- Media Libaries
-local medialib = {}
-
--- REST API: /lists/
-local Lists = {}
-function Lists.GET(ctx, reply)
-	local r = { lists={} }
-	for name, obj in pairs(medialib) do
-		table.insert(r.lists, obj)
-	end
-	reply.headers["Content-Type"] = "application/json"
-	return 200, json.encode(r)
-end
-
+--[[
 -- Media scanning
 local function ffprobe_file(fn)
 	-- reference: https://ffmpeg.org/ffprobe.html
@@ -34,6 +23,11 @@ local function ffprobe_file(fn)
 end
 
 local function scan_file(fn, medias)
+	local out = {
+		--title = ff_tags.title,
+		--duration = tonumber(ff.format.duration),
+	}
+
 	local data = ffprobe_file(fn)
 	if data == nil then return nil end
 
@@ -42,16 +36,6 @@ local function scan_file(fn, medias)
 
 	local ff_fmt = ff.format
 	local ff_tags = ff_fmt.tags or {}
-
-	local out = {
-		uri = "rameplayer://"..fn,
-		filename = plpath.basename(fn),
-		created = plfile.modified_time(fn) * 1000,
-		title = ff_tags.title,
-		duration = tonumber(ff.format.duration),
-		size = tonumber(ff.format.size),
-	}
-	table.insert(medias, out)
 
 	-- expand out chapters separately (NB: flattened out to same level for now)
 	-- TODO: support making of separate list of chapters
@@ -76,6 +60,7 @@ local function scan_file(fn, medias)
 	-- TODO field: mimeType
 	-- TODO field: tags[]  (array of tags, multipurpose)
 end
+--]]
 
 local supported_extension = {
 	--[[
@@ -91,37 +76,87 @@ local supported_extension = {
 	[".mpe"] = true, [".mp4"] = true,
 }
 
-local function scan_folder(name, path)
-	local m = {
-		title = name,
-		modified = os.time(),
-		medias = {},
+local FS = {}
+FS.__index = FS
+
+function FS:id_to_path(id)
+	local space_id, item_id = RAME:split_id(id)
+	local path = url.unescape(item_id)
+	if path:match("/../") then return nil end
+	return self.root..path
+end
+
+function FS:path_to_id(path)
+	if path:sub(1, #self.root) ~= self.root then return nil end
+	if path:match("/../") then return nil end
+	return self.spaceId..':'..url.escape(path:sub(#self.root+1))
+end
+
+function FS:refresh_meta(id, item)
+	if item.meta then return end
+	local filename = self:id_to_path(id)
+	local dirname  = plpath.dirname(filename)
+	local basename = plpath.basename(filename)
+	local st = posix.stat(filename)
+	if st == nil then return end
+	item.meta = {
+		["type"] = st["type"],
+		id = id,
+		parentId = self:path_to_id(dirname),
+		targetId = id,
+		filename = basename,
+		title = basename,
+		refreshed = RAME:get_ticket(),
+		modified = st.mtime and st.mtime * 1000,
+		size = st.size,
 	}
-	local files = pldir.getallfiles(path)
-	table.sort(files)
-	for _, f in pairs(files) do
-		local ext = plpath.extension(f)
-		if ext and supported_extension[ext] then
-			scan_file(f, m.medias)
+	item.uri = filename
+end
+
+function FS:refresh_items(id, item)
+	if item.items then return end
+	item.items = {}
+	local path = self:id_to_path(id)
+	local data = posix.dir(path)
+	table.sort(data)
+	for _, f in ipairs(data) do
+		if f ~= "." and f ~= ".." then
+			table.insert(item.items, self:path_to_id(path..'/'..f))
 		end
 	end
+end
 
-	medialib[name] = (#m.medias>0) and m or nil
-	print(("%s: scanned %s, %d found"):format(name, path, #m.medias))
+function FS.new_mapping(id, folder)
+	local space = setmetatable({ spaceId = id, root = folder, items = {} }, FS)
+	space.rootId = space:path_to_id(space.root)
+	return space
 end
 
 -- Plugin Hooks
 local Plugin = {}
 
-function Plugin.init()
-	RAME.rest.lists = function(ctx, reply) return ctx:route(reply, Lists) end
-end
-
-function Plugin.media_changed(mountpoint, name)
-	print("media_changed", mountpoint, name)
-	scan_folder(name, mountpoint)
-	if true then
-		RAME:hook("set_playlist", medialib[name])
+function Plugin.media_changed(id, mountpoint, mounted)
+	print("media_changed", id, mountpoint, mounted)
+	if RAME.lists[id] then
+		RAME.root:del(RAME.lists[id].rootId)
+		RAME.lists[id] = nil
+		print(id, RAME:split_id(RAME.player.cursor()))
+		if RAME:split_id(RAME.player.cursor()) == id then
+			RAME:hook("set_cursor", "")
+		end
+	end
+	if mounted then
+		local space = FS.new_mapping(id, mountpoint)
+		RAME.lists[id] = space
+		RAME.root:add(space.rootId)
+		print("Adding to root", space.rootId)
+		if RAME.player.status() == "stopped" then
+			local r = RAME:get_item(space.rootId, true)
+			if r and r.items and #r.items then
+				print("USB hot plug, resetting cursor: ", r.items[1])
+				RAME:hook("set_cursor", r.items[1])
+			end
+		end
 	end
 end
 

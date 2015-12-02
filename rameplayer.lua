@@ -1,28 +1,14 @@
 #!/usr/bin/dbus-run-session lua5.3
 
 -- package.path = "/path/to/lua-cqueues-pushy/?.lua;"..package.path
+local posix = require 'posix'
 local pldir = require 'pl.dir'
 local plpath = require 'pl.path'
 local plutils = require 'pl.utils'
 local cqueues = require 'cqueues'
 local httpd = require 'cqp.httpd'
 local process = require 'cqp.process'
-local posix = require 'posix'
-
-RAME = {
-	running = true,
-	ip = nil,
-	status = { media = {} },
-	settings_path = "/media/mmcblk0p1/",
-	plugins = {},
-}
-
-function RAME:hook(hook, ...)
-	for _, p in pairs(self.plugins) do
-		local f = p[hook]
-		if f then f(...) end
-	end
-end
+local RAME = require 'rame'
 
 -- Clear framebuffer
 os.execute([[
@@ -55,9 +41,12 @@ local function load_plugins(...)
 end
 
 local function start_player()
-	RAME.rest = {}
+	load_plugins(
+		"/usr/share/rameplayer-backend/",
+		"/etc/rameplayer/",
+		RAME.config.settings_path .. "/plugins/",
+		"./")
 
-	load_plugins("/usr/share/rameplayer-backend/", "/etc/rameplayer", ".")
 	RAME:hook("early_init")
 	httpd.new{
 		local_addr = "0.0.0.0",
@@ -100,8 +89,7 @@ local function update_ip()
 		s:setpeername("8.8.8.8", 80)
 		local ip, port = s:getsockname()
 		s:close()
-		RAME.ip = (tostring(ip) ~= "0.0.0.0") and ip or nil
-		print("IP", ip, RAME.ip)
+		RAME.system.ip((tostring(ip) ~= "0.0.0.0") and ip or "")
 		cqueues.poll(15.0)
 	end
 end

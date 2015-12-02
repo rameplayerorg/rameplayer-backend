@@ -1,6 +1,7 @@
 -- Must be safe version of cjson-lib for errohandling
 local json = require 'cjson.safe'
 local plfile = require 'pl.file'
+local RAME = require 'rame'
 
 -- REST API: /settings/
 local Settings = {

@@ -3,11 +3,11 @@ local posix = require 'posix'
 local pldir = require 'pl.dir'
 local plpath = require 'pl.path'
 local plfile = require 'pl.file'
-
 local cqueues = require 'cqueues'
 local process = require 'cqp.process'
 local httpd = require 'cqp.httpd'
 local dbus = require 'cqp.dbus'
+local RAME = require 'rame'
 
 local OMXPlayerDBusAPI = {
 	-- Media Player interface
@@ -25,20 +25,10 @@ local function map_uri(uri)
 	return fn
 end
 
--- Player and playlist data
-local player = {
-	playlist = {},
-	duration = nil,
-	autoloop = true,
-	autonext = true,
-
-	__current = nil,
-	__next_index = nil,
-}
-
-function player:next(id)
-	if id then self.__next_index = (id ~= 0 and id or nil) end
-	if self.proc then self.proc:kill() end
+local function trigger_next(item_id)
+	print("Player: requested to play: " .. item_id)
+	RAME.player.__next_item_id = item_id
+	if RAME.player.__proc then RAME.player.__proc:kill(9) end
 end
 
 -- REST API: /player/
@@ -47,23 +37,26 @@ local REST = {
 	POST = { },
 }
 function REST.GET.play(ctx, reply)
-	local fn = table.concat(ctx.paths, "/", ctx.path_pos)
-	print(fn)
-	player:next(1)
+	if RAME.player.status() ~= "paused" then
+		trigger_next(RAME.player.cursor())
+	else
+		RAME.OMX:Action(16)
+	end
 	return 200
 end
 
 function REST.GET.pause(ctx, reply)
 	RAME.OMX:Action(16)
+	return 200
 end
 
 function REST.GET.stop(ctx, reply)
-	player:next(0)
+	trigger_next("stop")
 	return 200
 end
 
 function REST.GET.next(ctx, reply)
-	player:next()
+	trigger_next()
 	return 200
 end
 
@@ -72,10 +65,6 @@ function REST.GET.seek(ctx, reply)
 	if pos == nil then return 500 end
 	RAME.OMX:SetPosition("/", pos * 1000000)
 	return 200
-end
-
-function REST.GET.status(ctx, reply)
-	return 200, json.encode(RAME.status)
 end
 
 local Plugin = {}
@@ -94,33 +83,25 @@ function Plugin.active()
 end
 
 local function status_update()
-	local status = RAME.status
 	local OMX = RAME.OMX
 	while true do
-		if player.__current then
-			if not player.__current.duration then
-				-- Cache duration
-				player.__current.duration = OMX:Duration()
+		local status, position, duration = "stopped", 0, 0
+		if RAME.player.__proc then
+			status = OMX:PlaybackStatus() or "stopped"
+			if status == 'Paused' or status == 'Playing' then
+				position = OMX:Position() or 0
+				if position >= 0 then
+					status = status == "Paused" and "paused" or "playing"
+					duration = OMX:Duration() or 0
+				else
+					status = "buffering"
+					position = 0
+				end
 			end
-			local pos = OMX:Position()
-			if type(pos) ~= "number" or pos < 0 then pos = 0.0 end
-
-			status.state = OMX:PlaybackStatus() == "Paused" and "paused" or "playing"
-			status.position = pos / 1000000
-			status.media.filename = player.__current.item.filename
-			status.media.uri = player.__current.item.uri
-			status.media.index = player.__current.index
-			status.media.title = player.__current.item.title
-			status.media.duration = (player.__current.duration or 0.0) / 1000000
-		else
-			status.state = 'stopped'
-			status.position = 0
-			status.media.filename = nil
-			status.media.uri = nil
-			status.media.index = nil
-			status.media.title = nil
-			status.media.duration = 0
 		end
+		RAME.player.status(status)
+		RAME.player.duration(duration / 1000000)
+		RAME.player.position(position / 1000000)
 		cqueues.poll(.2)
 	end
 end
@@ -128,31 +109,53 @@ end
 function Plugin.main()
 	cqueues.running():wrap(status_update)
 	while true do
-		local item = nil
-		if player.__next_index then
-			player.__next_index = (player.__next_index - 1) % #player.playlist.medias + 1
-			item = player.playlist.medias[player.__next_index]
+		-- If cursor changed or play/stop requested
+		local play_requested, wrapped = false, false
+		local cursor_id  = RAME.player.cursor()
+		local request_id = RAME.player.__next_item_id
+
+		if request_id == "stop" or request_id == "" then
+			play_requested = false
+		elseif request_id then
+			cursor_id = request_id
+			play_requested = true
+		elseif cursor_id and cursor_id ~= "" then
+			cursor_id, wrapped = RAME:get_next_item_id(cursor_id)
+			play_requested = true --list.autoPlayNext
+			--[[
+			if wrapped then
+				play_requested = (list["repeat"] or 0) ~= 0 and play_requested
+				if list["repeat"] >= 1 then
+					list["repeat"] = list["repeat"] - 1
+				end
+			end
+			--]]
 		end
-		if item then
-			player.__current = {
-				index = player.__next_index,
-				item = item,
-			}
-			player.__next_index = player.__next_index + 1
-			player.proc = process.spawn("omxplayer", "--no-osd", "--no-keys", "--hdmiclocksync", "--adev", "hdmi", map_uri(item.uri))
+
+		-- Start process matching current state
+		RAME.player.__next_item_id = nil
+		RAME.player.cursor(cursor_id)
+		RAME.player.position(0)
+		RAME.player.duration(0)
+		if play_requested then
+			local item = RAME:get_item(cursor_id)
+			RAME.player.status("buffering")
+			RAME.player.__proc = process.spawn(
+				"omxplayer",
+					"--no-osd", "--no-keys",
+					"--hdmiclocksync", "--adev", "hdmi",
+					map_uri(item.uri))
 		else
-			player.__current = nil
-			player.__next_index = nil
-			player.proc = process.spawn("hellovg", RAME.ip or "No Media")
+			RAME.player.status("stopped")
+			RAME.player.__proc = process.spawn("hellovg", RAME.ip or "No Media")
 		end
-		player.proc:wait()
-		player.proc = nil
+		RAME.player.__proc:wait()
+		RAME.player.__proc = nil
 	end
 end
 
-function Plugin.set_playlist(plist)
-	player.playlist = plist or {}
-	player:next(1)
+function Plugin.set_cursor(id)
+	trigger_next(id)
 end
 
 return Plugin

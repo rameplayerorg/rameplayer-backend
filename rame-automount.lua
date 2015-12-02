@@ -2,6 +2,7 @@ local posix = require 'posix'
 local cqueues = require 'cqueues'
 local notify = require 'cqueues.notify'
 local process = require 'cqp.process'
+local RAME = require 'rame'
 
 local function is_mount_point(path)
 	local a = posix.stat(path)
@@ -35,7 +36,7 @@ function Plugin.main()
 				posix.mkdir(mountpoint)
 				process.run("mount", "-o", "ro", dev, mountpoint)
 			end
-			RAME:hook("media_changed", mountpoint, name)
+			RAME:hook("media_changed", name, mountpoint, true)
 		end
 	end
 
@@ -47,9 +48,9 @@ function Plugin.main()
 			if bit32.band(notify.CREATE, changes) == notify.CREATE then
 				posix.mkdir(mountpoint)
 				process.run("mount", "-o", "ro", dev, mountpoint)
-				RAME:hook("media_changed", mountpoint, name)
+				RAME:hook("media_changed", name, mountpoint, true)
 			elseif bit32.band(notify.DELETE, changes) == notify.DELETE then
-				RAME:hook("media_changed", mountpoint, name)
+				RAME:hook("media_changed", name, mountpoint, false)
 				process.run("umount", "-l", mountpoint)
 			end
 		end
