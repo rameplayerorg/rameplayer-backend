@@ -97,6 +97,7 @@ function FS:refresh_meta(id, item)
 	local filename = self:id_to_path(id)
 	local dirname  = plpath.dirname(filename)
 	local basename = plpath.basename(filename)
+	local ext      = plpath.extension(filename)
 	local st = posix.stat(filename)
 	if st == nil then return end
 	item.meta = {
@@ -110,7 +111,9 @@ function FS:refresh_meta(id, item)
 		modified = st.mtime and st.mtime * 1000,
 		size = st.size,
 	}
-	item.uri = filename
+	if st["type"] == "regular" and ext and supported_extension[ext] then
+		item.uri = filename
+	end
 end
 
 function FS:refresh_items(id, item)
@@ -153,8 +156,14 @@ function Plugin.media_changed(id, mountpoint, mounted)
 		if RAME.player.status() == "stopped" then
 			local r = RAME:get_item(space.rootId, true)
 			if r and r.items and #r.items then
-				print("USB hot plug, resetting cursor: ", r.items[1])
-				RAME:hook("set_cursor", r.items[1])
+				local item, wrapped = RAME:get_item(r.items[1]), false
+				if not item.uri then
+					item, wrapped = RAME:get_next_item(item.meta.id)
+				end
+				if not wrapped and item then
+					print("USB hot plug, resetting cursor: ", r.items[1])
+					RAME:hook("set_cursor", item.meta.id)
+				end
 			end
 		end
 	end

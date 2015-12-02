@@ -5,7 +5,8 @@ local push = require 'cqp.push'
 local RAME = {
 	version = "undefined",
 	running = true,
-	next_ticket = os.time(),
+	start_time = os.time(),
+	next_ticket = 1,
 	config = {
 		settings_path = "/media/mmcblk0p1/",
 	},
@@ -32,7 +33,7 @@ local RAME = {
 function RAME:get_ticket()
 	local ticket = self.next_ticket
 	self.next_ticket = ticket + 1
-	return ticket
+	return ("%d.%d"):format(RAME.start_time, ticket)
 end
 
 function RAME:hook(hook, ...)
@@ -64,16 +65,20 @@ function RAME:get_item(id, refresh_items)
 	return item
 end
 
-function RAME:get_next_item_id(id)
+function RAME:get_next_item(id)
 	local wrapped = false
 	local item = self:get_item(id)
 	local parent = self:get_item(item.meta.parentId)
-	if parent == nil then return id, true end
+	if parent == nil then return item, true end
+	local ndx = tablex.find(parent.items, id)
+	repeat
+		ndx = ndx + 1
+		if ndx > #parent.items then ndx, wrapped = 1, true end
+		print("NEXT", id, ndx, parent.items[ndx])
+		item = self:get_item(parent.items[ndx])
+	until wrapped or item.uri
 
-	local ndx = tablex.find(parent.items, id) + 1
-	if ndx > #parent.items then ndx, wrapped = 1, true end
-	print("NEXT", id, ndx, parent.items[ndx])
-	return parent.items[ndx], wrapped
+	return item, wrapped
 end
 
 -- REST API: /lists/ID

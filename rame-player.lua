@@ -114,6 +114,7 @@ function Plugin.main()
 		local play_requested, wrapped = false, false
 		local cursor_id  = RAME.player.cursor()
 		local request_id = RAME.player.__next_item_id
+		local item
 
 		if request_id == "stop" or request_id == "" then
 			play_requested = false
@@ -121,7 +122,8 @@ function Plugin.main()
 			cursor_id = request_id
 			play_requested = true
 		elseif cursor_id and cursor_id ~= "" then
-			cursor_id, wrapped = RAME:get_next_item_id(cursor_id)
+			item, wrapped = RAME:get_next_item(cursor_id)
+			cursor_id = item.meta.id
 			play_requested = true --list.autoPlayNext
 			--[[
 			if wrapped then
@@ -139,7 +141,7 @@ function Plugin.main()
 		RAME.player.position(0)
 		RAME.player.duration(0)
 		if play_requested then
-			local item = RAME:get_item(cursor_id)
+			if item == nil then item = RAME:get_item(cursor_id) end
 			RAME.player.status("buffering")
 			RAME.player.__proc = process.spawn(
 				"omxplayer",
