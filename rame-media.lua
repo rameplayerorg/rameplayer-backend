@@ -1,4 +1,5 @@
 local url = require 'socket.url'
+local json = require 'cjson.safe'
 local posix = require 'posix'
 local pldir = require 'pl.dir'
 local plfile = require 'pl.file'
@@ -6,7 +7,6 @@ local plpath = require 'pl.path'
 local process = require 'cqp.process'
 local RAME = require 'rame'
 
---[[
 -- Media scanning
 local function ffprobe_file(fn)
 	-- reference: https://ffmpeg.org/ffprobe.html
@@ -21,46 +21,6 @@ local function ffprobe_file(fn)
 	out:close()
 	return res
 end
-
-local function scan_file(fn, medias)
-	local out = {
-		--title = ff_tags.title,
-		--duration = tonumber(ff.format.duration),
-	}
-
-	local data = ffprobe_file(fn)
-	if data == nil then return nil end
-
-	local ff = json.decode(data)
-	if ff == nil then return nil end
-
-	local ff_fmt = ff.format
-	local ff_tags = ff_fmt.tags or {}
-
-	-- expand out chapters separately (NB: flattened out to same level for now)
-	-- TODO: support making of separate list of chapters
-	for chidx, chff in pairs(ff.chapters or {}) do
-		print(fn, chidx..": "..chff.tags.title)
-		local starttime = tonumber(chff.start_time)
-		local endtime = tonumber(chff.end_time)
-		local m = {
-			uri = out.uri,
-			filename = out.filename,
-			created = out.created,
-			title = out.title and (chff.tags.title.." - "..out.title) or chff.tags.title,
-			startTime = starttime,
-			endTime = endtime,
-			duration = endtime - starttime,
-		}
-		table.insert(medias, m)
-	end
-
-	-- TODO field: name
-	-- TODO field: shortName
-	-- TODO field: mimeType
-	-- TODO field: tags[]  (array of tags, multipurpose)
-end
---]]
 
 local supported_extension = {
 	--[[
@@ -100,24 +60,29 @@ function FS:refresh_meta(id, item)
 	local ext      = plpath.extension(filename)
 	local st = posix.stat(filename)
 	if st == nil then return end
+
+	item.id = id
+	item.parentId = self:path_to_id(dirname)
+	item.targetId = id
 	item.meta = {
-		["type"] = st["type"],
-		id = id,
-		parentId = self:path_to_id(dirname),
-		targetId = id,
+		["type"] = st.type,
 		filename = basename,
 		title = basename,
 		refreshed = RAME:get_ticket(),
 		modified = st.mtime and st.mtime * 1000,
 		size = st.size,
 	}
-	if st["type"] == "regular" and ext and supported_extension[ext] then
+	if st.type == "regular" and supported_extension[ext or ""] then
 		item.uri = filename
+	elseif st.type == "directory" then
+		item.items = true
 	end
 end
 
 function FS:refresh_items(id, item)
-	if item.items then return end
+	if type(item.items) == "table" then return end
+	if item.meta.type ~= "directory" then return end
+
 	item.items = {}
 	local path = self:id_to_path(id)
 	local data = posix.dir(path)
@@ -127,6 +92,43 @@ function FS:refresh_items(id, item)
 			table.insert(item.items, self:path_to_id(path..'/'..f))
 		end
 	end
+end
+
+function FS:scan_item(item)
+	if not item.uri then return false end
+
+	local data = ffprobe_file(item.uri)
+	if data == nil then return false end
+
+	local ff = json.decode(data)
+	if ff == nil then return false end
+
+	local ff_fmt = ff.format
+	local ff_tags = ff_fmt.tags or {}
+
+	item.meta.duration = ff_tags.duration
+	item.meta.title = ff_tags.title
+	return true
+
+--[[
+	-- expand out chapters separately (NB: flattened out to same level for now)
+	-- TODO: support making of separate list of chapters
+	for chidx, chff in pairs(ff.chapters or {}) do
+		print(fn, chidx..": "..chff.tags.title)
+		local starttime = tonumber(chff.start_time)
+		local endtime = tonumber(chff.end_time)
+		local m = {
+			uri = out.uri,
+			filename = out.filename,
+			created = out.created,
+			title = out.title and (chff.tags.title.." - "..out.title) or chff.tags.title,
+			startTime = starttime,
+			endTime = endtime,
+			duration = endtime - starttime,
+		}
+		table.insert(medias, m)
+	end
+--]]
 end
 
 function FS.new_mapping(id, folder)
@@ -158,11 +160,11 @@ function Plugin.media_changed(id, mountpoint, mounted)
 			if r and r.items and #r.items then
 				local item, wrapped = RAME:get_item(r.items[1]), false
 				if not item.uri then
-					item, wrapped = RAME:get_next_item(item.meta.id)
+					item, wrapped = RAME:get_next_item(item.id)
 				end
 				if not wrapped and item then
 					print("USB hot plug, resetting cursor: ", r.items[1])
-					RAME:hook("set_cursor", item.meta.id)
+					RAME:hook("set_cursor", item.id)
 				end
 			end
 		end

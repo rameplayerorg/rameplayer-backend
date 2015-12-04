@@ -1,6 +1,7 @@
 local json = require 'cjson.safe'
 local tablex = require 'pl.tablex'
 local push = require 'cqp.push'
+local condition = require 'cqueues.condition'
 
 local RAME = {
 	version = "undefined",
@@ -18,6 +19,10 @@ local RAME = {
 		position = push.property(0, "Active media play position"),
 		duration = push.property(0, "Active media duration"),
 		cursor   = push.property("", "Active media"),
+	},
+	scanner = {
+		queue = {},
+		cond  = condition.new(),
 	},
 	lists = {},
 	rest = {},
@@ -49,16 +54,54 @@ function RAME:split_id(id)
 	return space_id, item_id
 end
 
-function RAME:get_item(id, refresh_items)
+function RAME:scanner_thread()
+	while true do
+		if self.scanner.queue.head then
+			-- Dequeue item
+			local item = self.scanner.queue.head
+			if self.scanner.queue[item] then
+				self.scanner.queue.head = self.scanner.queue[item]
+			else
+				self.scanner.queue.head = nil
+				self.scanner.queue.tail = nil
+			end
+			-- Run the scan hook
+			local space = item.space
+			if space:scan_item(item) then
+				local stamp = self:get_ticket()
+				item.meta.refreshed = stamp
+				local parent = self:get_item(item.parentId)
+				if parent then
+					parent.meta.refreshed = stamp
+				end
+			end
+		else
+			self.scanner.cond:wait()
+		end
+	end
+end
+
+function RAME:get_item(id, refresh_items, scan_item)
 	if id == nil then return nil end
 
 	local space_id, item_id = RAME:split_id(id)
 	local space = self.lists[space_id]
 	if space == nil then return nil end
 
-	local item = space.items[item_id] or {}
+	local item = space.items[item_id] or { space = space }
 	if space.refresh_meta then space:refresh_meta(id, item) end
 	if item.meta == nil then return nil end
+	if scan_item and not item.scanned and space.scan_item then
+		item.scanned = true
+		-- Queue for scanning
+		if self.scanner.queue.tail then
+			self.scanner.queue[self.scanner.queue.tail] = item
+		else
+			self.scanner.queue.head = item
+		end
+		self.scanner.queue.tail = item
+		self.scanner.cond:signal()
+	end
 	if refresh_items and space.refresh_items then space:refresh_items(id, item) end
 	space.items[item_id] = item
 
@@ -68,7 +111,7 @@ end
 function RAME:get_next_item(id)
 	local wrapped = false
 	local item = self:get_item(id)
-	local parent = self:get_item(item.meta.parentId)
+	local parent = self:get_item(item.parentId)
 	if parent == nil then return item, true end
 	local ndx = tablex.find(parent.items, id)
 	repeat
@@ -86,24 +129,26 @@ function RAME.rest.lists(ctx, reply)
 	if ctx.method ~= "GET" then return 405 end
 
 	local id = ctx.paths[ctx.path_pos]
-	local list = RAME:get_item(id, true)
+	local list = RAME:get_item(id, true, true)
 	if list == nil then return 404 end
 	if list.items == nil then return 400 end
 
-	-- Deep copy meta data
-	local r = { }
-	for key, val in pairs(list.meta) do
-		r[key] = val
-	end
-	-- Populate child items
-	local items = { }
-	for _, child_id in ipairs(list.items) do
-		local child = RAME:get_item(child_id)
+	local r = {
+		id = id,
+		info = list.meta,
+		items = { },
+	}
+
+	for node_id, target_id in pairs(list.items) do
+		local child = RAME:get_item(target_id, false, true)
 		if child and child.meta then
-			table.insert(items, child.meta)
+			table.insert(r.items, {
+				id = target_id, --("%s:%s"):format(id, node_id),
+				targetId = child.items and target_id,
+				info = child.meta
+			})
 		end
 	end
-	r.items = items
 
 	reply.headers["Content-Type"] = "application/json"
 	return 200, json.encode(r)
@@ -163,5 +208,9 @@ end
 
 RAME.root = List.new('root', 'Root')
 RAME.lists.root = ListMapping(RAME.root)
+
+function RAME.main()
+	RAME:scanner_thread()
+end
 
 return RAME

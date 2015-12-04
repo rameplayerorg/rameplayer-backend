@@ -69,6 +69,7 @@ local function start_player()
 	for _, p in pairs(RAME.plugins) do
 		if p.main then cqueues.running():wrap(p.main) end
 	end
+	cqueues.running():wrap(RAME.main)
 end
 
 local function exit_handler()

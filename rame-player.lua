@@ -123,7 +123,7 @@ function Plugin.main()
 			play_requested = true
 		elseif cursor_id and cursor_id ~= "" then
 			item, wrapped = RAME:get_next_item(cursor_id)
-			cursor_id = item.meta.id
+			cursor_id = item.id
 			play_requested = true --list.autoPlayNext
 			--[[
 			if wrapped then

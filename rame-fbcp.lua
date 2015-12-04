@@ -1,5 +1,6 @@
 local plpath = require 'pl.path'
 local cqueues = require 'cqueues'
+local condition = require 'cqueues.condition'
 local process = require 'cqp.process'
 local RAME = require 'rame'
 
@@ -17,6 +18,15 @@ function Plugin.active()
 end
 
 function Plugin.main()
+	local pending = true
+	local cond = condition.new()
+	local update = function() pending=true cond:signal() end
+
+	RAME.player.position:push_to(update)
+	RAME.player.duration:push_to(update)
+	RAME.player.status:push_to(update)
+	RAME.system.ip:push_to(update)
+
 	--S:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering)
 	--T:a,b
 	--X[12]:text
@@ -28,6 +38,8 @@ function Plugin.main()
 	}
 	local out = process.popenw(fbcputil)
 	while true do
+		pending = false
+
 		local status = RAME.player.status()
 		local status_id = statmap[status] or 0
 		out:write(("S:%d\n"):format(status_id))
@@ -46,7 +58,9 @@ function Plugin.main()
 			out:write(("S:0\nX1:IP %s\nX2:\nP:0\n"):format(RAME.system.ip()))
 		end
 
-		cqueues.poll(0.2)
+		if not pending then cond:wait() end
+		-- Aggregate further changes before updating the screen
+		cqueues.poll(0.01)
 	end
 end
 
