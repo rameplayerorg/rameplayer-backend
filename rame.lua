@@ -150,23 +150,26 @@ function RAME.rest.lists(ctx, reply)
 		end
 	end
 
-	reply.headers["Content-Type"] = "application/json"
-	return 200, json.encode(r)
+	return 200, r
 end
 
 -- REST API: /status/
 function RAME.rest.status(ctx, reply)
-	if ctx.method ~= "GET" then return 405 end
-	reply.headers["Content-Type"] = "application/json"
+	if ctx.method ~= "GET" and ctx.method ~= "POST" then return 405 end
 
-	--[[
-	local lists = {}
-	for name, list in pairs(RAME.lists) do
-		table.insert(lists, {id = list.id, modified = list.meta.refreshed})
+	local lists = nil
+	if ctx.args.lists then
+		lists = {}
+		for _, list_id in pairs(ctx.args.lists) do
+			local list = RAME:get_item(list_id)
+			if list then
+				lists[list_id] = list.meta.refreshed
+			end
+		end
 	end
-	--]]
 
-	return 200, json.encode {
+	return 200, {
+		listsRefreshed = lists,
 		state = RAME.player.status(),
 		position = RAME.player.position(),
 		duration = RAME.player.duration(),
@@ -174,6 +177,16 @@ function RAME.rest.status(ctx, reply)
 			id = RAME.player.cursor(),
 		},
 	}
+end
+
+-- REST API: /cursor/
+function RAME.rest.cursor(ctx, reply)
+	if ctx.method ~= "PUT" then return 405 end
+	local id = ctx.args.id
+	local item = RAME:get_item(id)
+	if item == nil then return 404 end
+	RAME:hook("set_cursor", id)
+	return 200
 end
 
 local List = {}

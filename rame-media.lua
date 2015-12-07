@@ -67,7 +67,6 @@ function FS:refresh_meta(id, item)
 	item.meta = {
 		["type"] = st.type,
 		filename = basename,
-		title = basename,
 		refreshed = RAME:get_ticket(),
 		modified = st.mtime and st.mtime * 1000,
 		size = st.size,
@@ -75,6 +74,9 @@ function FS:refresh_meta(id, item)
 	if st.type == "regular" and supported_extension[ext or ""] then
 		item.uri = filename
 	elseif st.type == "directory" then
+		if id == self.rootId then
+			item.meta.title = ("%s root"):format(basename)
+		end
 		item.items = true
 	end
 end
@@ -83,14 +85,26 @@ function FS:refresh_items(id, item)
 	if type(item.items) == "table" then return end
 	if item.meta.type ~= "directory" then return end
 
-	item.items = {}
 	local path = self:id_to_path(id)
-	local data = posix.dir(path)
-	table.sort(data)
-	for _, f in ipairs(data) do
-		if f ~= "." and f ~= ".." then
-			table.insert(item.items, self:path_to_id(path..'/'..f))
+	local items, i = {}, nil
+	for file in posix.files(path) do
+		if file:sub(1, 1) ~= "." then
+			i = RAME:get_item(self:path_to_id(path..'/'..file))
+			if i.uri or i.items then
+				table.insert(items, i)
+			end
 		end
+	end
+
+	table.sort(items, function(a,b)
+		if a.meta.type == "directory" and b.meta.type ~= "directory" then return true end
+		if a.meta.type ~= "directory" and b.meta.type == "directory" then return false end
+		return a.meta.filename < b.meta.filename
+	end)
+
+	item.items = {}
+	for _, i in ipairs(items) do
+		table.insert(item.items, i.id)
 	end
 end
 
@@ -106,7 +120,7 @@ function FS:scan_item(item)
 	local ff_fmt = ff.format
 	local ff_tags = ff_fmt.tags or {}
 
-	item.meta.duration = ff_tags.duration
+	item.meta.duration = tonumber(ff_fmt.duration)
 	item.meta.title = ff_tags.title
 	return true
 

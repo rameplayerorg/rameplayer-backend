@@ -125,22 +125,15 @@ function Version.GET(ctx, reply)
 	data["hw"] = data["hw"]:sub(1, data["hw"]:len() - 1)
 	data["backend"] = RAME.version
 
-	local json_data = json.encode(data)
-	return json_data and 200 or 500, json_data
+	return 200, data
 end
 
 -- Plugin Hooks
 local Plugin = {}
 
 function Plugin.init()
-	RAME.rest.settings = function(ctx, reply)
-		reply.headers["Content-Type"] = "application/json"
-		return ctx:route(reply, Settings)
-	end
-	RAME.rest.version = function(ctx, reply)
-		reply.headers["Content-Type"] = "application/json"
-		return ctx:route(reply, Version)
-	end
+	RAME.rest.settings = function(ctx, reply) return ctx:route(reply, Settings) end
+	RAME.rest.version = function(ctx, reply) return ctx:route(reply, Version) end
 end
 
 return Plugin

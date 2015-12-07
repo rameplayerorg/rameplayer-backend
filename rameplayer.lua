@@ -54,9 +54,11 @@ local function start_player()
 		uri = function(ctx, reply)
 			reply.headers["Access-Control-Allow-Origin"] = "*"
 			if ctx.method == "OPTIONS" then
-				reply.headers["Access-Control-Allow-Methods"] = "POST,GET,OPTIONS"
+				local methods = "GET,OPTIONS,POST,PUT"
+				reply.headers["Allow"] = methods
+				reply.headers["Access-Control-Allow-Methods"] = methods
 				reply.headers["Access-Control-Allow-Headers"] = "Content-Type"
-				reply.headers["Allow"] = "POST,GET,OPTIONS"
+				reply.headers["Cache-Control"] = "public,max-age=600"
 				return 200
 			end
 			reply.headers["Cache-Control"] = "no-cache"

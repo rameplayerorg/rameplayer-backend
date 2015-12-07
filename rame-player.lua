@@ -1,4 +1,3 @@
-local json = require 'cjson'
 local posix = require 'posix'
 local pldir = require 'pl.dir'
 local plpath = require 'pl.path'
@@ -73,10 +72,7 @@ function Plugin.init()
 	local dbus = require 'cqp.dbus'
 	RAME.dbus = dbus.get_bus()
 	RAME.OMX = RAME.dbus:get_object("org.mpris.MediaPlayer2.omxplayer", "/org/mpris/MediaPlayer2", OMXPlayerDBusAPI)
-	RAME.rest.player = function(ctx, reply)
-		reply.headers["Content-Type"] = "application/json"
-		return ctx:route(reply, REST)
-	end
+	RAME.rest.player = function(ctx, reply) return ctx:route(reply, REST) end
 end
 
 function Plugin.active()
