@@ -6,27 +6,27 @@ local RAME = require 'rame'
 
 -- forced resolutions on RPi
 local rpi_resolutions = {
-	rame_autodetect = "",
-	rame_720p50 = "hdmi_mode=19",
-	rame_720p60 = "hdmi_mode=4",
-	rame_1080i50 = "hdmi_mode=20",
-	rame_1080i60 = "hdmi_mode=5",
-	rame_1080p50 = "hdmi_mode=31",
-	rame_1080p60 = "hdmi_mode=16",
+	rameAutodetect = "",
+	rame720p50 = "hdmi_mode=19",
+	rame720p60 = "hdmi_mode=4",
+	rame1080i50 = "hdmi_mode=20",
+	rame1080i60 = "hdmi_mode=5",
+	rame1080p50 = "hdmi_mode=31",
+	rame1080p60 = "hdmi_mode=16",
 }
 
 local rpi_audio_ports = {
-	rame_analog_only = "hdmi_drive=1",
-	rame_hdmi_only =  "hdmi_drive=2",
-	rame_hdmi_and_analog = "hdmi_drive=2",
+	rameAnalogOnly = "hdmi_drive=1",
+	rameHdmiOnly =  "hdmi_drive=2",
+	rameHdmiAndAnalog = "hdmi_drive=2",
 }
 
 local omxplayer_audio_outs = {
-	rame_analog_only = "local",
-	rame_hdmi_only = "hdmi",
-	rame_hdmi_and_analog = "both",
+	rameAnalogOnly = "local",
+	rameHdmiOnly = "hdmi",
+	rameHdmiAndAnalog = "both",
 	-- needs specific ALSA build of omxplayer
-	rame_alsa_only = "alsa",
+	rameAlsaOnly = "alsa",
 	-- tbd how to signal both alsa and HDMI
 }
 
@@ -86,17 +86,17 @@ function Settings.POST.system(ctx, reply)
 		usercfg = usercfg .. rpi_resolution .. "\n"
 	else return 422, "missing required json param: resolution" end
 
-	local rpi_audio_port = rpi_audio_ports[json_table.audio_port]
+	local rpi_audio_port = rpi_audio_ports[json_table.audioPort]
 	if rpi_audio_port then
 		usercfg = usercfg .. rpi_audio_port .. "\n"
 
-		if json_table.audio_port == "rame_analog_only" and RAME.alsa_support then
+		if json_table.audioPort == "rame_analog_only" and RAME.alsa_support then
 			RAME.omxplayer_audio_out = omxplayer_audio_outs["rame_alsa_only"]
 		--elseif json_data.audio_port == "rame_hdmi_and_analog"
 				 --and RAME.alsa_support
 			-- todo this case is not defined!!
 		else
-			RAME.omxplayer_audio_out = omxplayer_audio_outs[json_table.audio_port]
+			RAME.omxplayer_audio_out = omxplayer_audio_outs[json_table.audioPort]
 		end
 	else return 422, "missing required json param: audio_port" end
 
