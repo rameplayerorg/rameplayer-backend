@@ -75,6 +75,7 @@ function FS:refresh_meta(id, item)
 		item.uri = filename
 	elseif st.type == "directory" then
 		if id == self.rootId then
+			item.parentId = 'root'
 			item.meta.title = ("%s root"):format(basename)
 		end
 		item.items = true

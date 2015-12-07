@@ -168,13 +168,15 @@ function RAME.rest.status(ctx, reply)
 		end
 	end
 
+	local item = RAME:get_item(RAME.player.cursor())
 	return 200, {
 		listsRefreshed = lists,
 		state = RAME.player.status(),
 		position = RAME.player.position(),
 		duration = RAME.player.duration(),
 		cursor = {
-			id = RAME.player.cursor(),
+			id = item and item.id,
+			parentId = item and item.parentId,
 		},
 	}
 end
