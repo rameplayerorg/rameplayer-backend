@@ -1,6 +1,7 @@
 -- Must be safe version of cjson-lib for errohandling
 local json = require 'cjson.safe'
 local plfile = require 'pl.file'
+local plutils = require 'pl.utils'
 local process = require 'cqp.process'
 local RAME = require 'rame'
 
@@ -71,7 +72,37 @@ function Settings.POST.user(ctx, reply)
 end
 
 function Settings.GET.system(ctx, reply)
-	return read_json(RAME.path_settings_system)
+	local json_table = {}
+
+	local usercfg_lines = plutils.readlines(RAME.path_rpi_config)
+	if not usercfg_lines then return 500, "file read failed" end
+
+   	for i1, v1 in ipairs(usercfg_lines) do
+		for i2, v2 in pairs(rpi_resolutions) do
+			if v1 == v2 then
+				json_table["resolution"] = i2
+			end
+		end
+		for i2, v2 in pairs(rpi_audio_ports) do
+			if v1 == v2 then
+				json_table["audioPort"] = i2
+
+				-- if HDMI carries audio need to check how omxplayer routs audio
+				if v2 == "hdmi_drive=2" then
+ 					print(RAME.omxplayer_audio_out)
+					if RAME.omxplayer_audio_out ==
+					   omxplayer_audio_outs["rameHdmiAndAnalog"] then -- "both"
+					   	json_table["audioPort"] = "rameHdmiAndAnalog"
+					elseif RAME.omxplayer_audio_out ==
+					       omxplayer_audio_outs["rameHdmiOnly"] then -- "hdmi"
+  						json_table["audioPort"] = "rameHdmiOnly"
+					else return 500 end
+				end
+			end
+		end
+    end
+
+	return 200, json_table
 end
 
 -- todo add support for IP settings
@@ -98,15 +129,9 @@ function Settings.POST.system(ctx, reply)
 		else
 			RAME.omxplayer_audio_out = omxplayer_audio_outs[json_table.audioPort]
 		end
-	else return 422, "missing required json param: audio_port" end
+	else return 422, "missing required json param: audioPort" end
 
 	if not write_file(RAME.path_rpi_config, usercfg)
-		then return 500, "file write error" end
-
-	local data = json.encode(json_table)
-	if not data then return 500, "json encode failed" end
-
-	if not write_file(RAME.path_settings_system, data)
 		then return 500, "file write error" else return 200 end
 end
 
