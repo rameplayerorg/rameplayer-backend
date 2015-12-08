@@ -119,8 +119,10 @@ function Plugin.main()
 			play_requested = true
 		elseif cursor_id and cursor_id ~= "" then
 			item, wrapped = RAME:get_next_item(cursor_id)
-			cursor_id = item.id
-			play_requested = true --list.autoPlayNext
+			if item then
+				cursor_id = item.id
+				play_requested = true --list.autoPlayNext
+			end
 			--[[
 			if wrapped then
 				play_requested = (list["repeat"] or 0) ~= 0 and play_requested
