@@ -6,8 +6,7 @@ local condition = require 'cqueues.condition'
 local RAME = {
 	version = "undefined",
 	running = true,
-	start_time = os.time(),
-	next_ticket = 1,
+	next_ticket = math.tointeger(os.time() * 1000000),
 	config = {
 		settings_path = "/media/mmcblk0p1/",
 	},
@@ -38,7 +37,7 @@ local RAME = {
 function RAME:get_ticket()
 	local ticket = self.next_ticket
 	self.next_ticket = ticket + 1
-	return ("%d.%d"):format(RAME.start_time, ticket)
+	return ticket
 end
 
 function RAME:hook(hook, ...)
@@ -136,7 +135,7 @@ function RAME.rest.lists(ctx, reply)
 	local r = {
 		id = id,
 		info = list.meta,
-		items = { },
+		items = setmetatable({}, json.array)
 	}
 
 	for node_id, target_id in pairs(list.items) do
@@ -159,7 +158,7 @@ function RAME.rest.status(ctx, reply)
 
 	local lists = nil
 	if ctx.args.lists then
-		lists = {}
+		lists = setmetatable({}, json.object)
 		for _, list_id in pairs(ctx.args.lists) do
 			local list = RAME:get_item(list_id)
 			if list then
