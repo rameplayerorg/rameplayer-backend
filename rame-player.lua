@@ -83,8 +83,8 @@ local function status_update()
 	local OMX = RAME.OMX
 	while true do
 		local status, position, duration = "stopped", 0, 0
-		if RAME.player.__proc then
-			status = OMX:PlaybackStatus() or "stopped"
+		if RAME.player.__playing then
+			status = OMX:PlaybackStatus() or "buffering"
 			if status == 'Paused' or status == 'Playing' then
 				position = OMX:Position() or 0
 				if position >= 0 then
@@ -141,6 +141,7 @@ function Plugin.main()
 		if play_requested then
 			if item == nil then item = RAME:get_item(cursor_id) end
 			RAME.player.status("buffering")
+			RAME.player.__playing = true
 			RAME.player.__proc = process.spawn(
 				"omxplayer",
 					"--no-osd", "--no-keys",
@@ -152,6 +153,7 @@ function Plugin.main()
 		end
 		RAME.player.__proc:wait()
 		RAME.player.__proc = nil
+		RAME.player.__playing = false
 	end
 end
 
