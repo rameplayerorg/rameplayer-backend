@@ -1,6 +1,8 @@
 #!/usr/bin/dbus-run-session lua5.3
 
 -- package.path = "/path/to/lua-cqueues-pushy/?.lua;"..package.path
+package.path = "/usr/share/rameplayer-backend/?.lua;"..package.path
+
 local posix = require 'posix'
 local pldir = require 'pl.dir'
 local plpath = require 'pl.path'

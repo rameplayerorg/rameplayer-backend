@@ -110,6 +110,7 @@ end
 function RAME:get_next_item(id)
 	local wrapped = false
 	local item = self:get_item(id)
+	if item == nil then return nil, false end
 	local parent = self:get_item(item.parentId)
 	if parent == nil then return item, true end
 	local ndx = tablex.find(parent.items, id)
