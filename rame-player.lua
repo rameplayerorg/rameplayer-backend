@@ -146,7 +146,7 @@ function Plugin.main()
 					map_uri(item.uri))
 		else
 			RAME.player.status("stopped")
-			RAME.player.__proc = process.spawn("hellovg", RAME.ip or "No Media")
+			RAME.player.__proc = process.spawn("rametext", RAME.ip or "No Media")
 		end
 		RAME.player.__proc:wait()
 		RAME.player.__proc = nil
