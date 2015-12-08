@@ -118,7 +118,7 @@ function FS:scan_item(item)
 	local ff = json.decode(data)
 	if ff == nil then return false end
 
-	local ff_fmt = ff.format
+	local ff_fmt = ff.format or {}
 	local ff_tags = ff_fmt.tags or {}
 
 	item.meta.duration = tonumber(ff_fmt.duration)
