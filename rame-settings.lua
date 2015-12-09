@@ -5,7 +5,7 @@ local plutils = require 'pl.utils'
 local process = require 'cqp.process'
 local RAME = require 'rame'
 
--- forced resolutions on RPi
+-- supported (selection) resolutions on RPi
 local rpi_resolutions = {
 	rameAutodetect = "",
 	rame720p50 = "hdmi_mode=19",
@@ -50,17 +50,55 @@ function write_json(file, data)
 	local body = json.encode(json_table)
 	if not body then return 500, "json encode failed" end
 
-	return write_file(file, data)
+	return write_file_sd(file, data)
 end
 
 -- note errorhandling: if rw mount fails the file write fails so no need
 -- check will the mount fails or not
-function write_file(file, data)
+function write_file_sd(file, data)
 	process.run("mount", "-o", "remount,rw", "/media/mmcblk0p1")
 	local status = plfile.write(file, data)
-	 process.run("mount", "-o", "remount,ro", "/media/mmcblk0p1")
+	process.run("mount", "-o", "remount,ro", "/media/mmcblk0p1")
 
 	if not status then return 500, "file write failed" else return 200 end
+end
+
+-- todo check the process command output
+function write_file_lbu(file, data)
+	local status = plfile.write(file, data)
+	if not status then return 500, "file write failed" end
+
+	process.run("lbu", "commit")
+	return 200
+end
+
+-- converts traditional dotted subnet mask into CDIR prefix
+-- lua 5.3 code compatible only (bitwise operation)
+function to_cidr_prefix(netmask)
+	local quad = {}
+	-- extract numbers from dotted notation into table
+	for octet in netmask:gmatch("%d+") do quad[#quad+1] = octet end
+
+	local mask_bit_count = 0
+	local stop = false
+	for i=1, #quad do
+		if not stop then
+			for bits=1, 8 do
+				-- check if most signficant bit (MSB) is 1
+				if quad[i] & 0x80 == 0x80 then
+					mask_bit_count = mask_bit_count + 1
+					-- make the next bit to be the most signficant
+					quad[i] = quad[i] << 1
+				else
+					-- when the MSB is 0 then bitmask is over! breaking out of loop
+					-- and stopping further iterations on next octet
+					stop = true
+					break
+				end
+			end
+		end
+	end
+	return mask_bit_count
 end
 
 function Settings.GET.user(ctx, reply)
@@ -89,8 +127,7 @@ function Settings.GET.system(ctx, reply)
 
 				-- if HDMI carries audio need to check how omxplayer routs audio
 				if v2 == "hdmi_drive=2" then
- 					print(RAME.omxplayer_audio_out)
-					if RAME.omxplayer_audio_out ==
+ 					if RAME.omxplayer_audio_out ==
 					   omxplayer_audio_outs["rameHdmiAndAnalog"] then -- "both"
 					   	json_table["audioPort"] = "rameHdmiAndAnalog"
 					elseif RAME.omxplayer_audio_out ==
@@ -131,10 +168,54 @@ function Settings.POST.system(ctx, reply)
 		end
 	else return 422, "missing required json param: audioPort" end
 
-	if not write_file(RAME.path_rpi_config, usercfg)
-		then return 500, "file write error" else return 200 end
-end
+	if json_table.ipDhcpClient == nil then
+		return 422, "missing required json param: ipDhcpClient" end
 
+	if json_table.ipDchpClient == true then
+		-- DHCP CLIENT being used
+	else
+		if json_table.ipAddress then
+		else return 422, "missing required json param: ipAddress" end
+
+		if json_table.ipSubnetMask then
+		else return 422, "missing required json param: ipSubnetMask" end
+
+		if json_table.ipDefaultGateway then
+		else return 422, "missing required json param: ipDefaultGateway" end
+
+		if json_table.ipDnsPrimary then
+		else return 422, "missing required json param: ipDnsPrimary" end
+
+		if json_table.ipDnsSecondary then
+		else return 422, "missing required json param: ipDnsSecondary" end
+
+		if json_table.ipDhcpServer == nil then
+			return 422, "missing required json param: ipDhcpServer" end
+
+		if json_table.ipDchpServer == true then
+			-- DHCP SERVER in used
+		end
+	end
+
+	-- Read existing configuration and apped data
+	local dhcpcd = plfile.read("/etc/dhcpcd.conf")
+	if not dhcpcd then return 500, "file read failed" end
+
+	dhcpcd = dhcpcd .. "interface eth0\n"
+	dhcpcd = dhcpcd .. "static ip_address=" .. json_table.ipAddress .. "/"
+					.. to_cidr_prefix(json_table.ipSubnetMask) .. "\n"
+
+	dhcpcd = dhcpcd .. "static routers=" .. json_table.ipDefaultGateway .. "\n"
+	dhcpcd = dhcpcd .. "static domain_name_servers=" .. json_table.ipDnsPrimary
+					.. " " .. json_table.ipDnsSecondary .. "\n"
+
+	if not write_file_lbu("/etc/dhcpcd.conf", dhcpcd) then
+		return 500, "file write error" end
+
+	if not write_file_sd(RAME.path_rpi_config, usercfg) then
+		return 500, "file write error" else return 200 end
+	return 200
+end
 
 -- REST API: /version/
 local Version = {
