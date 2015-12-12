@@ -2,6 +2,7 @@
 local json = require 'cjson.safe'
 local plfile = require 'pl.file'
 local plutils = require 'pl.utils'
+local plconfig = require "pl.config"
 local process = require 'cqp.process'
 local RAME = require 'rame'
 
@@ -101,6 +102,44 @@ function to_cidr_prefix(netmask)
 	return mask_bit_count
 end
 
+-- converts CDIR prefix into traditional dotted subnet mask
+-- lua 5.3 code compatible only (bitwise operation)
+function to_netmask(cidr_prefix)
+	-- need to count the full octects and the left over bits
+	local full_mask_bytes = 0
+	while tonumber(cidr_prefix) >= 8  do
+		cidr_prefix = cidr_prefix - 8
+		full_mask_bytes = full_mask_bytes + 1
+	end
+
+	local bit_to_integer = {}
+	bit_to_integer[7] = 254 --'1111 1110'
+	bit_to_integer[6] = 252 --'1111 1100'
+	bit_to_integer[5] = 248 --'1111 1000'
+	bit_to_integer[4] = 240 --'1111 0000'
+	bit_to_integer[3] = 224 --'1110 0000'
+	bit_to_integer[2] = 192 --'1100 0000'
+	bit_to_integer[1] = 128 --'1000 0000'
+
+	local netmask_string = ""
+	for i=1, 4 do
+		if full_mask_bytes > 0 then
+			netmask_string = netmask_string .. "255"
+			full_mask_bytes = full_mask_bytes - 1
+ 		elseif cidr_prefix > 0 then
+			--bits to integer mask values
+			netmask_string = netmask_string .. bit_to_integer[cidr_prefix]
+			cidr_prefix = 0
+		else -- filling with zero
+			netmask_string = netmask_string .. "0"
+		end
+		if i < 4 then netmask_string = netmask_string .. "." end
+	end
+
+	return netmask_string
+end
+
+
 function Settings.GET.user(ctx, reply)
 	return read_json(RAME.path_settings_user)
 end
@@ -138,6 +177,32 @@ function Settings.GET.system(ctx, reply)
 			end
 		end
     end
+
+	local dhcpcd_lines = plconfig.read("dhcpcd.conf", {list_delim=' '})
+	if not dhcpcd_lines then return 500, "file read failed" end
+
+	for i, v in pairs(dhcpcd_lines) do
+		if i == "static_ip_address" then
+			-- matching only the IP address part without prefix
+			json_table["ipAddress"] = v:match("%d+.%d+.%d+.%d+")
+			-- take CIDR prefix
+			json_table["ipSubnetMask"] = to_netmask(v:match("/(%d+)"))
+		end
+		if i == "static_routers" then
+			json_table["ipDefaultGateway"] = v
+		end
+
+		if i == "static_domain_name_servers" then
+			if #v then -- there is length in array so array exists
+					   --(and it must have at least 2 entries to be array)
+				json_table["ipDnsPrimary"] = v[1]
+				json_table["ipDnsSecondary"] = v[2]
+			else
+				json_table["ipDnsPrimary"] = v
+			end
+
+		end
+	end
 
 	return 200, json_table
 end
