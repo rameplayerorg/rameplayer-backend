@@ -265,14 +265,26 @@ function Settings.POST.system(ctx, reply)
 	-- Read existing configuration and apped data
 	local dhcpcd = plfile.read("/etc/dhcpcd.conf")
 	if not dhcpcd then return 500, "file read failed" end
+	local i = 0
+	-- Replace with given configuration
+	dhcpcd, i = dhcpcd:gsub("static ip_address=%d+.%d+.%d+.%d+/%d+",
+						 "static ip_address=" .. json_table.ipAddress .. "/"
+		  		 		  .. to_cidr_prefix(json_table.ipSubnetMask))
 
-	dhcpcd = dhcpcd .. "interface eth0\n"
-	dhcpcd = dhcpcd .. "static ip_address=" .. json_table.ipAddress .. "/"
-					.. to_cidr_prefix(json_table.ipSubnetMask) .. "\n"
+	dhcpcd, i = dhcpcd:gsub("static routers=%d+.%d+.%d+.%d+",
+					  	 "static routers=" .. json_table.ipDefaultGateway)
 
-	dhcpcd = dhcpcd .. "static routers=" .. json_table.ipDefaultGateway .. "\n"
-	dhcpcd = dhcpcd .. "static domain_name_servers=" .. json_table.ipDnsPrimary
-					.. " " .. json_table.ipDnsSecondary .. "\n"
+
+	-- lua doesn't have optional group patterns so have to do with try-err:
+	--1st matching with 2 IP address and if not matching then try with 1 IP addr
+	dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?%d+.%d+.%d+.%d+",
+			           "static domain_name_servers=" .. json_table.ipDnsPrimary
+					   .. " " .. json_table.ipDnsSecondary )
+	if i == 0 then
+		dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?",
+				           		"static domain_name_servers=" .. json_table.ipDnsPrimary
+						   		.. " " .. json_table.ipDnsSecondary )
+	end
 
 	if not write_file_lbu("/etc/dhcpcd.conf", dhcpcd) then
 		return 500, "file write error" end
