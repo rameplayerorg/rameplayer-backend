@@ -178,7 +178,7 @@ function Settings.GET.system(ctx, reply)
 		end
     end
 
-	local dhcpcd_lines = plconfig.read("dhcpcd.conf", {list_delim=' '})
+	local dhcpcd_lines = plconfig.read("/etc/dhcpcd.conf", {list_delim=' '})
 	if not dhcpcd_lines then return 500, "file read failed" end
 
 	for i, v in pairs(dhcpcd_lines) do
