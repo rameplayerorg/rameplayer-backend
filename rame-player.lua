@@ -19,11 +19,6 @@ local OMXPlayerDBusAPI = {
 	Position = { interface = "org.freedesktop.DBus.Properties", returns = "t" },
 }
 
-local function map_uri(uri)
-	local fn = uri:gsub("^rameplayer://", "")
-	return fn
-end
-
 local function trigger_next(item_id)
 	print("Player: requested to play: " .. item_id)
 	RAME.player.__next_item_id = item_id
@@ -116,6 +111,7 @@ function Plugin.main()
 			play_requested = false
 		elseif request_id then
 			cursor_id = request_id
+			item = RAME:get_item(cursor_id)
 			play_requested = true
 		elseif cursor_id and cursor_id ~= "" then
 			item, wrapped = RAME:get_next_item(cursor_id)
@@ -138,22 +134,23 @@ function Plugin.main()
 		RAME.player.cursor(cursor_id)
 		RAME.player.position(0)
 		RAME.player.duration(0)
-		if play_requested then
-			if item == nil then item = RAME:get_item(cursor_id) end
-			RAME.player.status("buffering")
-			RAME.player.__playing = true
-			RAME.player.__proc = process.spawn(
-				"omxplayer",
-					"--no-osd", "--no-keys",
-					"--hdmiclocksync", "--adev", RAME.omxplayer_audio_out,
-					map_uri(item.uri))
-		else
-			RAME.player.status("stopped")
-			RAME.player.__proc = process.spawn("rametext", RAME.ip or "No Media")
+		if (item and item.uri) or not play_requested then
+			if play_requested then
+				RAME.player.status("buffering")
+				RAME.player.__playing = true
+				RAME.player.__proc = process.spawn(
+					"omxplayer",
+						"--no-osd", "--no-keys",
+						"--hdmiclocksync", "--adev", RAME.omxplayer_audio_out,
+						item.uri)
+			else
+				RAME.player.status("stopped")
+				RAME.player.__proc = process.spawn("rametext", RAME.system.ip() or "No Media")
+			end
+			RAME.player.__proc:wait()
+			RAME.player.__proc = nil
+			RAME.player.__playing = false
 		end
-		RAME.player.__proc:wait()
-		RAME.player.__proc = nil
-		RAME.player.__playing = false
 	end
 end
 
