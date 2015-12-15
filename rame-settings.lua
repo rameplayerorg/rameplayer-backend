@@ -6,6 +6,12 @@ local plconfig = require "pl.config"
 local process = require 'cqp.process'
 local RAME = require 'rame'
 
+local function revtable(tbl)
+	local rev={}
+	for k, v in pairs(tbl) do rev[v] = k end
+	return rev
+end
+
 -- supported (selection) resolutions on RPi
 local rpi_resolutions = {
 	rameAutodetect = "",
@@ -16,12 +22,14 @@ local rpi_resolutions = {
 	rame1080p50 = "hdmi_mode=31",
 	rame1080p60 = "hdmi_mode=16",
 }
+local rpi_resolutions_rev = revtable(rpi_resolutions)
 
 local rpi_audio_ports = {
 	rameAnalogOnly = "hdmi_drive=1",
 	rameHdmiOnly =  "hdmi_drive=2",
 	rameHdmiAndAnalog = "hdmi_drive=2",
 }
+local rpi_audio_ports_rev = revtable(rpi_audio_ports)
 
 local omxplayer_audio_outs = {
 	rameAnalogOnly = "local",
@@ -31,6 +39,7 @@ local omxplayer_audio_outs = {
 	rameAlsaOnly = "alsa",
 	-- tbd how to signal both alsa and HDMI
 }
+local omxplayer_audio_outs_rev = revtable(omxplayer_audio_outs)
 
 function read_json(file)
 	local data = plfile.read(file)
@@ -38,14 +47,8 @@ function read_json(file)
 end
 
 function write_json(file, data)
-	-- validating that data is JSON by encoding & decoding
-	local json_table = json.decode(data)
-	if not json_table then return 500, "json decode failed" end
-
-	local body = json.encode(json_table)
-	if not body then return 500, "json encode failed" end
-
-	return write_file_sd(file, data)
+	if not data then return 500, "no arguments" end
+	return write_file_sd(file, json.encode(data))
 end
 
 -- note errorhandling: if rw mount fails the file write fails so no need
@@ -106,15 +109,7 @@ function to_netmask(cidr_prefix)
 		full_mask_bytes = full_mask_bytes + 1
 	end
 
-	local bit_to_integer = {}
-	bit_to_integer[7] = 254 --'1111 1110'
-	bit_to_integer[6] = 252 --'1111 1100'
-	bit_to_integer[5] = 248 --'1111 1000'
-	bit_to_integer[4] = 240 --'1111 0000'
-	bit_to_integer[3] = 224 --'1110 0000'
-	bit_to_integer[2] = 192 --'1100 0000'
-	bit_to_integer[1] = 128 --'1000 0000'
-
+	local bit_to_integer = {128,192,224,240,248,252,254}
 	local netmask_string = ""
 	for i=1, 4 do
 		if full_mask_bytes > 0 then
@@ -137,123 +132,100 @@ end
 local SETTINGS = { GET = {}, POST = {} }
 
 function SETTINGS.GET.user(ctx, reply)
-	return read_json(RAME.path_settings_user)
+	return read_json(RAME.config.settings_path.."settings-user.json")
 end
 
 function SETTINGS.POST.user(ctx, reply)
-	return write_json(RAME.path_settings_user, ctx.body)
+	return write_json(RAME.config.settings_path.."settings-user.json", ctx.args)
 end
 
 function SETTINGS.GET.system(ctx, reply)
-	local json_table = {}
+	local conf = {
+		-- Defaults if not found from config files
+		resolution = "rameAutodetect",
+		audioPort = "rameAnalogOnly",
+	}
 
-	local usercfg_lines = plutils.readlines(RAME.path_rpi_config)
+	local usercfg_lines = plutils.readlines(RAME.config.settings_path.."usercfg.txt")
 	if not usercfg_lines then return 500, "file read failed" end
 
-   	for i1, v1 in ipairs(usercfg_lines) do
-		for i2, v2 in pairs(rpi_resolutions) do
-			if v1 == v2 then
-				json_table["resolution"] = i2
+	for _, val in ipairs(usercfg_lines) do
+		if val ~= "" and rpi_resolutions_rev[val] then
+			conf.resolution = rpi_resolutions_rev[val]
+		end
+		if rpi_audio_ports_rev[val] then
+			conf.audioPort = rpi_audio_ports_rev[val]
+			-- if HDMI carries audio need to check how omxplayer routes audio
+			if val == "hdmi_drive=2" then
+				conf.audioPort = omxplayer_audio_outs_rev[RAME.omxplayer_audio_out]
 			end
 		end
-		for i2, v2 in pairs(rpi_audio_ports) do
-			if v1 == v2 then
-				json_table["audioPort"] = i2
-
-				-- if HDMI carries audio need to check how omxplayer routs audio
-				if v2 == "hdmi_drive=2" then
- 					if RAME.omxplayer_audio_out ==
-					   omxplayer_audio_outs["rameHdmiAndAnalog"] then -- "both"
-					   	json_table["audioPort"] = "rameHdmiAndAnalog"
-					elseif RAME.omxplayer_audio_out ==
-					       omxplayer_audio_outs["rameHdmiOnly"] then -- "hdmi"
-  						json_table["audioPort"] = "rameHdmiOnly"
-					else return 500 end
-				end
-			end
-		end
-    end
+	end
 
 	local dhcpcd_lines = plconfig.read("/etc/dhcpcd.conf", {list_delim=' '})
 	if not dhcpcd_lines then return 500, "file read failed" end
 
 	for i, v in pairs(dhcpcd_lines) do
 		if i == "static_ip_address" then
-			-- matching only the IP address part without prefix
-			json_table["ipAddress"] = v:match("%d+.%d+.%d+.%d+")
-			-- take CIDR prefix
-			json_table["ipSubnetMask"] = to_netmask(v:match("/(%d+)"))
-		end
-		if i == "static_routers" then
-			json_table["ipDefaultGateway"] = v
-		end
-
-		if i == "static_domain_name_servers" then
-			if #v then -- there is length in array so array exists
-					   --(and it must have at least 2 entries to be array)
-				json_table["ipDnsPrimary"] = v[1]
-				json_table["ipDnsSecondary"] = v[2]
+			local ip, cidr = v:match("(%d+.%d+.%d+.%d+)/(%d+)")
+			conf.ipAddress = ip
+			conf.ipSubnetMask = to_netmask(cidr)
+		elseif i == "static_routers" then
+			conf.ipDefaultGateway = v
+		elseif i == "static_domain_name_servers" then
+			if #v then
+				-- there is length in array so array exists
+				-- (and it must have at least 2 entries to be array)
+				conf.ipDnsPrimary = v[1]
+				conf.ipDnsSecondary = v[2]
 			else
-				json_table["ipDnsPrimary"] = v
+				conf.ipDnsPrimary = v
 			end
 
 		end
 	end
 
-	return 200, json_table
+	return 200, conf
+end
+
+local function check_fields(data, schema)
+	for _, field in ipairs(schema) do
+		if not data[field] then
+			return 422, "missing required parameter: "..field
+		end
+	end
 end
 
 -- todo add support for IP settings
 -- these settings require reboot which is not implemented
 function SETTINGS.POST.system(ctx, reply)
-	local usercfg = "hdmi_group=1" .. "\n"
-	local json_table = json.decode(ctx.body)
-	if not json_table then return 415, "malformed json" end
+	local usercfg = { "hdmi_group=1" }
+	local args = ctx.args
+	local err, msg, i
 
-	local rpi_resolution = rpi_resolutions[json_table.resolution]
-	if rpi_resolution then
-		usercfg = usercfg .. rpi_resolution .. "\n"
-	else return 422, "missing required json param: resolution" end
+	err, msg = check_fields(args, {"resolution", "audioPort", "ipDhcpClient"})
+	if err then return err, msg end
 
-	local rpi_audio_port = rpi_audio_ports[json_table.audioPort]
-	if rpi_audio_port then
-		usercfg = usercfg .. rpi_audio_port .. "\n"
+	local rpi_resolution = rpi_resolutions[args.resolution]
+	if not rpi_resolution then return 422, "invalid resolution" end
+	table.insert(usercfg, rpi_resolution)
 
-		if json_table.audioPort == "rame_analog_only" and RAME.alsa_support then
-			RAME.omxplayer_audio_out = omxplayer_audio_outs["rame_alsa_only"]
-		--elseif json_data.audio_port == "rame_hdmi_and_analog"
-				 --and RAME.alsa_support
-			-- todo this case is not defined!!
-		else
-			RAME.omxplayer_audio_out = omxplayer_audio_outs[json_table.audioPort]
-		end
-	else return 422, "missing required json param: audioPort" end
-
-	if json_table.ipDhcpClient == nil then
-		return 422, "missing required json param: ipDhcpClient" end
-
-	if json_table.ipDchpClient == true then
-		-- DHCP CLIENT being used
+	local rpi_audio_port = rpi_audio_ports[args.audioPort]
+	if not rpi_audio_port then return 422, "invalid audioPort" end
+	table.insert(usercfg, rpi_audio_port)
+	if args.audioPort == "rame_analog_only" and RAME.alsa_support then
+		RAME.omxplayer_audio_out = omxplayer_audio_outs["rame_alsa_only"]
+	--elseif args.audio_port == "rame_hdmi_and_analog" and RAME.alsa_support
+		-- todo this case is not defined!!
 	else
-		if json_table.ipAddress then
-		else return 422, "missing required json param: ipAddress" end
+		RAME.omxplayer_audio_out = omxplayer_audio_outs[args.audioPort]
+	end
 
-		if json_table.ipSubnetMask then
-		else return 422, "missing required json param: ipSubnetMask" end
+	if args.ipDchpClient ~= true then
+		err, msg = check_fields(args, {"ipAddress", "ipSubnetMask", "ipDefaultGateway", "ipDnsPrimary", "ipDnsSecondary", "ipDhcpServer"})
+		if err then return err, msg end
 
-		if json_table.ipDefaultGateway then
-		else return 422, "missing required json param: ipDefaultGateway" end
-
-		if json_table.ipDnsPrimary then
-		else return 422, "missing required json param: ipDnsPrimary" end
-
-		if json_table.ipDnsSecondary then
-		else return 422, "missing required json param: ipDnsSecondary" end
-
-		if json_table.ipDhcpServer == nil then
-			return 422, "missing required json param: ipDhcpServer" end
-
-		if json_table.ipDchpServer == true then
+		if args.ipDchpServer == true then
 			-- DHCP SERVER in used
 		end
 	end
@@ -261,32 +233,31 @@ function SETTINGS.POST.system(ctx, reply)
 	-- Read existing configuration and apped data
 	local dhcpcd = plfile.read("/etc/dhcpcd.conf")
 	if not dhcpcd then return 500, "file read failed" end
-	local i = 0
+
 	-- Replace with given configuration
-	dhcpcd, i = dhcpcd:gsub("static ip_address=%d+.%d+.%d+.%d+/%d+",
-						 "static ip_address=" .. json_table.ipAddress .. "/"
-		  		 		  .. to_cidr_prefix(json_table.ipSubnetMask))
+	dhcpcd = dhcpcd:gsub("static ip_address=%d+.%d+.%d+.%d+/%d+",
+			     "static ip_address=" .. args.ipAddress .. "/"
+			     .. to_cidr_prefix(args.ipSubnetMask))
 
-	dhcpcd, i = dhcpcd:gsub("static routers=%d+.%d+.%d+.%d+",
-					  	 "static routers=" .. json_table.ipDefaultGateway)
-
+	dhcpcd = dhcpcd:gsub("static routers=%d+.%d+.%d+.%d+",
+			     "static routers=" .. args.ipDefaultGateway)
 
 	-- lua doesn't have optional group patterns so have to do with try-err:
 	--1st matching with 2 IP address and if not matching then try with 1 IP addr
 	dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?%d+.%d+.%d+.%d+",
-			           "static domain_name_servers=" .. json_table.ipDnsPrimary
-					   .. " " .. json_table.ipDnsSecondary )
+				"static domain_name_servers=" .. args.ipDnsPrimary
+				.. " " .. args.ipDnsSecondary )
 	if i == 0 then
 		dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?",
-				           		"static domain_name_servers=" .. json_table.ipDnsPrimary
-						   		.. " " .. json_table.ipDnsSecondary )
+				        "static domain_name_servers=" .. args.ipDnsPrimary
+					.. " " .. args.ipDnsSecondary )
 	end
 
-	if not write_file_lbu("/etc/dhcpcd.conf", dhcpcd) then
-		return 500, "file write error" end
+	if not write_file_lbu("/etc/dhcpcd.conf", dhcpcd) or
+	   not write_file_sd(RAME.config.settings_path.."usercfg.txt", table.concat(usercfg, "\n")) then
+		return 500, "file write error"
+	end
 
-	if not write_file_sd(RAME.path_rpi_config, usercfg) then
-		return 500, "file write error" else return 200 end
 	return 200
 end
 

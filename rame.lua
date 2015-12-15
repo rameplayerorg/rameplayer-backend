@@ -29,9 +29,6 @@ local RAME = {
 
 	alsa_support = false,
 	omxplayer_audio_out = "hdmi",
-	path_rpi_config = "/media/mmcblk0p1/usercfg.txt",
-	path_settings_system = "/media/mmcblk0p1/settings-system.json",
-	path_settings_user = "/media/mmcblk0p1/settings-user.json",
 }
 
 function RAME:get_ticket()
