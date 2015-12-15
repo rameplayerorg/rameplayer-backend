@@ -9,6 +9,7 @@ local RAME = {
 	next_ticket = math.tointeger(os.time() * 1000000),
 	config = {
 		settings_path = "/media/mmcblk0p1/",
+		omxplayer_audio_out = "hdmi",
 	},
 	system = {
 		ip = push.property("0.0.0.0", "Current IP-address"),
@@ -26,9 +27,6 @@ local RAME = {
 	lists = {},
 	rest = {},
 	plugins = {},
-
-	alsa_support = false,
-	omxplayer_audio_out = "hdmi",
 }
 
 function RAME:get_ticket()

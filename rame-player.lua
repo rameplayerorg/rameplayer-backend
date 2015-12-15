@@ -8,6 +8,8 @@ local httpd = require 'cqp.httpd'
 local dbus = require 'cqp.dbus'
 local RAME = require 'rame'
 
+local use_alsa = plpath.exists("/proc/asound/sndrpiwsp")
+
 local OMXPlayerDBusAPI = {
 	-- Media Player interface
 	SetPosition = { interface = "org.mpris.MediaPlayer2.Player", args = "ox" },
@@ -172,12 +174,14 @@ function Plugin.main()
 		RAME.player.duration(0)
 		if (item and item.uri) or not play_requested then
 			if play_requested then
+				local adev = RAME.config.omxplayer_audio_out
+				if adev == "local" and use_alsa then adev = "alsa" end
 				RAME.player.status("buffering")
 				RAME.player.__playing = true
 				RAME.player.__proc = process.spawn(
 					"omxplayer",
 						"--no-osd", "--no-keys",
-						"--hdmiclocksync", "--adev", RAME.omxplayer_audio_out,
+						"--hdmiclocksync", "--adev", adev,
 						item.uri)
 			else
 				RAME.player.status("stopped")

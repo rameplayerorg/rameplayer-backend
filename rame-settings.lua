@@ -27,7 +27,7 @@ local rpi_resolutions_rev = revtable(rpi_resolutions)
 local rpi_audio_ports = {
 	rameAnalogOnly = "hdmi_drive=1",
 	rameHdmiOnly =  "hdmi_drive=2",
-	rameHdmiAndAnalog = "hdmi_drive=2",
+	rameHdmiAndAnalog = "hdmi_drive=2 #both",
 }
 local rpi_audio_ports_rev = revtable(rpi_audio_ports)
 
@@ -35,11 +35,7 @@ local omxplayer_audio_outs = {
 	rameAnalogOnly = "local",
 	rameHdmiOnly = "hdmi",
 	rameHdmiAndAnalog = "both",
-	-- needs specific ALSA build of omxplayer
-	rameAlsaOnly = "alsa",
-	-- tbd how to signal both alsa and HDMI
 }
-local omxplayer_audio_outs_rev = revtable(omxplayer_audio_outs)
 
 function read_json(file)
 	local data = plfile.read(file)
@@ -155,10 +151,7 @@ function SETTINGS.GET.system(ctx, reply)
 		end
 		if rpi_audio_ports_rev[val] then
 			conf.audioPort = rpi_audio_ports_rev[val]
-			-- if HDMI carries audio need to check how omxplayer routes audio
-			if val == "hdmi_drive=2" then
-				conf.audioPort = omxplayer_audio_outs_rev[RAME.omxplayer_audio_out]
-			end
+			RAME.config.omxplayer_audio_out = omxplayer_audio_outs[conf.audioPort]
 		end
 	end
 
@@ -213,13 +206,7 @@ function SETTINGS.POST.system(ctx, reply)
 	local rpi_audio_port = rpi_audio_ports[args.audioPort]
 	if not rpi_audio_port then return 422, "invalid audioPort" end
 	table.insert(usercfg, rpi_audio_port)
-	if args.audioPort == "rame_analog_only" and RAME.alsa_support then
-		RAME.omxplayer_audio_out = omxplayer_audio_outs["rame_alsa_only"]
-	--elseif args.audio_port == "rame_hdmi_and_analog" and RAME.alsa_support
-		-- todo this case is not defined!!
-	else
-		RAME.omxplayer_audio_out = omxplayer_audio_outs[args.audioPort]
-	end
+	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[args.audioPort]
 
 	if args.ipDchpClient ~= true then
 		err, msg = check_fields(args, {"ipAddress", "ipSubnetMask", "ipDefaultGateway", "ipDnsPrimary", "ipDnsSecondary", "ipDhcpServer"})
@@ -276,6 +263,7 @@ end
 local Plugin = {}
 
 function Plugin.init()
+	SETTINGS.GET.system()
 	RAME.rest.settings = function(ctx, reply) return ctx:route(reply, SETTINGS) end
 	RAME.rest.version = function(ctx, reply) return ctx:route(reply, VERSION) end
 end
