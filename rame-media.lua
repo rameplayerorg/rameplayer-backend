@@ -162,7 +162,7 @@ function Plugin.media_changed(id, mountpoint, mounted)
 		RAME.lists[id] = nil
 		print(id, RAME:split_id(RAME.player.cursor()))
 		if RAME:split_id(RAME.player.cursor()) == id then
-			RAME:hook("set_cursor", "")
+			RAME:hook("set_cursor", "stop")
 		end
 	end
 	if mounted then

@@ -107,16 +107,18 @@ function RAME:get_item(id, refresh_items, scan_item)
 	return item
 end
 
-function RAME:get_next_item(id)
+function RAME:get_next_item(id, backwards)
 	local wrapped = false
 	local item = self:get_item(id)
 	if item == nil then return nil, false end
 	local parent = self:get_item(item.parentId)
 	if parent == nil then return item, true end
+	local inc = backwards and -1 or 1
 	local ndx = tablex.find(parent.items, id)
 	repeat
-		ndx = ndx + 1
-		if ndx > #parent.items then ndx, wrapped = 1, true end
+		ndx = ndx + inc
+		if ndx < 1 then ndx, wrapped = #parent.items, true
+		elseif ndx > #parent.items then ndx, wrapped = 1, true end
 		print("NEXT", id, ndx, parent.items[ndx])
 		item = self:get_item(parent.items[ndx])
 	until wrapped or item.uri
@@ -179,16 +181,6 @@ function RAME.rest.status(ctx, reply)
 			parentId = item and item.parentId,
 		},
 	}
-end
-
--- REST API: /cursor/
-function RAME.rest.cursor(ctx, reply)
-	if ctx.method ~= "PUT" then return 405 end
-	local id = ctx.args.id
-	local item = RAME:get_item(id)
-	if item == nil then return 404 end
-	RAME:hook("set_cursor", id)
-	return 200
 end
 
 local List = {}

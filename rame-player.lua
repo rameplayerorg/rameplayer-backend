@@ -19,47 +19,71 @@ local OMXPlayerDBusAPI = {
 	Position = { interface = "org.freedesktop.DBus.Properties", returns = "t" },
 }
 
-local function trigger_next(item_id)
+local function trigger(item_id, autoplay)
 	print("Player: requested to play: " .. item_id)
 	RAME.player.__next_item_id = item_id
+	RAME.player.__autoplay = autoplay and true or false
+	RAME.player.__trigger = -1
 	if RAME.player.__proc then RAME.player.__proc:kill(9) end
 end
 
 -- REST API: /player/
-local REST = {
-	GET  = { },
-	POST = { },
-}
-function REST.GET.play(ctx, reply)
-	if RAME.player.status() ~= "paused" then
-		trigger_next(RAME.player.cursor())
-	else
+local PLAYER = { GET = {}, POST = {} }
+
+function PLAYER.GET.play(ctx, reply)
+	local status = RAME.player.status()
+	if status == "paused" then
 		RAME.OMX:Action(16)
+	elseif status == "stopped" then
+		trigger("play")
+	else
+		return 400
 	end
 	return 200
 end
 
-function REST.GET.pause(ctx, reply)
+function PLAYER.GET.pause(ctx, reply)
+	if not RAME.player.__playing then return 400 end
 	RAME.OMX:Action(16)
 	return 200
 end
 
-function REST.GET.stop(ctx, reply)
-	trigger_next("stop")
+function PLAYER.GET.stop(ctx, reply)
+	if not RAME.player.__playing then return 400 end
+	trigger("stop")
 	return 200
 end
 
-function REST.GET.next(ctx, reply)
-	trigger_next()
+PLAYER.GET["step-forward"] = function(ctx, reply)
+	trigger("next", RAME.player.__autoplay)
 	return 200
 end
 
-function REST.GET.seek(ctx, reply)
+PLAYER.GET["step-backward"] = function(ctx, reply)
+	trigger("prev", RAME.player.__autoplay)
+	return 200
+end
+
+function PLAYER.GET.seek(ctx, reply)
+	if not RAME.player.__playing then return 400 end
 	local pos = tonumber(ctx.paths[ctx.path_pos])
 	if pos == nil then return 500 end
 	RAME.OMX:SetPosition("/", pos * 1000000)
 	return 200
 end
+
+-- REST API: /cursor/
+local CURSOR = {}
+
+function CURSOR.PUT(ctx, reply)
+	if RAME.player.__playing then return 400 end
+	local id = ctx.args.id
+	local item = RAME:get_item(id)
+	if item == nil then return 404 end
+	trigger(id)
+	return 200
+end
+
 
 local Plugin = {}
 
@@ -67,7 +91,8 @@ function Plugin.init()
 	local dbus = require 'cqp.dbus'
 	RAME.dbus = dbus.get_bus()
 	RAME.OMX = RAME.dbus:get_object("org.mpris.MediaPlayer2.omxplayer", "/org/mpris/MediaPlayer2", OMXPlayerDBusAPI)
-	RAME.rest.player = function(ctx, reply) return ctx:route(reply, REST) end
+	RAME.rest.player = function(ctx, reply) return ctx:route(reply, PLAYER) end
+	RAME.rest.cursor = function(ctx, reply) return ctx:route(reply, CURSOR) end
 end
 
 function Plugin.active()
@@ -104,29 +129,30 @@ function Plugin.main()
 		-- If cursor changed or play/stop requested
 		local play_requested, wrapped = false, false
 		local cursor_id  = RAME.player.cursor()
-		local request_id = RAME.player.__next_item_id
+		local request_id = RAME.player.__next_item_id or "next"
 		local item
 
-		if request_id == "stop" or request_id == "" then
-			play_requested = false
-		elseif request_id then
-			cursor_id = request_id
-			item = RAME:get_item(cursor_id)
-			play_requested = true
-		elseif cursor_id and cursor_id ~= "" then
-			item, wrapped = RAME:get_next_item(cursor_id)
+		if request_id == "next" or request_id == "prev" then
+			item, wrapped = RAME:get_next_item(cursor_id, request_id == "prev")
 			if item then
 				cursor_id = item.id
-				play_requested = true --list.autoPlayNext
+				play_requested = RAME.player.__autoplay
 			end
-			--[[
 			if wrapped then
-				play_requested = (list["repeat"] or 0) ~= 0 and play_requested
-				if list["repeat"] >= 1 then
-					list["repeat"] = list["repeat"] - 1
+				play_requested = (RAME.player.__repeat or 0) ~= 0 and play_requested
+				if RAME.player.__repeat >= 1 then
+					RAME.player.__repeat = RAME.player.__repeat - 1
 				end
 			end
-			--]]
+		elseif request_id == "stop" then
+			play_requested = false
+		elseif request_id == "play" then
+			item = RAME:get_item(cursor_id)
+			play_requested = true
+		else
+			cursor_id = request_id
+			item = RAME:get_item(cursor_id)
+			play_requested = RAME.player.__autoplay
 		end
 
 		-- Start process matching current state
@@ -155,7 +181,7 @@ function Plugin.main()
 end
 
 function Plugin.set_cursor(id)
-	trigger_next(id)
+	trigger(id, true)
 end
 
 return Plugin
