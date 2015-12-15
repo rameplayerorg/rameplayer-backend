@@ -32,12 +32,6 @@ local omxplayer_audio_outs = {
 	-- tbd how to signal both alsa and HDMI
 }
 
--- REST API: /settings/
-local Settings = {
-	GET  = { },
-	POST = { },
-}
-
 function read_json(file)
 	local data = plfile.read(file)
 	return data and 200 or 500, data
@@ -139,16 +133,18 @@ function to_netmask(cidr_prefix)
 	return netmask_string
 end
 
+-- REST API: /settings/
+local SETTINGS = { GET = {}, POST = {} }
 
-function Settings.GET.user(ctx, reply)
+function SETTINGS.GET.user(ctx, reply)
 	return read_json(RAME.path_settings_user)
 end
 
-function Settings.POST.user(ctx, reply)
+function SETTINGS.POST.user(ctx, reply)
 	return write_json(RAME.path_settings_user, ctx.body)
 end
 
-function Settings.GET.system(ctx, reply)
+function SETTINGS.GET.system(ctx, reply)
 	local json_table = {}
 
 	local usercfg_lines = plutils.readlines(RAME.path_rpi_config)
@@ -209,7 +205,7 @@ end
 
 -- todo add support for IP settings
 -- these settings require reboot which is not implemented
-function Settings.POST.system(ctx, reply)
+function SETTINGS.POST.system(ctx, reply)
 	local usercfg = "hdmi_group=1" .. "\n"
 	local json_table = json.decode(ctx.body)
 	if not json_table then return 415, "malformed json" end
@@ -295,28 +291,22 @@ function Settings.POST.system(ctx, reply)
 end
 
 -- REST API: /version/
-local Version = {
-	GET  = { },
-}
+local VERSION = {}
 
-function Version.GET(ctx, reply)
-	local data = {}
-	data["hw"] = plfile.read("/sys/firmware/devicetree/base/model")
-	if not data["hw"] then return 500, "file read error" end
-
-	-- last byte of hw ver data is special char that is left out
-	data["hw"] = data["hw"]:sub(1, data["hw"]:len() - 1)
-	data["backend"] = RAME.version
-
-	return 200, data
+function VERSION.GET(ctx, reply)
+	local hw = plfile.read("/sys/firmware/devicetree/base/model") or ""
+	return 200, {
+		hw = hw:sub(1, -2),
+		backend = RAME.version,
+	}
 end
 
 -- Plugin Hooks
 local Plugin = {}
 
 function Plugin.init()
-	RAME.rest.settings = function(ctx, reply) return ctx:route(reply, Settings) end
-	RAME.rest.version = function(ctx, reply) return ctx:route(reply, Version) end
+	RAME.rest.settings = function(ctx, reply) return ctx:route(reply, SETTINGS) end
+	RAME.rest.version = function(ctx, reply) return ctx:route(reply, VERSION) end
 end
 
 return Plugin
