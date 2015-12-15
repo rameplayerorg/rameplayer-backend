@@ -34,7 +34,7 @@ function Plugin.main()
 		if posix.stat(dev) then
 			if not is_mount_point(mountpoint) then
 				posix.mkdir(mountpoint)
-				process.run("mount", "-o", "ro", dev, mountpoint)
+				process.run("mount", "-o", "iocharset=utf8,ro", dev, mountpoint)
 			end
 			RAME:hook("media_changed", name, mountpoint, true)
 		end
