@@ -11,7 +11,7 @@ local RAME = {
 		settings_path = "/media/mmcblk0p1/",
 	},
 	system = {
-		ip = push.property("", "Current IP-address"),
+		ip = push.property("0.0.0.0", "Current IP-address"),
 	},
 	player = {
 		status   = push.property("stopped", "Playback status"),

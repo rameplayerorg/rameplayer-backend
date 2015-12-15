@@ -94,7 +94,7 @@ local function update_ip()
 		s:setpeername("8.8.8.8", 80)
 		local ip, port = s:getsockname()
 		s:close()
-		RAME.system.ip((tostring(ip) ~= "0.0.0.0") and ip or "")
+		RAME.system.ip(tostring(ip))
 		cqueues.poll(15.0)
 	end
 end

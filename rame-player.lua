@@ -19,12 +19,16 @@ local OMXPlayerDBusAPI = {
 	Position = { interface = "org.freedesktop.DBus.Properties", returns = "t" },
 }
 
+local function kill_proc()
+	if RAME.player.__proc then RAME.player.__proc:kill(9) end
+end
+
 local function trigger(item_id, autoplay)
 	print("Player: requested to play: " .. item_id)
 	RAME.player.__next_item_id = item_id
 	RAME.player.__autoplay = autoplay and true or false
 	RAME.player.__trigger = -1
-	if RAME.player.__proc then RAME.player.__proc:kill(9) end
+	kill_proc()
 end
 
 -- REST API: /player/
@@ -124,6 +128,12 @@ local function status_update()
 end
 
 function Plugin.main()
+	RAME.system.ip:push_to(function()
+		-- Refresh text if IP changes and not playing.
+		-- Perhaps later rametext can be updated to get text
+		-- updates via stdin or similar.
+		if not RAME.player.__playing then kill_proc() end
+	end)
 	cqueues.running():wrap(status_update)
 	while true do
 		-- If cursor changed or play/stop requested
@@ -171,7 +181,8 @@ function Plugin.main()
 						item.uri)
 			else
 				RAME.player.status("stopped")
-				RAME.player.__proc = process.spawn("rametext", RAME.system.ip() or "No Media")
+				local ip = RAME.system.ip()
+				RAME.player.__proc = process.spawn("rametext", ip ~= "0.0.0.0" and ip or "No Media")
 			end
 			RAME.player.__proc:wait()
 			RAME.player.__proc = nil
