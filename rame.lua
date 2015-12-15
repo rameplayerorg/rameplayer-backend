@@ -4,7 +4,7 @@ local push = require 'cqp.push'
 local condition = require 'cqueues.condition'
 
 local RAME = {
-	version = "undefined",
+	version = "development",
 	running = true,
 	next_ticket = math.tointeger(os.time() * 1000000),
 	config = {
