@@ -7,8 +7,8 @@ local RAME = require 'rame'
 local properties = {}
 local mappings = {
 	["rame:green:play"]	= function() local s = RAME.player.status() return s == "playing" or s == "buffering" end,
-	["rame:red:stop"]	= function() local s = RAME.player.status() return s == "stopped" or s == "buffering" end,
-	["rame:yellow:pause"]	= function() return RAME.player.status() == "paused" end,
+	["rame:yellow:pause"]	= function() local s = RAME.player.status() return s == "paused"  or s == "buffering" end,
+	["rame:red:stop"]	= function() return RAME.player.status() == "stopped" end,
 }
 
 local Plugin = { }
