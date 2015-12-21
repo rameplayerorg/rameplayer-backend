@@ -38,8 +38,11 @@ end
 function RAME:hook(hook, ...)
 	for _, p in pairs(self.plugins) do
 		local f = p[hook]
-		if f then f(...) end
+		if f then
+			if not f(...) then return false end
+		end
 	end
+	return true
 end
 
 function RAME:split_id(id)

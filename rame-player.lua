@@ -37,37 +37,23 @@ end
 local PLAYER = { GET = {}, POST = {} }
 
 function PLAYER.GET.play(ctx, reply)
-	local status = RAME.player.status()
-	if status == "paused" then
-		RAME.OMX:Action(16)
-	elseif status == "stopped" then
-		trigger("play")
-	else
-		return 400
-	end
-	return 200
+	return RAME:hook("play") and 200 or 400
 end
 
 function PLAYER.GET.pause(ctx, reply)
-	if not RAME.player.__playing then return 400 end
-	RAME.OMX:Action(16)
-	return 200
+	return RAME:hook("pause") and 200 or 400
 end
 
 function PLAYER.GET.stop(ctx, reply)
-	if not RAME.player.__playing then return 400 end
-	trigger("stop")
-	return 200
+	return RAME:hook("stop") and 200 or 400
 end
 
 PLAYER.GET["step-forward"] = function(ctx, reply)
-	trigger("next", RAME.player.__autoplay)
-	return 200
+	return RAME:hook("next") and 200 or 400
 end
 
 PLAYER.GET["step-backward"] = function(ctx, reply)
-	trigger("prev", RAME.player.__autoplay)
-	return 200
+	return RAME:hook("prev") and 200 or 400
 end
 
 function PLAYER.GET.seek(ctx, reply)
@@ -93,7 +79,7 @@ end
 
 local Plugin = {}
 
-function Plugin.init()
+function Plugin.early_init()
 	local dbus = require 'cqp.dbus'
 	RAME.dbus = dbus.get_bus()
 	RAME.OMX = RAME.dbus:get_object("org.mpris.MediaPlayer2.omxplayer", "/org/mpris/MediaPlayer2", OMXPlayerDBusAPI)
@@ -106,16 +92,15 @@ function Plugin.active()
 end
 
 local function status_update()
-	local OMX = RAME.OMX
 	while true do
 		local status, position, duration = "stopped", 0, 0
 		if RAME.player.__playing then
-			status = OMX:PlaybackStatus() or "buffering"
+			status = RAME.OMX:PlaybackStatus() or "buffering"
 			if status == 'Paused' or status == 'Playing' then
-				position = OMX:Position() or 0
+				position = RAME.OMX:Position() or 0
 				if position >= 0 then
 					status = status == "Paused" and "paused" or "playing"
-					duration = OMX:Duration() or 0
+					duration = RAME.OMX:Duration() or 0
 				else
 					status = "buffering"
 					position = 0
@@ -130,13 +115,13 @@ local function status_update()
 end
 
 function Plugin.main()
+	cqueues.running():wrap(status_update)
 	RAME.system.ip:push_to(function()
 		-- Refresh text if IP changes and not playing.
 		-- Perhaps later rametext can be updated to get text
 		-- updates via stdin or similar.
 		if not RAME.player.__playing then kill_proc() end
 	end)
-	cqueues.running():wrap(status_update)
 	while true do
 		-- If cursor changed or play/stop requested
 		local play_requested, wrapped = false, false
@@ -151,9 +136,10 @@ function Plugin.main()
 				play_requested = RAME.player.__autoplay
 			end
 			if wrapped then
-				play_requested = (RAME.player.__repeat or 0) ~= 0 and play_requested
-				if RAME.player.__repeat >= 1 then
-					RAME.player.__repeat = RAME.player.__repeat - 1
+				local r = RAME.player.__repeat or 0
+				play_requested = r ~= 0 and play_requested
+				if r >= 1 then
+					RAME.player.__repeat = r - 1
 				end
 			end
 		elseif request_id == "stop" then
@@ -197,6 +183,40 @@ end
 
 function Plugin.set_cursor(id)
 	trigger(id, true)
+end
+
+function Plugin.play()
+	local status = RAME.player.status()
+	if status == "paused" then
+		RAME.OMX:Action(16)
+	elseif status == "stopped" then
+		trigger("play")
+	else
+		return false
+	end
+	return true
+end
+
+function Plugin.stop()
+	if not RAME.player.__playing then return false end
+	trigger("stop")
+	return true
+end
+
+function Plugin.pause()
+	if not RAME.player.__playing then return flase end
+	RAME.OMX:Action(16)
+	return true
+end
+
+function Plugin.next()
+	trigger("next", RAME.player.__autoplay)
+	return true
+end
+
+function Plugin.prev()
+	trigger("prev", RAME.player.__autoplay)
+	return true
 end
 
 return Plugin
