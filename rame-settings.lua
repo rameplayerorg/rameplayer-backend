@@ -12,6 +12,19 @@ local function revtable(tbl)
 	return rev
 end
 
+--  valid IPv4 subnet masks
+local ipv4_masks = {
+	"128.0.0.0", "192.0.0.0", "224.0.0.0", "240.0.0.0",
+	"248.0.0.0", "252.0.0.0", "254.0.0.0", "255.0.0.0",
+	"255.128.0.0", "255.192.0.0", "255.224.0.0", "255.240.0.0",
+	"225.248.0.0", "255.252.0.0", "255.254.0.0", "255.255.0.0",
+	"255.255.128.0", "255.255.192.0", "255.255.224.0", "255.255.240.0",
+	"225.255.248.0", "255.255.252.0", "255.255.254.0", "255.255.255.0",
+	"255.255.255.128", "255.255.255.192", "255.255.255.224", "255.255.255.240",
+	"225.255.255.248", "255.255.255.252", "255.255.255.254", "255.255.255.255"
+}
+local ipv4_masks_rev = revtable(ipv4_masks)
+
 -- supported (selection) resolutions on RPi
 local rpi_resolutions = {
 	rameAutodetect = "",
@@ -36,6 +49,14 @@ local omxplayer_audio_outs = {
 	rameHdmiOnly = "hdmi",
 	rameHdmiAndAnalog = "both",
 }
+
+local function check_fields(data, schema)
+	for _, field in ipairs(schema) do
+		if not data[field] == nil then
+			return 422, "missing required parameter: "..field
+		end
+	end
+end
 
 function read_json(file)
 	local data = plfile.read(file)
@@ -64,64 +85,6 @@ function write_file_lbu(file, data)
 
 	process.run("lbu", "commit")
 	return 200
-end
-
--- converts traditional dotted subnet mask into CDIR prefix
--- lua 5.3 code compatible only (bitwise operation)
-function to_cidr_prefix(netmask)
-	local quad = {}
-	-- extract numbers from dotted notation into table
-	for octet in netmask:gmatch("%d+") do quad[#quad+1] = octet end
-
-	local mask_bit_count = 0
-	local stop = false
-	for i=1, #quad do
-		if not stop then
-			for bits=1, 8 do
-				-- check if most signficant bit (MSB) is 1
-				if quad[i] & 0x80 == 0x80 then
-					mask_bit_count = mask_bit_count + 1
-					-- make the next bit to be the most signficant
-					quad[i] = quad[i] << 1
-				else
-					-- when the MSB is 0 then bitmask is over! breaking out of loop
-					-- and stopping further iterations on next octet
-					stop = true
-					break
-				end
-			end
-		end
-	end
-	return mask_bit_count
-end
-
--- converts CDIR prefix into traditional dotted subnet mask
--- lua 5.3 code compatible only (bitwise operation)
-function to_netmask(cidr_prefix)
-	-- need to count the full octects and the left over bits
-	local full_mask_bytes = 0
-	while tonumber(cidr_prefix) >= 8  do
-		cidr_prefix = cidr_prefix - 8
-		full_mask_bytes = full_mask_bytes + 1
-	end
-
-	local bit_to_integer = {128,192,224,240,248,252,254}
-	local netmask_string = ""
-	for i=1, 4 do
-		if full_mask_bytes > 0 then
-			netmask_string = netmask_string .. "255"
-			full_mask_bytes = full_mask_bytes - 1
- 		elseif cidr_prefix > 0 then
-			--bits to integer mask values
-			netmask_string = netmask_string .. bit_to_integer[cidr_prefix]
-			cidr_prefix = 0
-		else -- filling with zero
-			netmask_string = netmask_string .. "0"
-		end
-		if i < 4 then netmask_string = netmask_string .. "." end
-	end
-
-	return netmask_string
 end
 
 -- REST API: /settings/
@@ -162,7 +125,7 @@ function SETTINGS.GET.system(ctx, reply)
 		if i == "static_ip_address" then
 			local ip, cidr = v:match("(%d+.%d+.%d+.%d+)/(%d+)")
 			conf.ipAddress = ip
-			conf.ipSubnetMask = to_netmask(cidr)
+			conf.ipSubnetMask = ipv4_masks[cidr]
 		elseif i == "static_routers" then
 			conf.ipDefaultGateway = v
 		elseif i == "static_domain_name_servers" then
@@ -174,19 +137,10 @@ function SETTINGS.GET.system(ctx, reply)
 			else
 				conf.ipDnsPrimary = v
 			end
-
 		end
 	end
 
 	return 200, conf
-end
-
-local function check_fields(data, schema)
-	for _, field in ipairs(schema) do
-		if not data[field] then
-			return 422, "missing required parameter: "..field
-		end
-	end
 end
 
 -- todo add support for IP settings
@@ -194,7 +148,7 @@ end
 function SETTINGS.POST.system(ctx, reply)
 	local usercfg = { "hdmi_group=1" }
 	local args = ctx.args
-	local err, msg, i
+	local err, msg, i, str, temp
 
 	err, msg = check_fields(args, {"resolution", "audioPort", "ipDhcpClient"})
 	if err then return err, msg end
@@ -208,36 +162,48 @@ function SETTINGS.POST.system(ctx, reply)
 	table.insert(usercfg, rpi_audio_port)
 	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[args.audioPort]
 
-	if args.ipDchpClient ~= true then
+	-- Read existing configuration
+	local dhcpcd = plfile.read("/etc/dhcpcd.conf")
+	if not dhcpcd then return 500, "file read failed" end
+
+	if args.ipDhcpClient == false then
 		err, msg = check_fields(args, {"ipAddress", "ipSubnetMask", "ipDefaultGateway", "ipDnsPrimary", "ipDnsSecondary", "ipDhcpServer"})
 		if err then return err, msg end
+
+		temp = ipv4_masks_rev[args.ipSubnetMask]
+		if not temp then return 422, "invalid subnet mask" end
+		str = "static ip_address=" .. args.ipAddress .. "/" .. temp
+		-- try REPLACING the config
+		dhcpcd, i = dhcpcd:gsub("static ip_address=%d+.%d+.%d+.%d+/%d+", str)
+		-- if no match APPENDING config
+		if i == 0 then dhcpcd = dhcpcd .. str .. "\n" end
+
+		str = "static routers=" .. args.ipDefaultGateway
+		dhcpcd, i = dhcpcd:gsub("static routers=%d+.%d+.%d+.%d+", str)
+		if i == 0 then dhcpcd = dhcpcd .. str .. "\n" end
+
+		str = "static domain_name_servers=" .. args.ipDnsPrimary .. " "
+			  .. args.ipDnsSecondary
+		-- lua doesn't have optional group patterns so have to do with try-err:
+		--1st matching with 2 IP address and if not matching then try with 1 IP addr
+		dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?%d+.%d+.%d+.%d+",
+					str)
+		if i == 0 then
+			dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?",
+					    str)
+			if i == 0 then dhcpcd = dhcpcd .. str .. "\n" end
+		end
 
 		if args.ipDchpServer == true then
 			-- DHCP SERVER in used
 		end
-	end
-
-	-- Read existing configuration and apped data
-	local dhcpcd = plfile.read("/etc/dhcpcd.conf")
-	if not dhcpcd then return 500, "file read failed" end
-
-	-- Replace with given configuration
-	dhcpcd = dhcpcd:gsub("static ip_address=%d+.%d+.%d+.%d+/%d+",
-			     "static ip_address=" .. args.ipAddress .. "/"
-			     .. to_cidr_prefix(args.ipSubnetMask))
-
-	dhcpcd = dhcpcd:gsub("static routers=%d+.%d+.%d+.%d+",
-			     "static routers=" .. args.ipDefaultGateway)
-
-	-- lua doesn't have optional group patterns so have to do with try-err:
-	--1st matching with 2 IP address and if not matching then try with 1 IP addr
-	dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?%d+.%d+.%d+.%d+",
-				"static domain_name_servers=" .. args.ipDnsPrimary
-				.. " " .. args.ipDnsSecondary )
-	if i == 0 then
-		dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?",
-				        "static domain_name_servers=" .. args.ipDnsPrimary
-					.. " " .. args.ipDnsSecondary )
+	else -- clearing the possible static IP configuration lines
+		dhcpcd, i = dhcpcd:gsub("static ip_address=%d+.%d+.%d+.%d+/%d+\n", "")
+		dhcpcd, i = dhcpcd:gsub("static routers=%d+.%d+.%d+.%d+\n", "")
+		dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?%d+.%d+.%d+.%d+\n", "")
+		if i == 0 then
+			dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?\n", "")
+		end
 	end
 
 	if not write_file_lbu("/etc/dhcpcd.conf", dhcpcd) or
