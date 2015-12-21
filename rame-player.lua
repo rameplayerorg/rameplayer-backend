@@ -171,8 +171,12 @@ function Plugin.main()
 						item.uri)
 			else
 				RAME.player.status("stopped")
-				local ip = RAME.system.ip()
-				RAME.player.__proc = process.spawn("rametext", ip ~= "0.0.0.0" and ip or "No Media")
+				local text=""
+				if not RAME.config.second_display then
+					local ip = RAME.system.ip()
+					text = ip ~= "0.0.0.0" and ip or "No Media"
+				end
+				RAME.player.__proc = process.spawn("rametext", text)
 			end
 			RAME.player.__proc:wait()
 			RAME.player.__proc = nil

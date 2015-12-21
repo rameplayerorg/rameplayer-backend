@@ -17,6 +17,10 @@ function Plugin.active()
 	return true
 end
 
+function Plugin.early_init()
+	RAME.config.second_display = true
+end
+
 function Plugin.main()
 	local pending = true
 	local cond = condition.new()
