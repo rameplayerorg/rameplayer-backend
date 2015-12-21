@@ -36,13 +36,14 @@ function RAME:get_ticket()
 end
 
 function RAME:hook(hook, ...)
-	for _, p in pairs(self.plugins) do
+	local ret=true
+	for name, p in pairs(self.plugins) do
 		local f = p[hook]
 		if f then
-			if not f(...) then return false end
+			if f(...) == false then ret=false end
 		end
 	end
-	return true
+	return ret
 end
 
 function RAME:split_id(id)
