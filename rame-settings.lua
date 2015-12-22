@@ -87,6 +87,10 @@ function write_file_lbu(file, data)
 	return 200
 end
 
+local function activate_config(conf)
+	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[conf.audioPort]
+end
+
 -- REST API: /settings/
 local SETTINGS = { GET = {}, POST = {} }
 
@@ -114,7 +118,6 @@ function SETTINGS.GET.system(ctx, reply)
 		end
 		if rpi_audio_ports_rev[val] then
 			conf.audioPort = rpi_audio_ports_rev[val]
-			RAME.config.omxplayer_audio_out = omxplayer_audio_outs[conf.audioPort]
 		end
 	end
 
@@ -160,7 +163,6 @@ function SETTINGS.POST.system(ctx, reply)
 	local rpi_audio_port = rpi_audio_ports[args.audioPort]
 	if not rpi_audio_port then return 422, "invalid audioPort" end
 	table.insert(usercfg, rpi_audio_port)
-	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[args.audioPort]
 
 	-- Read existing configuration
 	local dhcpcd = plfile.read("/etc/dhcpcd.conf")
@@ -211,6 +213,7 @@ function SETTINGS.POST.system(ctx, reply)
 		return 500, "file write error"
 	end
 
+	activate_config(args)
 	return 200
 end
 
@@ -229,7 +232,9 @@ end
 local Plugin = {}
 
 function Plugin.init()
-	SETTINGS.GET.system()
+	local ok, conf = SETTINGS.GET.system()
+	if ok == 200 then activate_config(conf) end
+
 	RAME.rest.settings = function(ctx, reply) return ctx:route(reply, SETTINGS) end
 	RAME.rest.version = function(ctx, reply) return ctx:route(reply, VERSION) end
 end
