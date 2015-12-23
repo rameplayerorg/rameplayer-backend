@@ -58,6 +58,19 @@ local function check_fields(data, schema)
 	end
 end
 
+-- 1st tries to REPLACE existing string(s) if no match APPENDS string
+-- if replace = "" erases matching string entry
+-- if match1 = is whatever that doesn't match adds an entry
+local function update(txt, replace, match1, match2)
+	-- lua doesn't have optional group patterns so have to do with try-err
+	txt, i = txt:gsub(match1, replace)
+	if i == 0 and match2 then txt, i = txt:gsub(match2, replace) end
+
+	-- if replace string is empty i.e. "" doesn't APPEND because it was removal
+	if i == 0 and replace ~= "" then txt = txt .. replace .. "\n" end
+	return txt
+end
+
 function read_json(file)
 	local data = plfile.read(file)
 	return data and 200 or 500, data
@@ -149,20 +162,26 @@ end
 -- todo add support for IP settings
 -- these settings require reboot which is not implemented
 function SETTINGS.POST.system(ctx, reply)
-	local usercfg = { "hdmi_group=1" }
 	local args = ctx.args
-	local err, msg, i, str, temp
+	local err, msg, i, str
 
 	err, msg = check_fields(args, {"resolution", "audioPort", "ipDhcpClient"})
 	if err then return err, msg end
 
 	local rpi_resolution = rpi_resolutions[args.resolution]
 	if not rpi_resolution then return 422, "invalid resolution" end
-	table.insert(usercfg, rpi_resolution)
 
 	local rpi_audio_port = rpi_audio_ports[args.audioPort]
 	if not rpi_audio_port then return 422, "invalid audioPort" end
-	table.insert(usercfg, rpi_audio_port)
+
+	-- Read existing usercfg.txt
+	local usercfg = plfile.read(RAME.config.settings_path.."usercfg.txt")
+	if not usercfg then return 500, "file read failed" end
+
+	usercfg = update(usercfg, "hdmi_group=1", "hdmi_group=1")
+	usercfg = update(usercfg, rpi_resolution, "hdmi_mode=%d+")
+	usercfg = update(usercfg, rpi_audio_port, "hdmi_drive=%d #both",
+											  "hdmi_drive=%d")
 
 	-- Read existing configuration
 	local dhcpcd = plfile.read("/etc/dhcpcd.conf")
@@ -172,44 +191,30 @@ function SETTINGS.POST.system(ctx, reply)
 		err, msg = check_fields(args, {"ipAddress", "ipSubnetMask", "ipDefaultGateway", "ipDnsPrimary", "ipDnsSecondary", "ipDhcpServer"})
 		if err then return err, msg end
 
-		temp = ipv4_masks_rev[args.ipSubnetMask]
-		if not temp then return 422, "invalid subnet mask" end
-		str = "static ip_address=" .. args.ipAddress .. "/" .. temp
-		-- try REPLACING the config
-		dhcpcd, i = dhcpcd:gsub("static ip_address=%d+.%d+.%d+.%d+/%d+", str)
-		-- if no match APPENDING config
-		if i == 0 then dhcpcd = dhcpcd .. str .. "\n" end
+		str = ipv4_masks_rev[args.ipSubnetMask]
+		if not str then return 422, "invalid subnet mask" end
 
-		str = "static routers=" .. args.ipDefaultGateway
-		dhcpcd, i = dhcpcd:gsub("static routers=%d+.%d+.%d+.%d+", str)
-		if i == 0 then dhcpcd = dhcpcd .. str .. "\n" end
-
-		str = "static domain_name_servers=" .. args.ipDnsPrimary .. " "
-			  .. args.ipDnsSecondary
-		-- lua doesn't have optional group patterns so have to do with try-err:
-		--1st matching with 2 IP address and if not matching then try with 1 IP addr
-		dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?%d+.%d+.%d+.%d+",
-					str)
-		if i == 0 then
-			dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?",
-					    str)
-			if i == 0 then dhcpcd = dhcpcd .. str .. "\n" end
-		end
-
+		dhcpcd = update(dhcpcd, "static ip_address="..args.ipAddress.."/"..str,
+						"static ip_address=%d+.%d+.%d+.%d+/%d+")
+		dhcpcd = update(dhcpcd, "static routers=" .. args.ipDefaultGateway,
+						"static routers=%d+.%d+.%d+.%d+")
+		dhcpcd = update(dhcpcd, "static domain_name_servers="
+				 .. args.ipDnsPrimary .. " " .. args.ipDnsSecondary,
+				 "static domain_name_servers=%d+.%d+.%d+.%d+%s?%d+.%d+.%d+.%d+",
+				 "static domain_name_servers=%d+.%d+.%d+.%d+%s?")
 		if args.ipDchpServer == true then
 			-- DHCP SERVER in used
 		end
 	else -- clearing the possible static IP configuration lines
-		dhcpcd, i = dhcpcd:gsub("static ip_address=%d+.%d+.%d+.%d+/%d+\n", "")
-		dhcpcd, i = dhcpcd:gsub("static routers=%d+.%d+.%d+.%d+\n", "")
-		dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?%d+.%d+.%d+.%d+\n", "")
-		if i == 0 then
-			dhcpcd, i = dhcpcd:gsub("static domain_name_servers=%d+.%d+.%d+.%d+%s?\n", "")
-		end
+		dhcpcd = update(dhcpcd, "", "static ip_address=%d+.%d+.%d+.%d+/%d+\n")
+		dhcpcd = update(dhcpcd, "", "static routers=%d+.%d+.%d+.%d+\n")
+		dhcpcd = update(dhcpcd, "",
+			"static domain_name_servers=%d+.%d+.%d+.%d+%s?%d+.%d+.%d+.%d+\n",
+ 			"static domain_name_servers=%d+.%d+.%d+.%d+%s?\n")
 	end
 
 	if not write_file_lbu("/etc/dhcpcd.conf", dhcpcd) or
-	   not write_file_sd(RAME.config.settings_path.."usercfg.txt", table.concat(usercfg, "\n")) then
+       not write_file_sd(RAME.config.settings_path.."usercfg.txt", usercfg) then
 		return 500, "file write error"
 	end
 
