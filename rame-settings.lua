@@ -3,6 +3,7 @@ local json = require 'cjson.safe'
 local plfile = require 'pl.file'
 local plutils = require 'pl.utils'
 local plconfig = require "pl.config"
+local plpath = require 'pl.path'
 local process = require 'cqp.process'
 local RAME = require 'rame'
 
@@ -116,16 +117,24 @@ function SETTINGS.POST.user(ctx, reply)
 end
 
 function SETTINGS.GET.system(ctx, reply)
+	local usercfg
 	local conf = {
 		-- Defaults if not found from config files
 		resolution = "rameAutodetect",
-		audioPort = "rameAnalogOnly",
+		ipDhcpClient = true,
 	}
 
-	local usercfg_lines = plutils.readlines(RAME.config.settings_path.."usercfg.txt")
-	if not usercfg_lines then return 500, "file read failed" end
+	-- creates the usercfg.txt if not in filesystem (1st boot)
+	if not plpath.exists(RAME.config.settings_path.."usercfg.txt") then
+		usercfg = rpi_audio_ports["rameAnalogOnly"] .. "\n"
+		if not write_file_sd(RAME.config.settings_path.."usercfg.txt", usercfg)
+		then return 500, "file write error" end
+	end
 
-	for _, val in ipairs(usercfg_lines) do
+	usercfg = plutils.readlines(RAME.config.settings_path.."usercfg.txt")
+	if not usercfg then return 500, "file read failed" end
+
+	for _, val in ipairs(usercfg) do
 		if val ~= "" and rpi_resolutions_rev[val] then
 			conf.resolution = rpi_resolutions_rev[val]
 		end
@@ -134,14 +143,16 @@ function SETTINGS.GET.system(ctx, reply)
 		end
 	end
 
-	local dhcpcd_lines = plconfig.read("/etc/dhcpcd.conf", {list_delim=' '})
-	if not dhcpcd_lines then return 500, "file read failed" end
+	local dhcpcd = plconfig.read("/etc/dhcpcd.conf", {list_delim=' '})
+	if not dhcpcd then return 500, "file read failed" end
 
-	for i, v in pairs(dhcpcd_lines) do
+	for i, v in pairs(dhcpcd) do
 		if i == "static_ip_address" then
 			local ip, cidr = v:match("(%d+.%d+.%d+.%d+)/(%d+)")
 			conf.ipAddress = ip
 			conf.ipSubnetMask = ipv4_masks[cidr]
+			-- if static address found setting the DHCP client to false
+			conf.ipDhcpClient = false
 		elseif i == "static_routers" then
 			conf.ipDefaultGateway = v
 		elseif i == "static_domain_name_servers" then
