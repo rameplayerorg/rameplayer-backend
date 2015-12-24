@@ -117,24 +117,15 @@ function SETTINGS.POST.user(ctx, reply)
 end
 
 function SETTINGS.GET.system(ctx, reply)
-	local usercfg
 	local conf = {
 		-- Defaults if not found from config files
 		resolution = "rameAutodetect",
+		audioPort = "rameAnalogOnly",
 		ipDhcpClient = true,
 	}
 
-	-- creates the usercfg.txt if not in filesystem (1st boot)
-	if not plpath.exists(RAME.config.settings_path.."usercfg.txt") then
-		usercfg = rpi_audio_ports["rameAnalogOnly"] .. "\n"
-		if not write_file_sd(RAME.config.settings_path.."usercfg.txt", usercfg)
-		then return 500, "file write error" end
-	end
-
-	usercfg = plutils.readlines(RAME.config.settings_path.."usercfg.txt")
-	if not usercfg then return 500, "file read failed" end
-
-	for _, val in ipairs(usercfg) do
+	local usercfg = plutils.readlines(RAME.config.settings_path.."usercfg.txt")
+	for _, val in ipairs(usercfg or {}) do
 		if val ~= "" and rpi_resolutions_rev[val] then
 			conf.resolution = rpi_resolutions_rev[val]
 		end
@@ -144,9 +135,7 @@ function SETTINGS.GET.system(ctx, reply)
 	end
 
 	local dhcpcd = plconfig.read("/etc/dhcpcd.conf", {list_delim=' '})
-	if not dhcpcd then return 500, "file read failed" end
-
-	for i, v in pairs(dhcpcd) do
+	for i, v in pairs(dhcpcd or {}) do
 		if i == "static_ip_address" then
 			local ip, cidr = v:match("(%d+.%d+.%d+.%d+)/(%d+)")
 			conf.ipAddress = ip
@@ -192,7 +181,7 @@ function SETTINGS.POST.system(ctx, reply)
 	usercfg = update(usercfg, "hdmi_group=1", "hdmi_group=1")
 	usercfg = update(usercfg, rpi_resolution, "hdmi_mode=%d+")
 	usercfg = update(usercfg, rpi_audio_port, "hdmi_drive=%d #both",
-											  "hdmi_drive=%d")
+						  "hdmi_drive=%d")
 
 	-- Read existing configuration
 	local dhcpcd = plfile.read("/etc/dhcpcd.conf")
@@ -225,7 +214,7 @@ function SETTINGS.POST.system(ctx, reply)
 	end
 
 	if not write_file_lbu("/etc/dhcpcd.conf", dhcpcd) or
-       not write_file_sd(RAME.config.settings_path.."usercfg.txt", usercfg) then
+	   not write_file_sd(RAME.config.settings_path.."usercfg.txt", usercfg) then
 		return 500, "file write error"
 	end
 
