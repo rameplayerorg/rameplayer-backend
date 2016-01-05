@@ -59,10 +59,73 @@ local function check_fields(data, schema)
 	end
 end
 
+-- gives first and last ip address in quadrant from given ip and cidr_mask
+-- lua 5.3 code compatible only (bitwise operation)
+function give_last_quadrant(ip_address, cidr_mask)
+ 	local quad = {}
+	local net_addr = ""
+	local broadcast_addr = ""
+	local last_addr = ""
+	local first_addr = ""
+	local start_range, last_no, first_no
+
+	-- Max number of host = 32bits (ipv4 lenght) - subnet mask prefix
+	-- -2 reserved for network and broadcast addresses
+	local max_amount_host = math.floor((2^(32-cidr_mask))-2)
+	-- DEFAULTS to last quadrant (rounded) of IP address range
+	local qrt_amount_hosts = math.floor(max_amount_host/4)
+	-- give max. C-class range
+	if qrt_amount_hosts > 254 then qrt_amount_hosts = 254 end
+
+	local MSB = { 128, 192, 224, 240, 248, 252, 254 }
+	local INV_HOST_MASK = { 127, 63, 31, 15, 7, 3, 1 }
+
+ 	-- extract numbers from dotted notation into table
+ 	for octet in ip_address:gmatch("%d+") do quad[#quad+1] = octet end
+
+	for i=1, #quad do
+		cidr_mask = cidr_mask - 8
+		if cidr_mask >= 0 then
+			net_addr = net_addr .. quad[i]
+			broadcast_addr = broadcast_addr .. quad[i]
+		elseif cidr_mask < 0 and cidr_mask > -8 then
+			first_no = quad[i] & MSB[cidr_mask+8]
+			last_no = quad[i] | INV_HOST_MASK[cidr_mask + 8]
+			if i == #quad then -- last octet
+				-- 1st usable address is network address + 1
+				first_addr = net_addr .. (first_no + 1)
+				-- Last usable address is broadcast address - 1
+				last_addr = broadcast_addr .. (last_no - 1)
+				start_range = broadcast_addr .. (last_no - qrt_amount_hosts)
+			end
+			net_addr = net_addr .. first_no
+			broadcast_addr = broadcast_addr .. last_no
+		else -- leftover octects are set to min and max values
+			first_no = 0
+			last_no = 255
+			if i == #quad then -- last octet
+				first_addr = net_addr .. (first_no + 1)
+				last_addr = broadcast_addr .. (last_no - 1)
+				start_range = broadcast_addr .. (last_no - qrt_amount_hosts)
+			end
+			net_addr = net_addr .. first_no
+			broadcast_addr = broadcast_addr .. last_no
+		end
+
+		-- adding the dots in between
+		if i < #quad then
+			net_addr = net_addr .. "."
+			broadcast_addr = broadcast_addr .. "."
+		end
+	end
+
+	return start_range, last_addr
+end
+
 -- 1st tries to REPLACE existing string(s) if no match APPENDS string
 -- if replace = "" erases matching string entry
 -- if match = is whatever that doesn't match adds an entry
-local function update(txt, replace, match)
+local function update(txt, match, replace)
 	-- lua doesn't have optional group patterns so have to do with try-err
 	txt, i = txt:gsub(match, replace)
 
@@ -162,7 +225,7 @@ end
 -- these settings require reboot which is not implemented
 function SETTINGS.POST.system(ctx, reply)
 	local args = ctx.args
-	local err, msg, i, str
+	local err, msg, i, cidr_prefix
 
 	err, msg = check_fields(args, {"resolution", "audioPort", "ipDhcpClient"})
 	if err then return err, msg end
@@ -185,8 +248,8 @@ function SETTINGS.POST.system(ctx, reply)
 	if not usercfg then return 500, "file read failed" end
 
 	usercfg = update(usercfg, "hdmi_group=1", "hdmi_group=1")
-	usercfg = update(usercfg, rpi_resolution, "hdmi_mode=[^\n]+")
-	usercfg = update(usercfg, rpi_audio_port, "hdmi_drive=[^\n]+")
+	usercfg = update(usercfg, "hdmi_mode=[^\n]+", rpi_resolution)
+	usercfg = update(usercfg, "hdmi_drive=[^\n]+", rpi_audio_port)
 
 	-- Read existing configuration
 	local dhcpcd = plfile.read("/etc/dhcpcd.conf")
@@ -196,29 +259,55 @@ function SETTINGS.POST.system(ctx, reply)
 		err, msg = check_fields(args, {"ipAddress", "ipSubnetMask", "ipDefaultGateway", "ipDnsPrimary", "ipDnsSecondary", "ipDhcpServer"})
 		if err then return err, msg end
 
-		str = ipv4_masks_rev[args.ipSubnetMask]
-		if not str then return 422, "invalid subnet mask" end
+		cidr_prefix = ipv4_masks_rev[args.ipSubnetMask]
+		if not cidr_prefix then return 422, "invalid subnet mask" end
 
-		dhcpcd = update(dhcpcd, "static ip_address="..args.ipAddress.."/"..str,
-						"static ip_address=[^\n]")
-		dhcpcd = update(dhcpcd, "static routers=" .. args.ipDefaultGateway,
-						"static routers=[^\n]")
-		dhcpcd = update(dhcpcd, "static domain_name_servers="
-				 .. args.ipDnsPrimary .. " " .. args.ipDnsSecondary,
-				 "static domain_name_servers=[^\n]+")
-		if args.ipDchpServer == true then
-			-- DHCP SERVER in used
+		dhcpcd = update(dhcpcd, "static ip_address=[^\n]+",
+				"static ip_address=" .. args.ipAddress .. "/" .. cidr_prefix)
+		dhcpcd = update(dhcpcd, "static routers=[^\n]+",
+						"static routers=" .. args.ipDefaultGateway)
+		dhcpcd = update(dhcpcd, "static domain_name_servers=[^\n]+",
+	"static domain_name_servers="..args.ipDnsPrimary.." "..args.ipDnsSecondary)
+		if args.ipDhcpServer == true then
+			local ipRangeStart, ipRangeEnd
+			local udhcpd = plfile.read("/etc/udhcpd.conf")
+			if not udhcpd then return 500, "file read failed" end
+
+			ipRangeStart, ipRangeEnd = give_last_quadrant(args.ipAddress,
+														  cidr_prefix)
+			udhcpd = update(udhcpd, "start\t\t[^\n]+","start\t\t"..ipRangeStart)
+			udhcpd = update(udhcpd, "end\t\t[^\n]+", "end\t\t"..ipRangeEnd)
+
+			-- Note! Matches only "opt" not "option" so any hand made changes
+			-- are not necessarily detected by this code
+			udhcpd = update(udhcpd, "option\tsubnet[^\n]+",
+							"option\tsubnet\t" .. args.ipSubnetMask)
+			udhcpd = update(udhcpd, "opt\trouter[^\n]+",
+							"opt\trouter\t" .. args.ipDefaultGateway)
+			udhcpd = update(udhcpd, "opt\tdns[^\n]+",
+					 "opt\tdns\t"..args.ipDnsPrimary.." "..args.ipDnsSecondary)
+
+			if not write_file_lbu("/etc/udhcpd.conf", udhcpd) then
+				return 500, "file write error"
+			end
+
+			-- activate
 		end
 	else -- clearing the possible static IP configuration lines
-		dhcpcd = update(dhcpcd, "", "static ip_address=[^\n]+\n")
-		dhcpcd = update(dhcpcd, "", "static routers=[^\n]+\n")
-		dhcpcd = update(dhcpcd, "", "static domain_name_servers=[^\n]+\n")
+		dhcpcd = update(dhcpcd, "static ip_address=[^\n]+\n", "")
+		dhcpcd = update(dhcpcd, "static routers=[^\n]+\n", "")
+		dhcpcd = update(dhcpcd, "static domain_name_servers=[^\n]+\n", "")
 	end
 
 	if not write_file_lbu("/etc/dhcpcd.conf", dhcpcd) or
 	   not write_file_sd(RAME.config.settings_path.."usercfg.txt", usercfg) then
 		return 500, "file write error"
 	end
+
+	--process.run("service", "dhcpcd", "restart")
+	--httpd start is ok but it doesn't return
+	--in shell you can correct this problem by pressing enter
+
 
 	activate_config(args)
 	return 200
