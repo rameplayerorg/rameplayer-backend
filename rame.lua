@@ -13,6 +13,8 @@ local RAME = {
 	},
 	system = {
 		ip = push.property("0.0.0.0", "Current IP-address"),
+		reboot_required = false,
+		update_available = false,
 	},
 	player = {
 		status   = push.property("stopped", "Playback status"),
@@ -106,6 +108,20 @@ function RAME:get_item(id, refresh_items, scan_item)
 	return item
 end
 
+function RAME:system_status()
+	local player = {}
+
+	if RAME.system.reboot_required then
+ 		player.rebootRequired = RAME.system.reboot_required
+	end
+	if RAME.system.update_available then
+		player.updateAvailable = RAME.system.update_available
+	end
+
+	if RAME.system.reboot_required or RAME.system.update_available then
+	return player else return nil end
+end
+
 function RAME:get_next_item(id, backwards)
 	local wrapped = false
 	local item = self:get_item(id)
@@ -170,6 +186,7 @@ function RAME.rest.status(ctx, reply)
 	end
 
 	local item = RAME:get_item(RAME.player.cursor())
+
 	return 200, {
 		listsRefreshed = lists,
 		state = RAME.player.status(),
@@ -179,6 +196,7 @@ function RAME.rest.status(ctx, reply)
 			id = item and item.id,
 			parentId = item and item.parentId,
 		},
+		player = RAME:system_status(),
 	}
 end
 
