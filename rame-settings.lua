@@ -165,6 +165,9 @@ end
 
 local function activate_config(conf)
 	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[conf.audioPort]
+
+	-- Signal the user that reboot is required
+	RAME.system.reboot_required = true
 end
 
 -- REST API: /settings/
