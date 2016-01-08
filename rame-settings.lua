@@ -186,6 +186,9 @@ function SETTINGS.GET.system(ctx, reply)
 		ipDhcpClient = true,
 	}
 
+	local hostname = plfile.read("/etc/hostname")
+	if hostname then conf.hostname = hostname:match("[^\n]+") end
+
 	local usercfg = plutils.readlines(RAME.config.settings_path.."usercfg.txt")
 	for _, val in ipairs(usercfg or {}) do
 		if val ~= "" and rpi_resolutions_rev[val] then
@@ -251,6 +254,15 @@ function SETTINGS.POST.system(ctx, reply)
 	usercfg = update(usercfg, "hdmi_mode=[^\n]+", rpi_resolution)
 	usercfg = update(usercfg, "hdmi_drive=[^\n]+", rpi_audio_port)
 
+	if args.hostname then
+		local hostname = plfile.read("/etc/hostname")
+		if hostname and hostname ~= args.hostname.."\n" then
+			hostname = args.hostname.."\n"
+			if not write_file_lbu("/etc/hostname", hostname) then
+			   return 500, "file write error" end
+		end
+	end
+
 	-- Read existing configuration
 	local dhcpcd = plfile.read("/etc/dhcpcd.conf")
 	if not dhcpcd then return 500, "file read failed" end
@@ -290,8 +302,6 @@ function SETTINGS.POST.system(ctx, reply)
 			if not write_file_lbu("/etc/udhcpd.conf", udhcpd) then
 				return 500, "file write error"
 			end
-
-			-- activate
 		end
 	else -- clearing the possible static IP configuration lines
 		dhcpcd = update(dhcpcd, "static ip_address=[^\n]+\n", "")
@@ -303,11 +313,6 @@ function SETTINGS.POST.system(ctx, reply)
 	   not write_file_sd(RAME.config.settings_path.."usercfg.txt", usercfg) then
 		return 500, "file write error"
 	end
-
-	--process.run("service", "dhcpcd", "restart")
-	--httpd start is ok but it doesn't return
-	--in shell you can correct this problem by pressing enter
-
 
 	activate_config(args)
 	return 200
