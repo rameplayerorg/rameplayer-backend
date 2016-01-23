@@ -13,6 +13,17 @@ local function revtable(tbl)
 	return rev
 end
 
+-- from the end backwards
+function ripairs(t)
+  local function ripairs_it(t,i)
+    i=i-1
+    local v=t[i]
+    if v==nil then return v end
+    return i,v
+  end
+  return ripairs_it, t, #t+1
+end
+
 --  valid IPv4 subnet masks
 local ipv4_masks = {
 	"128.0.0.0", "192.0.0.0", "224.0.0.0", "240.0.0.0",
@@ -59,81 +70,6 @@ local function check_fields(data, schema)
 	end
 end
 
--- gives first and last ip address in quadrant from given ip and cidr_mask
--- lua 5.3 code compatible only (bitwise operation)
-function give_last_quadrant(ip_address, cidr_mask)
- 	local quad = {}
-	local net_addr = ""
-	local broadcast_addr = ""
-	local last_addr = ""
-	local first_addr = ""
-	local start_range, last_no, first_no
-
-	-- Max number of host = 32bits (ipv4 lenght) - subnet mask prefix
-	-- -2 reserved for network and broadcast addresses
-	local max_amount_host = math.floor((2^(32-cidr_mask))-2)
-	-- DEFAULTS to last quadrant (rounded) of IP address range
-	local qrt_amount_hosts = math.floor(max_amount_host/4)
-	-- give max. C-class range
-	if qrt_amount_hosts > 254 then qrt_amount_hosts = 254 end
-
-	local MSB = { 128, 192, 224, 240, 248, 252, 254 }
-	local INV_HOST_MASK = { 127, 63, 31, 15, 7, 3, 1 }
-
- 	-- extract numbers from dotted notation into table
- 	for octet in ip_address:gmatch("%d+") do quad[#quad+1] = octet end
-
-	for i=1, #quad do
-		cidr_mask = cidr_mask - 8
-		if cidr_mask >= 0 then
-			net_addr = net_addr .. quad[i]
-			broadcast_addr = broadcast_addr .. quad[i]
-		elseif cidr_mask < 0 and cidr_mask > -8 then
-			first_no = quad[i] & MSB[cidr_mask+8]
-			last_no = quad[i] | INV_HOST_MASK[cidr_mask + 8]
-			if i == #quad then -- last octet
-				-- 1st usable address is network address + 1
-				first_addr = net_addr .. (first_no + 1)
-				-- Last usable address is broadcast address - 1
-				last_addr = broadcast_addr .. (last_no - 1)
-				start_range = broadcast_addr .. (last_no - qrt_amount_hosts)
-			end
-			net_addr = net_addr .. first_no
-			broadcast_addr = broadcast_addr .. last_no
-		else -- leftover octects are set to min and max values
-			first_no = 0
-			last_no = 255
-			if i == #quad then -- last octet
-				first_addr = net_addr .. (first_no + 1)
-				last_addr = broadcast_addr .. (last_no - 1)
-				start_range = broadcast_addr .. (last_no - qrt_amount_hosts)
-			end
-			net_addr = net_addr .. first_no
-			broadcast_addr = broadcast_addr .. last_no
-		end
-
-		-- adding the dots in between
-		if i < #quad then
-			net_addr = net_addr .. "."
-			broadcast_addr = broadcast_addr .. "."
-		end
-	end
-
-	return start_range, last_addr
-end
-
--- 1st tries to REPLACE existing string(s) if no match APPENDS string
--- if replace = "" erases matching string entry
--- if match = is whatever that doesn't match adds an entry
-local function update(txt, match, replace)
-	-- lua doesn't have optional group patterns so have to do with try-err
-	txt, i = txt:gsub(match, replace)
-
-	-- if replace string is empty i.e. "" doesn't APPEND because it was removal
-	if i == 0 and replace ~= "" then txt = txt .. replace .. "\n" end
-	return txt
-end
-
 function read_json(file)
 	local data = plfile.read(file)
 	return data and 200 or 500, data
@@ -159,15 +95,12 @@ function write_file_lbu(file, data)
 	local status = plfile.write(file, data)
 	if not status then return 500, "file write failed" end
 
-	process.run("lbu", "commit")
+	process.run("lbu", "commit", "-d")
 	return 200
 end
 
 local function activate_config(conf)
 	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[conf.audioPort]
-
-	-- Signal the user that reboot is required
-	RAME.system.reboot_required = true
 end
 
 -- REST API: /settings/
@@ -232,10 +165,17 @@ end
 function SETTINGS.POST.system(ctx, reply)
 	local args = ctx.args
 	local err, msg, i, cidr_prefix
+	local changed = false
+	local rpi_conf = {}
+	local ip_conf = {}
+	local udhcpd_conf = {}
 
 	err, msg = check_fields(args, {"resolution", "audioPort", "ipDhcpClient"})
 	if err then return err, msg end
 
+	--
+	-- USERCFG.TXT
+	--
 	local rpi_resolution = rpi_resolutions[args.resolution]
 	if not rpi_resolution then return 422, "invalid resolution" end
 
@@ -250,24 +190,79 @@ function SETTINGS.POST.system(ctx, reply)
 	end
 
 	-- Read existing usercfg.txt
-	local usercfg = plfile.read(RAME.config.settings_path.."usercfg.txt")
+	local usercfg = plutils.readlines(RAME.config.settings_path.."usercfg.txt")
 	if not usercfg then return 500, "file read failed" end
 
-	usercfg = update(usercfg, "hdmi_group=1", "hdmi_group=1")
-	usercfg = update(usercfg, "hdmi_mode=[^\n]+", rpi_resolution)
-	usercfg = update(usercfg, "hdmi_drive=[^\n]+", rpi_audio_port)
+	-- If rameAutodetect resolution REMOVING forced resolution config
+	if args.resolution == "rameAutodetect" then
+		for i, val in ripairs(usercfg) do
+			if val:match("hdmi_mode=[^\n]+")
+			 or val:match("hdmi_group=[^\n]+") then
+				table.remove(usercfg, i)
+				changed = true
+			end
+		end
+	else
+		rpi_conf.hdmi_group = "hdmi_group=1"
+		rpi_conf.resolution = rpi_resolutions[args.resolution]
+	end
+	rpi_conf.audio_port = rpi_audio_ports[args.audioPort]
 
+	for i, val in ipairs(usercfg) do
+		if val:match("hdmi_group=[^\n]+") then
+			rpi_conf.hdmi_group = nil
+		elseif val:match("hdmi_mode=[^\n]+") then
+			-- updating only if change in config
+			if val ~= rpi_conf.resolution then
+				usercfg[i] = rpi_conf.resolution
+				changed = true
+			end
+			rpi_conf.resolution = nil
+		elseif val:match("hdmi_drive=[^\n]+") then
+			if val ~= rpi_conf.audio_port then
+				usercfg[i] = rpi_conf.audio_port
+				changed = true
+			end
+			rpi_conf.audio_port = nil
+		end
+	end
+
+	-- APPEND possible new config lines
+	for i, val in pairs(rpi_conf) do
+		if val then
+			table.insert(usercfg, val)
+			changed = true
+		end
+	end
+
+	if changed then
+		if not write_file_sd(RAME.config.settings_path.."usercfg.txt",
+							 table.concat(usercfg, "\n")) then
+			return 500, "file write error" end
+		changed = false
+		-- Signal the user that reboot is required
+		RAME.system.reboot_required = true
+	end
+
+	--
+	-- HOSTNAME
+	--
 	if args.hostname then
 		local hostname = plfile.read("/etc/hostname")
 		if hostname and hostname ~= args.hostname.."\n" then
 			hostname = args.hostname.."\n"
 			if not write_file_lbu("/etc/hostname", hostname) then
 			   return 500, "file write error" end
+			-- Signal the user that reboot is required
+			RAME.system.reboot_required = true
 		end
 	end
 
+	--
+	-- IP
+	--
 	-- Read existing configuration
-	local dhcpcd = plfile.read("/etc/dhcpcd.conf")
+	local dhcpcd = plutils.readlines("/etc/dhcpcd.conf")
 	if not dhcpcd then return 500, "file read failed" end
 
 	if args.ipDhcpClient == false then
@@ -277,44 +272,134 @@ function SETTINGS.POST.system(ctx, reply)
 		cidr_prefix = ipv4_masks_rev[args.ipSubnetMask]
 		if not cidr_prefix then return 422, "invalid subnet mask" end
 
-		dhcpcd = update(dhcpcd, "static ip_address=[^\n]+",
-				"static ip_address=" .. args.ipAddress .. "/" .. cidr_prefix)
-		dhcpcd = update(dhcpcd, "static routers=[^\n]+",
-						"static routers=" .. args.ipDefaultGateway)
-		dhcpcd = update(dhcpcd, "static domain_name_servers=[^\n]+",
-	"static domain_name_servers="..args.ipDnsPrimary.." "..args.ipDnsSecondary)
-		if args.ipDhcpServer == true then
-			local ipRangeStart, ipRangeEnd
-			local udhcpd = plfile.read("/etc/udhcpd.conf")
-			if not udhcpd then return 500, "file read failed" end
+		ip_conf = {
+		ip_address = "static ip_address="..args.ipAddress.."/"..cidr_prefix,
+		default_gw = "static routers="..args.ipDefaultGateway,
+		dns = "static domain_name_servers="..args.ipDnsPrimary
+					.." "..args.ipDnsSecondary
+		}
 
-			ipRangeStart, ipRangeEnd = give_last_quadrant(args.ipAddress,
-														  cidr_prefix)
-			udhcpd = update(udhcpd, "start\t\t[^\n]+","start\t\t"..ipRangeStart)
-			udhcpd = update(udhcpd, "end\t\t[^\n]+", "end\t\t"..ipRangeEnd)
-
-			-- Note! Matches only "opt" not "option" so any hand made changes
-			-- are not necessarily detected by this code
-			udhcpd = update(udhcpd, "option\tsubnet[^\n]+",
-							"option\tsubnet\t" .. args.ipSubnetMask)
-			udhcpd = update(udhcpd, "opt\trouter[^\n]+",
-							"opt\trouter\t" .. args.ipDefaultGateway)
-			udhcpd = update(udhcpd, "opt\tdns[^\n]+",
-					 "opt\tdns\t"..args.ipDnsPrimary.." "..args.ipDnsSecondary)
-
-			if not write_file_lbu("/etc/udhcpd.conf", udhcpd) then
-				return 500, "file write error"
+		for i, val in ipairs(dhcpcd) do
+			if val:match("static ip_address=[^\n]+") then
+				-- updating only if change in config
+				if val ~= ip_conf.ip_address then
+					dhcpcd[i] = ip_conf.ip_address
+					changed = true
+				end
+				-- if config-line exist not appending the line
+				ip_conf.ip_address = nil
+			elseif val:match("static routers=[^\n]+") then
+				if val ~= ip_conf.default_gw then
+					dhcpcd[i] = ip_conf.default_gw
+					changed = true
+				end
+				ip_conf.default_gw = nil
+			elseif val:match("static domain_name_servers=[^\n]+") then
+				if val ~= ip_conf.dns then
+					dhcpcd[i] = ip_conf.dns
+					changed = true
+				end
+				ip_conf.dns = nil
 			end
 		end
-	else -- clearing the possible static IP configuration lines
-		dhcpcd = update(dhcpcd, "static ip_address=[^\n]+\n", "")
-		dhcpcd = update(dhcpcd, "static routers=[^\n]+\n", "")
-		dhcpcd = update(dhcpcd, "static domain_name_servers=[^\n]+\n", "")
+
+		for i, val in pairs(ip_conf) do
+			-- for those values that were new to config APPEND
+			if val then
+				table.insert(dhcpcd, val)
+				changed = true
+			end
+		end
+
+		if args.ipDhcpServer == true then
+			err, msg = check_fields(args, {"ipDhcpRangeStart", "ipDhcpRangeStart"})
+			if err then return err, msg end
+
+			local udhcpd = plutils.readlines("/etc/udhcpd.conf")
+			if not udhcpd then return 500, "file read failed" end
+
+			udhcpd_conf = {
+				range_start = "start\t\t" .. args.ipDhcpRangeStart,
+				range_end = "end\t\t" .. args.ipDhcpRangeEnd,
+				subnet_mask = "option\tsubnet\t" .. args.ipSubnetMask,
+				default_gw = "opt\trouter\t" .. args.ipDefaultGateway,
+				dns = "opt\tdns\t"..args.ipDnsPrimary.." "..args.ipDnsSecondary
+			}
+
+			for i, val in ipairs(udhcpd) do
+				if val:match("start\t\t[^\n]+") then
+					if val ~= udhcpd_conf.range_start then
+						udhcpd[i] = udhcpd_conf.range_start
+						changed = true
+					end
+					-- if config-line exist not appending the line
+					udhcpd_conf.range_start = nil
+				elseif val:match("end\t\t[^\n]+") then
+					if val ~= udhcpd_conf.range_end then
+						udhcpd[i] = udhcpd_conf.range_end
+						changed = true
+					end
+					udhcpd_conf.range_end = nil
+				elseif val:match("option\tsubnet[^\n]+") then
+					if val ~= udhcpd_conf.subnet_mask then
+						udhcpd[i] = udhcpd_conf.subnet_mask
+						changed = true
+					end
+					udhcpd_conf.subnet_mask = nil
+				elseif val:match("opt\trouter[^\n]+") then
+					if val ~= udhcpd_conf.default_gw then
+						udhcpd[i] = udhcpd_conf.default_gw
+						changed = true
+					end
+					udhcpd_conf.default_gw = nil
+				elseif val:match("opt\tdns[^\n]+") then
+					if val ~= udhcpd_conf.dns then
+						udhcpd[i] = udhcpd_conf.dns
+						changed = true
+					end
+					udhcpd_conf.dns = nil
+				end
+			end
+
+			for i, val in pairs(udhcpd_conf) do
+				-- for those values that were new to config APPEND
+				if val then
+					table.insert(udhcpd, val)
+					changed = true
+				end
+			end
+
+			if changed then
+				if not write_file_lbu("/etc/udhcpd.conf",
+									  table.concat(udhcpd, "\n"))
+					then return 500, "file write error" end
+				changed = false
+				-- Signal the user that reboot is required
+				RAME.system.reboot_required = true
+			end
+			process.run("rc-update", "add", "udhcpd", "default")
+		elseif args.ipDhcpServer == false then
+			process.run("rc-update", "del", "udhcpd", "default")
+		end
+	elseif args.ipDhcpClient == true then
+		-- removing possible static config entries
+		-- need to in reverse order for remove to work
+		for i, val in ripairs(dhcpcd) do
+			if val:match("static ip_address=[^\n]+") or
+			   val:match("static routers=[^\n]+") or
+			   val:match("static domain_name_servers=[^\n]+") then
+				table.remove(dhcpcd, i)
+				changed = true
+			end
+		end
 	end
 
-	if not write_file_lbu("/etc/dhcpcd.conf", dhcpcd) or
-	   not write_file_sd(RAME.config.settings_path.."usercfg.txt", usercfg) then
-		return 500, "file write error"
+	if changed then
+		if not write_file_lbu("/etc/dhcpcd.conf", table.concat(dhcpcd, "\n"))
+		  	then return 500, "file write error" end
+		changed = false
+		-- Signal the user that reboot is required
+		RAME.system.reboot_required = true
 	end
 
 	activate_config(args)
