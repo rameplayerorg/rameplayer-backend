@@ -2,7 +2,7 @@ local posix = require 'posix'
 local cqueues = require 'cqueues'
 local notify = require 'cqueues.notify'
 local process = require 'cqp.process'
-local RAME = require 'rame'
+local RAME = require 'rame.rame'
 
 local function is_mount_point(path)
 	local a = posix.stat(path)

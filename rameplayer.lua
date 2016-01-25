@@ -12,18 +12,12 @@ local cqueues = require 'cqueues'
 local httpd = require 'cqp.httpd'
 local process = require 'cqp.process'
 local posixfd = require 'cqp.posixfd'
-local RAME = require 'rame'
-
--- Clear framebuffer
-os.execute([[
-[ -e /.splash.ctrl ] && (echo quit > /.splash.ctrl ; rm /.splash.ctrl)
-dd if=/dev/zero of=/dev/fb0 bs=1024 count=2700
-]])
+local RAME = require 'rame.rame'
 
 local function load_plugins(...)
 	for _, path in ipairs(table.pack(...)) do
 		if plpath.isdir(path) then
-			local files = pldir.getfiles(path, "rame-*.lua")
+			local files = pldir.getfiles(path, "*.lua")
 			for _, f in pairs(files) do
 				local ok, plugin = pcall(dofile, f)
 				local act, err = true
@@ -46,10 +40,9 @@ end
 
 local function start_player()
 	load_plugins(
-		"/usr/share/rameplayer-backend/",
-		"/etc/rameplayer/",
+		"/usr/share/rameplayer-backend/plugins/",
 		RAME.config.settings_path .. "/plugins/",
-		"./")
+		"./plugins/")
 
 	RAME:hook("early_init")
 	httpd.new{

@@ -6,7 +6,7 @@ local cqueues = require 'cqueues'
 local process = require 'cqp.process'
 local httpd = require 'cqp.httpd'
 local dbus = require 'cqp.dbus'
-local RAME = require 'rame'
+local RAME = require 'rame.rame'
 
 local use_alsa = plpath.exists("/proc/asound/sndrpiwsp")
 

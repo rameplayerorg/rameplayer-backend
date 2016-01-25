@@ -2,7 +2,7 @@ local plfile = require 'pl.file'
 local plpath = require 'pl.path'
 local cqueues = require 'cqueues'
 local push = require 'cqp.push'
-local RAME = require 'rame'
+local RAME = require 'rame.rame'
 
 local properties = {}
 local mappings = {

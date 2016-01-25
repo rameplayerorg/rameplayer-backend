@@ -2,7 +2,7 @@ local plpath = require 'pl.path'
 local cqueues = require 'cqueues'
 local condition = require 'cqueues.condition'
 local process = require 'cqp.process'
-local RAME = require 'rame'
+local RAME = require 'rame.rame'
 
 local fbcputil = "/usr/bin/ramefbcp"
 local Plugin = {}

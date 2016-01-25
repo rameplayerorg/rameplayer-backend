@@ -5,7 +5,7 @@ local plutils = require 'pl.utils'
 local plconfig = require "pl.config"
 local plpath = require 'pl.path'
 local process = require 'cqp.process'
-local RAME = require 'rame'
+local RAME = require 'rame.rame'
 
 local function revtable(tbl)
 	local rev={}

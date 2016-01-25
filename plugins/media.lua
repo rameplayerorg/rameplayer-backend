@@ -5,7 +5,7 @@ local pldir = require 'pl.dir'
 local plfile = require 'pl.file'
 local plpath = require 'pl.path'
 local process = require 'cqp.process'
-local RAME = require 'rame'
+local RAME = require 'rame.rame'
 
 -- Media scanning
 local function ffprobe_file(fn)
