@@ -241,7 +241,7 @@ function SETTINGS.POST.system(ctx, reply)
 			return 500, "file write error" end
 		changed = false
 		-- Signal the user that reboot is required
-		RAME.system.reboot_required = true
+		RAME.system.reboot_required(true)
 	end
 
 	--
@@ -254,7 +254,7 @@ function SETTINGS.POST.system(ctx, reply)
 			if not write_file_lbu("/etc/hostname", hostname) then
 			   return 500, "file write error" end
 			-- Signal the user that reboot is required
-			RAME.system.reboot_required = true
+			RAME.system.reboot_required(true)
 		end
 	end
 
@@ -375,7 +375,7 @@ function SETTINGS.POST.system(ctx, reply)
 					then return 500, "file write error" end
 				changed = false
 				-- Signal the user that reboot is required
-				RAME.system.reboot_required = true
+				RAME.system.reboot_required(true)
 			end
 			process.run("rc-update", "add", "udhcpd", "default")
 		elseif args.ipDhcpServer == false then
@@ -399,7 +399,7 @@ function SETTINGS.POST.system(ctx, reply)
 		  	then return 500, "file write error" end
 		changed = false
 		-- Signal the user that reboot is required
-		RAME.system.reboot_required = true
+		RAME.system.reboot_required(true)
 	end
 
 	activate_config(args)

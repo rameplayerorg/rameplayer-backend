@@ -3,6 +3,7 @@ local cqueues = require 'cqueues'
 local notify = require 'cqueues.notify'
 local process = require 'cqp.process'
 local RAME = require 'rame.rame'
+local Item = require 'rame.item'
 
 local function is_mount_point(path)
 	local a = posix.stat(path)
@@ -16,6 +17,28 @@ local data_devices = {
 	"sdb1",
 	"mmcblk0p2"
 }
+
+local items = {}
+
+local function media_changed(name, mountpoint, mounted)
+	if items[name] then
+		items[name]:unlink()
+		items[name] = nil
+	end
+	if mounted then
+		local item = Item.new{title=name, uri="file:///"..mountpoint}
+		items[name] = item
+		RAME.root:add(item)
+		local autoplay=true
+		if autoplay then
+			item:expand()
+			if #item.items > 0 then
+				RAME:set_cursor(item.items[1].id)
+			end
+		end
+	end
+end
+
 
 local Plugin = {}
 
@@ -36,7 +59,7 @@ function Plugin.main()
 				posix.mkdir(mountpoint)
 				process.run("mount", "-o", "iocharset=utf8,ro", dev, mountpoint)
 			end
-			RAME:hook("media_changed", name, mountpoint, true)
+			media_changed(name, mountpoint, true)
 		end
 	end
 
@@ -48,9 +71,9 @@ function Plugin.main()
 			if bit32.band(notify.CREATE, changes) == notify.CREATE then
 				posix.mkdir(mountpoint)
 				process.run("mount", "-o", "ro", dev, mountpoint)
-				RAME:hook("media_changed", name, mountpoint, true)
+				media_changed(name, mountpoint, true)
 			elseif bit32.band(notify.DELETE, changes) == notify.DELETE then
-				RAME:hook("media_changed", name, mountpoint, false)
+				media_changed(name, mountpoint, false)
 				process.run("umount", "-l", mountpoint)
 			end
 		end

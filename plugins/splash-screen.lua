@@ -1,17 +1,27 @@
 local plfile = require 'pl.file'
 local plpath = require 'pl.path'
 
+local splashctrl = "/.splash.ctrl"
+local fbdev = "/dev/fb0"
+
 local Plugin = { }
+
+function Plugin.active()
+	return plpath.exists(splashctrl), "fbsplash not present"
+end
+
 function Plugin.early_init()
-	local splashctrl = "/.splash.ctrl"
-	local fbdev = "/dev/fb0"
-
-	if not plpath.exists(splashctrl) then return end
-
-	plfile.write(splashctrl, "quit")
-	plfile.delete(splashctrl)
+	if plpath.exists(splashctrl) then
+		plfile.write(splashctrl, "quit")
+		plfile.delete(splashctrl)
+	end
 	if plpath.exists(fbdev) then
-		plfile.write(fbdev, string.char(0):rep(1024*2700))
+		local f = io.open(fbdev, "w")
+		if f then
+			local zeros = string.char(0):rep(4*1024)
+			while f:write(zeros) do end
+			f:close()
+		end
 	end
 end
 

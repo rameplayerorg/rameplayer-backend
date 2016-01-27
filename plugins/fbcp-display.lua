@@ -3,6 +3,7 @@ local cqueues = require 'cqueues'
 local condition = require 'cqueues.condition'
 local process = require 'cqp.process'
 local RAME = require 'rame.rame'
+local Item = require 'rame.item'
 
 local fbcputil = "/usr/bin/ramefbcp"
 local Plugin = {}
@@ -49,8 +50,8 @@ function Plugin.main()
 		local status_id = statmap[status] or 0
 		out:write(("S:%d\n"):format(status_id))
 
-		local item = RAME:get_item(RAME.player.cursor())
-		local filename = item and item.meta.filename or ""
+		local item = Item.find(RAME.player.cursor())
+		local filename = item and item.filename or ""
 
 		if status_id > 0 then
 			out:write(("X1:%s\n"):format(filename))

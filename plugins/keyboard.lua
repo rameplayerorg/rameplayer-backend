@@ -27,7 +27,7 @@ function Plugin.main()
 		cqueues.poll(kbd)
 		local timestamp, eventType, eventCode, value = kbd:read()
 		if value ~= 0 and actions[eventCode] then
-			RAME:hook(actions[eventCode])
+			RAME:action(actions[eventCode])
 		end
 	end
 end

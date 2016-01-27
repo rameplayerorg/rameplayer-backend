@@ -5,41 +5,16 @@ package.path = "/usr/share/rameplayer-backend/?.lua;"..package.path
 
 local posix = require 'posix'
 local socket = require 'socket'
-local pldir = require 'pl.dir'
-local plpath = require 'pl.path'
 local plutils = require 'pl.utils'
 local cqueues = require 'cqueues'
 local httpd = require 'cqp.httpd'
 local process = require 'cqp.process'
 local posixfd = require 'cqp.posixfd'
 local RAME = require 'rame.rame'
-
-local function load_plugins(...)
-	for _, path in ipairs(table.pack(...)) do
-		if plpath.isdir(path) then
-			local files = pldir.getfiles(path, "*.lua")
-			for _, f in pairs(files) do
-				local ok, plugin = pcall(dofile, f)
-				local act, err = true
-				if ok then
-					if plugin.active then
-						act, err = plugin.active()
-					end
-				else
-					act, err = false, "failed to load: " .. plugin
-				end
-
-				print(("Plugin %s: %s"):format(f, act and "loaded" or "not active: "..(err or "disabled")))
-				if act then
-					RAME.plugins[plpath.basename(f)] = plugin
-				end
-			end
-		end
-	end
-end
+local Item = require 'rame.item'
 
 local function start_player()
-	load_plugins(
+	RAME:load_plugins(
 		"/usr/share/rameplayer-backend/plugins/",
 		RAME.config.settings_path .. "/plugins/",
 		"./plugins/")
@@ -65,6 +40,18 @@ local function start_player()
 	}
 
 	RAME:hook("init")
+
+	--[[
+	RAME.root:add(Item.new_list{
+		id = "rame",
+		title = "RAME",
+		items = {
+			Item.new{title="Live stream", live=true, uri="rtmp://..."},
+		}
+	})
+	RAME.root:add(Item.new{id="movies", title="Movies", uri="file:///pub/movies"})
+	--]]
+
 	for _, p in pairs(RAME.plugins) do
 		if p.main then cqueues.running():wrap(p.main) end
 	end
@@ -104,6 +91,7 @@ local function update_ip()
 	end
 end
 
+-- Map local directory to be visible
 local loop = cqueues.new()
 loop:wrap(exit_handler)
 loop:wrap(start_player)
