@@ -26,7 +26,7 @@ local RAME = {
 		duration = push.property(0, "Active media duration"),
 	},
 	root = Item.new_list{id="root", title="Root"},
-	rame = Item.new_list{id="rame", title="RAME"},
+	rame = Item.new_list{id="rame", filename="rame", title="RAME"},
 	default = Item.new_list{id="default", title="Default playlist", editable=true},
 	rest = {},
 	plugins = {},

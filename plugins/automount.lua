@@ -1,4 +1,5 @@
 local posix = require 'posix'
+local plpath = require 'pl.path'
 local cqueues = require 'cqueues'
 local notify = require 'cqueues.notify'
 local process = require 'cqp.process'
@@ -45,6 +46,13 @@ local Plugin = {}
 function Plugin.active()
 	-- Root required for mounting/unmounting
 	return posix.getuid() == 0, "not root"
+end
+
+function Plugin.init()
+	local path = RAME.config.settings_path .. "media"
+	if plpath.exists(path) then
+		RAME.rame:add(Item.new({id="internal", title="Internal", uri="file:///"..path}))
+	end
 end
 
 function Plugin.main()
