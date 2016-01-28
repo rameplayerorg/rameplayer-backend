@@ -3,6 +3,7 @@ local pldir = require 'pl.dir'
 local plpath = require 'pl.path'
 local push = require 'cqp.push'
 local process = require 'cqp.process'
+local condition = require 'cqueues.condition'
 local Item = require 'rame.item'
 local UrlMatch = require 'rame.urlmatch'
 
@@ -25,13 +26,19 @@ local RAME = {
 		duration = push.property(0, "Active media duration"),
 	},
 	root = Item.new_list{id="root", title="Root"},
+	rame = Item.new_list{id="rame", title="RAME"},
 	default = Item.new_list{id="default", title="Default playlist", editable=true},
 	rest = {},
 	plugins = {},
 
-	idleplayer = { rametext = plpath.exists("/usr/bin/rametext") },
+	idle_uri = nil,
+	idle_controls = {
+		cond = condition.new(),
+	},
 	players = UrlMatch.new(),
 }
+
+RAME.root:add(RAME.rame)
 
 function RAME:load_plugins(...)
 	for _, path in ipairs(table.pack(...)) do
@@ -85,40 +92,17 @@ function RAME:action(id, autoplay)
 	self:__trigger(id, autoplay)
 end
 
-function RAME.idleplayer.play()
-	local self = RAME.idleplayer
-	local text = ""
-	if not RAME.config.second_display then
-		local ip = RAME.system.ip()
-		text = ip ~= "0.0.0.0" and ip or "No Media"
-	end
-	if self.rametext then
-		self.proc = process.spawn("rametext", text)
-	else
-		self.proc = process.spawn("sleep", "1000")
-	end
-	self.proc:wait()
-	self.proc = nil
+function RAME.idle_controls.play()
+	RAME.idle_controls.cond:wait()
 end
 
-function RAME.idleplayer.stop()
-	local self = RAME.idleplayer
-	if self.proc then
-		self.proc:kill(9)
-	end
+function RAME.idle_controls.stop()
+	RAME.idle_controls.cond:signal()
 end
 
 function RAME.main()
 	local self = RAME
 	cqueues.running():wrap(Item.scanner)
-	self.system.ip:push_to(function()
-		-- Refresh text if IP changes and not playing.
-		-- Perhaps later rametext can be updated to get text
-		-- updates via stdin or similar.
-		if self.player.control == RAME.idleplayer then
-			self.player.control.stop()
-		end
-	end)
 
 	while true do
 		-- If cursor changed or play/stop requested
@@ -155,25 +139,31 @@ function RAME.main()
 		-- Start process matching current state
 		print("Play", cursor_id, item)
 		self.player.__next_item_id = nil
-		self.player.cursor(cursor_id)
+		self.player.cursor(cursor_id or "")
 		self.player.position(0)
 		self.player.duration(0)
 
-		local uri = item and item.uri
-		if uri or not play_requested then
+		if item or not play_requested then
+			local uri, control
 			if play_requested then
-				item.on_delete = function() return RAME:__trigger("") end
+				uri = item.uri
+				control = RAME.players:resolve(uri)
 				self.player.status("buffering")
-				RAME.player.control = RAME.players:resolve(item.uri)
 			else
+				uri = self.idle_uri
+				control = RAME.players:resolve(uri)
+				       or RAME.idle_controls
 				self.player.status("stopped")
-				RAME.player.control = RAME.idleplayer
 			end
-			print("Playing", uri)
-			RAME.player.control.play(uri)
-			RAME.player.control = nil
-			print("Stopped", uri)
-			if item then item.on_delete = nil end
+			if control then
+				print("Playing", uri)
+				if item then item.on_delete = function() return RAME:__trigger("") end end
+				RAME.player.control = control
+				RAME.player.control.play(uri)
+				RAME.player.control = nil
+				if item then item.on_delete = nil end
+				print("Stopped", uri)
+			end
 		end
 	end
 end

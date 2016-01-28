@@ -40,17 +40,7 @@ local function start_player()
 	}
 
 	RAME:hook("init")
-
-	--[[
-	RAME.root:add(Item.new_list{
-		id = "rame",
-		title = "RAME",
-		items = {
-			Item.new{title="Live stream", live=true, uri="rtmp://..."},
-		}
-	})
-	RAME.root:add(Item.new{id="movies", title="Movies", uri="file:///pub/movies"})
-	--]]
+	--RAME.root:add(Item.new{id="movies", title="Movies", uri="file:///pub/movies"})
 
 	for _, p in pairs(RAME.plugins) do
 		if p.main then cqueues.running():wrap(p.main) end

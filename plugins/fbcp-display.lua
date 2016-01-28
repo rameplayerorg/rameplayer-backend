@@ -15,11 +15,8 @@ function Plugin.active()
 	if not plpath.exists("/dev/fb1") then
 		return nil, "/dev/fb1 not found"
 	end
-	return true
-end
-
-function Plugin.early_init()
 	RAME.config.second_display = true
+	return true
 end
 
 function Plugin.main()

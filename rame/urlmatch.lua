@@ -20,8 +20,9 @@ end
 
 function UrlMatch:resolve(u)
 	local p = url.parse(u)
+	if not p then return end
 	local s = p.scheme
-	local e = plpath.extension(p.path):sub(2)
+	local e = p.path and plpath.extension(p.path):sub(2) or ""
 	return self.funcs[s..":"..e]
 	    or self.funcs[s..":*"]
 end
