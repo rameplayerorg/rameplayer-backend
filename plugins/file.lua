@@ -1,5 +1,6 @@
 local posix = require 'posix'
 local plpath = require 'pl.path'
+local RAME = require 'rame.rame'
 local Item = require 'rame.item'
 
 local Plugin = {}
@@ -10,8 +11,10 @@ function Plugin.expand(self)
 	for file in posix.files(path) do
 		if file:sub(1, 1) ~= "." then
 			local i = Item.new { uri = self.uri .. file }
-			i.parent = self
-			table.insert(items, i)
+			if i.type == "directory" or RAME.players:resolve(i.uri) then
+				i.parent = self
+				table.insert(items, i)
+			end
 		end
 	end
 	table.sort(items)
