@@ -3,6 +3,7 @@ local pldir = require 'pl.dir'
 local plpath = require 'pl.path'
 local plfile = require 'pl.file'
 local cqueues = require 'cqueues'
+local condition = require 'cqueues.condition'
 local dbus = require 'cqp.dbus'
 local process = require 'cqp.process'
 local RAME = require 'rame.rame'
@@ -29,7 +30,33 @@ local MprisPlayerDBusAPI_VLC = {
 	Position = { interface = "org.mpris.MediaPlayer2.Player", property = "Position", datatype = "t" },
 }
 
-local Plugin = { control = {} }
+local Plugin = {
+	control = {
+		cond = condition.new(),
+	}
+}
+
+function Plugin.control.status_update()
+	while Plugin.process do
+		local status, position, duration = "stopped", 0, 0
+		status = Plugin.mpris:PlaybackStatus("PlaybackStatus") or "buffering"
+		if status == 'Paused' or status == 'Playing' then
+			position = Plugin.mpris:Position("Position") or 0
+			if position >= 0 then
+				status = status == "Paused" and "paused" or "playing"
+				duration = Plugin.mpris:Duration("Duration") or 0
+			else
+				status = "buffering"
+				position = 0
+			end
+		end
+		RAME.player.status(status)
+		RAME.player.duration(duration / 1000000)
+		RAME.player.position(position / 1000000)
+		cqueues.poll(.2)
+	end
+	Plugin.control.cond:signal()
+end
 
 function Plugin.control.omxplay(uri)
 	local uri = uri:gsub("^file://", "")
@@ -41,18 +68,24 @@ function Plugin.control.omxplay(uri)
 			"--no-osd", "--no-keys",
 			"--nohdmiclocksync", "--adev", adev,
 			uri)
+	cqueues.running():wrap(Plugin.control.status_update)
 	Plugin.process:wait()
 	Plugin.process = nil
+	Plugin.control.cond:wait()
 end
 
 function Plugin.control.vlcplay(uri)
 	Plugin.process = process.spawn("vlc", "--control", "dbus", "--intf", "dummy", uri)
+	cqueues.running():wrap(Plugin.control.status_update)
 	Plugin.process:wait()
 	Plugin.process = nil
+	Plugin.control.cond:wait()
 end
 
 function Plugin.control.stop()
-	Plugin.process:kill(9)
+	if Plugin.process then
+		Plugin.process:kill(9)
+	end
 end
 
 function Plugin.control.seek(pos)
@@ -92,31 +125,6 @@ function Plugin.early_init()
 	RAME.players:register("file",  exts, 10, Plugin.control)
 	RAME.players:register(schemes, exts, 10, Plugin.control)
 	RAME.players:register(schemes, "*", 20, Plugin.control)
-end
-
-function Plugin.main()
-	while true do
-		if Plugin.process then
-			local status, position, duration = "stopped", 0, 0
-			status = Plugin.mpris:PlaybackStatus("PlaybackStatus") or "buffering"
-			if status == 'Paused' or status == 'Playing' then
-				position = Plugin.mpris:Position("Position") or 0
-				if position >= 0 then
-					status = status == "Paused" and "paused" or "playing"
-					duration = Plugin.mpris:Duration("Duration") or 0
-				else
-					status = "buffering"
-					position = 0
-				end
-			end
-			if Plugin.process then
-				RAME.player.status(status)
-				RAME.player.duration(duration / 1000000)
-				RAME.player.position(position / 1000000)
-			end
-		end
-		cqueues.poll(.2)
-	end
 end
 
 return Plugin
