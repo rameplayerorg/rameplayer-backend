@@ -12,10 +12,11 @@ local function rest_info(item)
 		duration = item.duration,
 		editable = item.editable,
 		modified = item.modified,
-		name = item.filename,
+		name = item.filename or item.uri,
 		refreshed = item.refreshed,
 		size = item.size,
 		title = item.title,
+		uri = item.uri,
 	}
 end
 
@@ -41,28 +42,45 @@ function LISTS.GET(ctx, reply)
 end
 
 function LISTS.POST(ctx, reply)
-	local id = ctx.paths[ctx.path_pos]
-
 	if ctx.paths[ctx.path_pos+1] == "items" then
 		-- POST /lists/ID/items -- add new item
+		local id = ctx.paths[ctx.path_pos]
 		local list = Item.find(id)
 		if list == nil then return 404 end
-		if not list.editable then return 405 end
-		if list.add == nil then return 400 end
-
-		-- add existing item: {"id": "sda1:%2fSampleVideo_640x360_2mb_2%2emp4"}
-		-- add streamed item: {"info": {"title": "My Live Stream", "uri": "http://www.example.com/stream.mp4"}}
-		local item = ctx.args.info
-		if ctx.args.id then
-			item = Item.find(ctx.args.id)
-		end
-		if item == nil or item.uri == nil then return 400 end
-		item = Item.new { title = item.title, uri = item.uri }
+		if not (list.editable and list.items) then return 405 end
+		if ctx.args.uri == nil then return 400 end
+		local item = Item.new { title = ctx.args.title, uri = ctx.args.uri, editable = true }
 		list:add(item)
-		return item and 200 or 400, r
+		return item and 200 or 400, item
 	end
 
 	return 404
+end
+
+function LISTS.DELETE(ctx, reply)
+	local id = ctx.paths[ctx.path_pos]
+	local item = Item.find(id)
+	if item == nil then return 404 end
+	if not item.editable then return 405 end
+
+	if #ctx.paths == ctx.path_pos then
+		item:unlink()
+	elseif #ctx.paths == ctx.path_pos+1 and ctx.paths[ctx.path_pos+1] == "items" then
+		if not item.items then return 405 end
+		while item.items[1] do
+			item.items[1]:unlink()
+		end
+	elseif #ctx.paths == ctx.path_pos+2 then
+		local id = ctx.paths[ctx.path_pos+2]
+		local item = Item.find(id)
+		if item == nil then return 404 end
+		if not item.editable then return 405 end
+		item:unlink()
+	else
+		return 404
+	end
+
+	return 200
 end
 
 -- REST API: /cursor/
@@ -104,6 +122,7 @@ function RAME.rest.status(ctx, reply)
 		duration = RAME.player.duration(),
 		cursor = {
 			id = item and item.id,
+			name = item and (item.filename or item.uri),
 			parentId = item and item.parent and item.parent.id,
 		},
 		player = #player > 0 and player or nil,

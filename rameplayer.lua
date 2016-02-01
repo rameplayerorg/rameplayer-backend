@@ -26,7 +26,7 @@ local function start_player()
 		uri = function(ctx, reply)
 			reply.headers["Access-Control-Allow-Origin"] = "*"
 			if ctx.method == "OPTIONS" then
-				local methods = "GET,OPTIONS,POST,PUT"
+				local methods = "GET,OPTIONS,POST,PUT,DELETE"
 				reply.headers["Allow"] = methods
 				reply.headers["Access-Control-Allow-Methods"] = methods
 				reply.headers["Access-Control-Allow-Headers"] = "Content-Type"
