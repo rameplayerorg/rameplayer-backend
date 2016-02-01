@@ -175,7 +175,7 @@ function PLAYER.GET.seek(ctx, reply)
 	if not RAME.player.control or not RAME.player.control.seek then return 400 end
 	local pos = tonumber(ctx.paths[ctx.path_pos])
 	if pos == nil then return 500 end
-	return RAME.player.control.seek() and 200 or 400
+	return RAME.player.control.seek(pos) and 200 or 400
 end
 
 function Plugin.early_init()
