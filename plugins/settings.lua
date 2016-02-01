@@ -103,6 +103,15 @@ local function activate_config(conf)
 	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[conf.audioPort]
 end
 
+local function pexec(...)
+	return process.popen(...):read_all()
+end
+
+local function entries(e)
+	return type(e) == "table" and table.unpack(e) or e
+end
+
+
 -- REST API: /settings/
 local SETTINGS = { GET = {}, POST = {} }
 
@@ -135,26 +144,27 @@ function SETTINGS.GET.system(ctx, reply)
 		end
 	end
 
-	local dhcpcd = plconfig.read("/etc/dhcpcd.conf", {list_delim=' '})
-	for i, v in pairs(dhcpcd or {}) do
-		if i == "static_ip_address" then
-			local ip, cidr = v:match("(%d+.%d+.%d+.%d+)/(%d+)")
-			conf.ipAddress = ip
-			conf.ipSubnetMask = ipv4_masks[cidr]
-			-- if static address found setting the DHCP client to false
-			conf.ipDhcpClient = false
-		elseif i == "static_routers" then
-			conf.ipDefaultGateway = v
-		elseif i == "static_domain_name_servers" then
-			if #v then
-				-- there is length in array so array exists
-				-- (and it must have at least 2 entries to be array)
-				conf.ipDnsPrimary = v[1]
-				conf.ipDnsSecondary = v[2]
-			else
-				conf.ipDnsPrimary = v
-			end
+	local dhcpcd = plconfig.read("/etc/dhcpcd.conf", {list_delim=' '}) or {}
+	if dhcpcd.static_ip_address then
+		local ip, cidr = dhcpcd.static_ip_address:match("(%d+.%d+.%d+.%d+)/(%d+)")
+		conf.ipDhcpClient = false
+		conf.ipAddress = ip
+		conf.ipSubnetMask = ipv4_masks[cidr]
+		conf.ipDefaultGateway = dhcpcd.static_routers
+		conf.ipDnsPrimary, conf.ipDnsSecondary = entries(dhcpcd.static_domain_name_servers)
+	else
+		local routes = pexec("ip", "-4", "route", "show", "dev", "eth0") or ""
+		local cidr, addr = routes:match("[0-9.]+/(%d+) +proto kernel  scope link  src ([0-9.]+)")
+		local dns = {}
+		for l in io.lines("/etc/resolv.conf") do
+			local srv = l:match("nameserver ([^ ]+)")
+			if srv then table.insert(dns, srv) end
 		end
+
+		conf.ipAddress = addr
+		conf.ipSubnetMask = ipv4_masks[cidr]
+		conf.ipDefaultGateway = routes:match("default via ([0-9.]+) ")
+		conf.ipDnsPrimary, conf.ipDnsSecondary = entries(dns)
 	end
 
 	return 200, conf
