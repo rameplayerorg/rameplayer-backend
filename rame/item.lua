@@ -78,6 +78,24 @@ function Item:del(item)
 	end
 end
 
+function Item:move_after(id)
+	local after
+	if not self.parent then return end
+
+	local pitems = self.parent.items
+	local old_idx = tablex.find(pitems, self)
+	if not old_idx then return end
+
+	if id then
+		after = Item.find(id)
+		if not after or after.parent ~= self.parent then return end
+	end
+
+	table.remove(pitems, old_idx)
+	table.insert(pitems, (after and tablex.find(pitems, after) or 0) + 1, self)
+	self:touch()
+end
+
 function Item:unlink()
 	if self.parent then
 		self.parent:del(self)

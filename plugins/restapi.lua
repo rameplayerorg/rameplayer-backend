@@ -57,6 +57,24 @@ function LISTS.POST(ctx, reply)
 	return 404
 end
 
+function LISTS.PUT(ctx, reply)
+	local id = ctx.paths[ctx.path_pos]
+	local item = Item.find(id)
+	if item == nil then return 404 end
+	if not item.editable then return 405 end
+
+	if #ctx.paths == ctx.path_pos+2 and ctx.paths[ctx.path_pos+1] == "items" then
+		local cid = ctx.paths[ctx.path_pos+2]
+		local child = Item.find(cid)
+		if child == nil then return 404 end
+		if not child.editable then return 405 end
+		child:move_after(ctx.args.afterId)
+		return 200
+	end
+
+	return 404
+end
+
 function LISTS.DELETE(ctx, reply)
 	local id = ctx.paths[ctx.path_pos]
 	local item = Item.find(id)
