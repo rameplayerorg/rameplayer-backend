@@ -154,14 +154,13 @@ function SETTINGS.GET.system(ctx, reply)
 		conf.ipDnsPrimary, conf.ipDnsSecondary = entries(dhcpcd.static_domain_name_servers)
 	else
 		local routes = pexec("ip", "-4", "route", "show", "dev", "eth0") or ""
-		local cidr, addr = routes:match("[0-9.]+/(%d+) +proto kernel  scope link  src ([0-9.]+)")
+		local cidr = routes:match("[0-9.]+/(%d+) dev")
 		local dns = {}
 		for l in io.lines("/etc/resolv.conf") do
 			local srv = l:match("nameserver ([^ ]+)")
 			if srv then table.insert(dns, srv) end
 		end
-
-		conf.ipAddress = addr
+		conf.ipAddress = RAME.system.ip()
 		conf.ipSubnetMask = ipv4_masks[cidr]
 		conf.ipDefaultGateway = routes:match("default via ([0-9.]+) ")
 		conf.ipDnsPrimary, conf.ipDnsSecondary = entries(dns)
