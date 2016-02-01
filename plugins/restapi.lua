@@ -7,19 +7,15 @@ local Plugin = {}
 -- REST API: /lists/ID
 local function rest_info(item)
 	return {
+		["type"] = item.type,
 		id = item.id,
-		targetId = item.items and item.id,
-		info = {
-			["type"] = item.type,
-			editable = item.editable,
-			duration = item.duration,
-			filename = item.filename,
-			id = item.id,
-			modified = item.modified,
-			refreshed = item.refreshed,
-			size = item.size,
-			title = item.title,
-		}
+		duration = item.duration,
+		editable = item.editable,
+		modified = item.modified,
+		name = item.filename,
+		refreshed = item.refreshed,
+		size = item.size,
+		title = item.title,
 	}
 end
 
