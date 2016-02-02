@@ -42,19 +42,30 @@ function LISTS.GET(ctx, reply)
 end
 
 function LISTS.POST(ctx, reply)
-	if ctx.paths[ctx.path_pos+1] == "items" then
+	local item
+	if #ctx.paths == ctx.path_pos-1 then
+		-- POST /lists/ -- add new list
+		item = Item.new{["type"]='playlist', title = ctx.args.title, editable = true, items = {}}
+		for _, c in pairs(ctx.args.items) do
+			item:add(Item.new{title = c.title, uri = c.uri})
+		end
+		RAME.root:add(item)
+	elseif #ctx.paths == ctx.path_pos+1 and ctx.paths[ctx.path_pos+1] == "items" then
 		-- POST /lists/ID/items -- add new item
 		local id = ctx.paths[ctx.path_pos]
 		local list = Item.find(id)
 		if list == nil then return 404 end
 		if not (list.editable and list.items) then return 405 end
 		if ctx.args.uri == nil then return 400 end
-		local item = Item.new { title = ctx.args.title, uri = ctx.args.uri, editable = true }
+
+		item = Item.new { title = ctx.args.title, uri = ctx.args.uri, editable = true }
+		if not item then return 400 end
 		list:add(item)
-		return item and 200 or 400, item
+	else
+		return 404
 	end
 
-	return 404
+	return 200, rest_info(item)
 end
 
 function LISTS.PUT(ctx, reply)
