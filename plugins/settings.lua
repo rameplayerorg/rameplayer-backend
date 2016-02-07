@@ -64,7 +64,7 @@ local omxplayer_audio_outs = {
 
 local function check_fields(data, schema)
 	for _, field in ipairs(schema) do
-		if not data[field] == nil then
+		if data[field] == nil then
 			return 422, "missing required parameter: "..field
 		end
 	end
@@ -116,11 +116,22 @@ end
 local SETTINGS = { GET = {}, POST = {} }
 
 function SETTINGS.GET.user(ctx, reply)
-	return read_json(RAME.config.settings_path.."settings-user.json")
+	local conf = {
+		autoplayUsb = RAME.config.autoplay_usb()
+	}
+
+	return 200, conf
 end
 
 function SETTINGS.POST.user(ctx, reply)
-	return write_json(RAME.config.settings_path.."settings-user.json", ctx.args)
+	local args = ctx.args
+	local err, msg
+
+	err, msg = check_fields(args, {"autoplayUsb"})
+	if err then return err, msg end
+
+	RAME.config.autoplay_usb(args.autoplayUsb)
+	return 200
 end
 
 function SETTINGS.GET.system(ctx, reply)
