@@ -90,6 +90,15 @@ function RAME:set_cursor(id)
 end
 
 function RAME:action(id, autoplay)
+	if id == "play" then
+		local s = RAME.player.status()
+		if s == "paused" or s == "playing" then
+			self.player.control.pause()
+			return
+		elseif s ~= "stopped" then
+			return
+		end
+	end
 	self:__trigger(id, autoplay)
 end
 
