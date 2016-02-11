@@ -59,15 +59,19 @@ function Plugin.control.status_update()
 end
 
 function Plugin.control.omxplay(uri)
-	local uri = uri:gsub("^file://", "")
-	local adev = RAME.config.omxplayer_audio_out
-	if adev == "local" and Plugin.use_alsa then
-		adev = "alsa"
+	local cmd = {
+		"omxplayer",
+			"--no-osd",
+			"--no-keys",
+			"--nohdmiclocksync",
+			"--adev", RAME.config.omxplayer_audio_out,
+	}
+	if Plugin.use_alsa then
+		table.insert(cmd, "-A")
+		table.insert(cmd, "default")
 	end
-	Plugin.process = process.spawn("omxplayer",
-			"--no-osd", "--no-keys",
-			"--nohdmiclocksync", "--adev", adev,
-			uri)
+	table.insert(cmd, uri)
+	Plugin.process = process.spawn(table.unpack(cmd))
 	cqueues.running():wrap(Plugin.control.status_update)
 	Plugin.process:wait()
 	Plugin.process = nil
