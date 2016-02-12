@@ -1,3 +1,4 @@
+local cqueues = require 'cqueues'
 local json = require 'cjson.safe'
 local RAME = require 'rame.rame'
 local Item = require 'rame.item'
@@ -162,11 +163,15 @@ end
 local PLAYER = { GET = {}, POST = {} }
 
 function PLAYER.GET.play(ctx, reply)
-	return RAME:action("play") and 200 or 400
+	return delayed(function()
+		return RAME:action("play") and 200 or 400
+	end, ctx.args.delay)
 end
 
 function PLAYER.GET.stop(ctx, reply)
-	return RAME:action("stop") and 200 or 400
+	return delayed(function()
+		return RAME:action("stop") and 200 or 400
+	end, ctx.args.delay)
 end
 
 PLAYER.GET["step-forward"] = function(ctx, reply)
@@ -178,15 +183,31 @@ PLAYER.GET["step-backward"] = function(ctx, reply)
 end
 
 function PLAYER.GET.pause(ctx, reply)
-	if not RAME.player.control or not RAME.player.control.pause then return 400 end
-	return RAME.player.control.pause() and 200 or 400
+	return delayed(function()
+		if not RAME.player.control or not RAME.player.control.pause then return 400 end
+		return RAME.player.control.pause() and 200 or 400
+	end, ctx.args.delay)
 end
 
 function PLAYER.GET.seek(ctx, reply)
-	if not RAME.player.control or not RAME.player.control.seek then return 400 end
-	local pos = tonumber(ctx.paths[ctx.path_pos])
-	if pos == nil then return 500 end
-	return RAME.player.control.seek(pos) and 200 or 400
+	return delayed(function()
+		if not RAME.player.control or not RAME.player.control.seek then return 400 end
+		local pos = tonumber(ctx.paths[ctx.path_pos])
+		if pos == nil then return 500 end
+		return RAME.player.control.seek(pos) and 200 or 400
+	end, ctx.args.delay)
+end
+
+function delayed(func, delay)
+	if delay then
+		cqueues.running():wrap(function()
+			cqueues.sleep(delay)
+			func()
+		end)
+		return 200
+	else
+		return func()
+	end
 end
 
 function Plugin.early_init()
