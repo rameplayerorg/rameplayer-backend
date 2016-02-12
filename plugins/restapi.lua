@@ -117,6 +117,17 @@ end
 local CURSOR = {}
 
 function CURSOR.PUT(ctx, reply)
+	if ctx.args.delay and RAME.player.status() ~= "stopped" then
+		-- apply delay param only when not stopped
+		return delayed(function()
+			set_cursor(ctx)
+		end, ctx.args.delay)
+	else
+		return set_cursor(ctx)
+	end
+end
+
+function set_cursor(ctx)
 	if RAME.player.status() ~= "stopped" then return 400 end
 	local id = ctx.args.id
 	local item = Item.find(id)
