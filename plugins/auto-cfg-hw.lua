@@ -27,13 +27,13 @@ function Plugin.init()
 		if plpath.exists("/proc/device-tree/rame/eeprom-cids") then
 			local str, cid
 			local cids = {}
-	 		str = plfile.read("eeprom-cids")
+	 		str = plfile.read("/proc/device-tree/rame/eeprom-cids")
 
 			-- extract numbers from string into array
 	 		for cid in str:gmatch("%d+") do cids[#cids+1] = cid end
 
 			-- replace dts with correct dir
-			for _, _, files in pldir.walk("dts") do
+			for _, _, files in pldir.walk("/media/mmcblk0p1/overlays") do
 				for i, val in pairs(files) do
 					for _, val2 in pairs(cids) do
 						if val2 == val:match("rame%-cid(%d)") then
