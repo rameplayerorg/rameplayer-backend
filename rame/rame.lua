@@ -187,6 +187,7 @@ end
 
 function RAME.write_settings_file(file, data)
 	process.run("mount", "-o", "remount,rw", "/media/mmcblk0p1")
+	pldir.makepath(RAME.config.settings_path)
 	local ok = plfile.write(RAME.config.settings_path..file, data)
 	process.run("mount", "-o", "remount,ro", "/media/mmcblk0p1")
 	return ok
