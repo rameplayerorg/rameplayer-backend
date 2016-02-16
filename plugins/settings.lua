@@ -7,6 +7,8 @@ local plpath = require 'pl.path'
 local process = require 'cqp.process'
 local RAME = require 'rame.rame'
 
+local ramecfg_txt = "ramecfg.txt"
+
 local function revtable(tbl)
 	local rev={}
 	for k, v in pairs(tbl) do rev[v] = k end
@@ -70,35 +72,6 @@ local function check_fields(data, schema)
 	end
 end
 
-function read_json(file)
-	local data = plfile.read(file)
-	return data and 200 or 500, data
-end
-
-function write_json(file, data)
-	if not data then return 500, "no arguments" end
-	return write_file_sd(file, json.encode(data))
-end
-
--- note errorhandling: if rw mount fails the file write fails so no need
--- check will the mount fails or not
-function write_file_sd(file, data)
-	process.run("mount", "-o", "remount,rw", "/media/mmcblk0p1")
-	local status = plfile.write(file, data)
-	process.run("mount", "-o", "remount,ro", "/media/mmcblk0p1")
-
-	if not status then return 500, "file write failed" else return 200 end
-end
-
--- todo check the process command output
-function write_file_lbu(file, data)
-	local status = plfile.write(file, data)
-	if not status then return 500, "file write failed" end
-
-	process.run("lbu", "commit", "-d")
-	return 200
-end
-
 local function activate_config(conf)
 	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[conf.audioPort]
 end
@@ -145,7 +118,7 @@ function SETTINGS.GET.system(ctx, reply)
 	local hostname = plfile.read("/etc/hostname")
 	if hostname then conf.hostname = hostname:match("[^\n]+") end
 
-	local usercfg = plutils.readlines(RAME.config.settings_path.."usercfg.txt")
+	local usercfg = plutils.readlines(RAME.config.settings_path..ramecfg_txt)
 	for _, val in ipairs(usercfg or {}) do
 		if val ~= "" and rpi_resolutions_rev[val] then
 			conf.resolution = rpi_resolutions_rev[val]
@@ -186,6 +159,7 @@ function SETTINGS.POST.system(ctx, reply)
 	local args = ctx.args
 	local err, msg, i, cidr_prefix
 	local changed = false
+	local commit = false
 	local rpi_conf = {}
 	local ip_conf = {}
 	local udhcpd_conf = {}
@@ -193,25 +167,14 @@ function SETTINGS.POST.system(ctx, reply)
 	err, msg = check_fields(args, {"resolution", "audioPort", "ipDhcpClient"})
 	if err then return err, msg end
 
-	--
-	-- USERCFG.TXT
-	--
 	local rpi_resolution = rpi_resolutions[args.resolution]
 	if not rpi_resolution then return 422, "invalid resolution" end
 
 	local rpi_audio_port = rpi_audio_ports[args.audioPort]
 	if not rpi_audio_port then return 422, "invalid audioPort" end
 
-	-- creates the usercfg.txt if not in filesystem (1st boot)
-	if not plpath.exists(RAME.config.settings_path.."usercfg.txt") then
-		usercfg = rpi_audio_ports["rameAnalogOnly"] .. "\n"
-		if not write_file_sd(RAME.config.settings_path.."usercfg.txt", usercfg)
-		then return 500, "file write error" end
-	end
-
-	-- Read existing usercfg.txt
-	local usercfg = plutils.readlines(RAME.config.settings_path.."usercfg.txt")
-	if not usercfg then return 500, "file read failed" end
+	-- ramecfg.txt parsing
+	local usercfg = plutils.readlines(RAME.config.settings_path..ramecfg_txt) or ""
 
 	-- If rameAutodetect resolution REMOVING forced resolution config
 	if args.resolution == "rameAutodetect" then
@@ -256,9 +219,9 @@ function SETTINGS.POST.system(ctx, reply)
 	end
 
 	if changed then
-		if not write_file_sd(RAME.config.settings_path.."usercfg.txt",
-							 table.concat(usercfg, "\n")) then
-			return 500, "file write error" end
+		if not RAME.write_settings_file(ramecfg_txt, table.concat(usercfg, "\n")) then
+			return 500, "file write error"
+		end
 		changed = false
 		-- Signal the user that reboot is required
 		RAME.system.reboot_required(true)
@@ -271,10 +234,10 @@ function SETTINGS.POST.system(ctx, reply)
 		local hostname = plfile.read("/etc/hostname")
 		if hostname and hostname ~= args.hostname.."\n" then
 			hostname = args.hostname.."\n"
-			if not write_file_lbu("/etc/hostname", hostname) then
-			   return 500, "file write error" end
-			-- Signal the user that reboot is required
-			RAME.system.reboot_required(true)
+			if not plfile.write("/etc/hostname", hostname) then
+				return 500, "file write error"
+			end
+			commit = true
 		end
 	end
 
@@ -390,12 +353,11 @@ function SETTINGS.POST.system(ctx, reply)
 			end
 
 			if changed then
-				if not write_file_lbu("/etc/udhcpd.conf",
-									  table.concat(udhcpd, "\n"))
-					then return 500, "file write error" end
+				if not plfile.write("/etc/udhcpd.conf", table.concat(udhcpd, "\n")) then
+					return 500, "file write error"
+				end
 				changed = false
-				-- Signal the user that reboot is required
-				RAME.system.reboot_required(true)
+				commit = true
 			end
 			process.run("rc-update", "add", "udhcpd", "default")
 		elseif args.ipDhcpServer == false then
@@ -415,14 +377,19 @@ function SETTINGS.POST.system(ctx, reply)
 	end
 
 	if changed then
-		if not write_file_lbu("/etc/dhcpcd.conf", table.concat(dhcpcd, "\n"))
-		  	then return 500, "file write error" end
+		if not plfile.write("/etc/dhcpcd.conf", table.concat(dhcpcd, "\n")) then
+			return 500, "file write error"
+		end
 		changed = false
-		-- Signal the user that reboot is required
-		RAME.system.reboot_required(true)
+		commit = true
 	end
 
 	activate_config(args)
+	if commit then
+		RAME.commit_overlay()
+		RAME.system.reboot_required(true)
+	end
+
 	return 200
 end
 

@@ -49,7 +49,7 @@ function Plugin.active()
 end
 
 function Plugin.init()
-	local path = RAME.config.settings_path .. "media"
+	local path = "/media/mmcblk0p1/media"
 	if plpath.exists(path) then
 		RAME.rame:add(Item.new({id="internal", title="Internal", uri="file:///"..path}))
 	end
