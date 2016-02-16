@@ -183,7 +183,7 @@ function SETTINGS.POST.system(ctx, reply)
 	if not rpi_audio_port then return 422, "invalid audioPort" end
 
 	-- ramecfg.txt parsing
-	local usercfg = plutils.readlines(RAME.config.settings_path..ramecfg_txt) or ""
+	local usercfg = plutils.readlines(RAME.config.settings_path..ramecfg_txt) or {""}
 
 	-- If rameAutodetect resolution REMOVING forced resolution config
 	if args.resolution == "rameAutodetect" then
@@ -420,7 +420,7 @@ function Plugin.init()
 	local ok, conf = SETTINGS.GET.system()
 	if ok == 200 then activate_config(conf) end
 
-	local conf = json.decode(RAME.read_settings_file(settings_json))
+	local conf = json.decode(RAME.read_settings_file(settings_json) or "")
 	if check_fields(conf, settings_fields) == 200 then
 		RAME.settings = conf
 	end
