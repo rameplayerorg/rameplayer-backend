@@ -155,7 +155,7 @@ function RAME.rest.status(ctx, reply)
 			name = item and (item.filename or item.uri),
 			parentId = item and item.parent and item.parent.id,
 		},
-		player = #player > 0 and player or nil,
+		player = next(player) and player,
 	}
 end
 
