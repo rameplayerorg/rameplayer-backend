@@ -30,8 +30,7 @@ local function media_changed(name, mountpoint, mounted)
 		local item = Item.new{title=name, uri="file:///"..mountpoint}
 		items[name] = item
 		RAME.root:add(item)
-		local autoplay=true
-		if autoplay then
+		if RAME.settings.autoplayUsb then
 			item:expand()
 			if #item.items > 0 then
 				RAME:set_cursor(item.items[1].id)

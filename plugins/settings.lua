@@ -8,6 +8,7 @@ local process = require 'cqp.process'
 local RAME = require 'rame.rame'
 
 local ramecfg_txt = "ramecfg.txt"
+local settings_json = "settings.json"
 
 local function revtable(tbl)
 	local rev={}
@@ -17,13 +18,13 @@ end
 
 -- from the end backwards
 function ripairs(t)
-  local function ripairs_it(t,i)
-    i=i-1
-    local v=t[i]
-    if v==nil then return v end
-    return i,v
-  end
-  return ripairs_it, t, #t+1
+	local function ripairs_it(t,i)
+		i=i-1
+		local v=t[i]
+		if v==nil then return v end
+		return i,v
+	end
+	return ripairs_it, t, #t+1
 end
 
 --  valid IPv4 subnet masks
@@ -65,6 +66,7 @@ local omxplayer_audio_outs = {
 }
 
 local function check_fields(data, schema)
+	if type(data) ~= "table" then return 422, "input missing" end
 	for _, field in ipairs(schema) do
 		if data[field] == nil then
 			return 422, "missing required parameter: "..field
@@ -89,21 +91,28 @@ end
 local SETTINGS = { GET = {}, POST = {} }
 
 function SETTINGS.GET.user(ctx, reply)
-	local conf = {
-		autoplayUsb = RAME.config.autoplay_usb()
-	}
-
-	return 200, conf
+	return 200, RAME.settings
 end
+
+local settings_fields = {"autoplayUsb"}
 
 function SETTINGS.POST.user(ctx, reply)
 	local args = ctx.args
 	local err, msg
 
-	err, msg = check_fields(args, {"autoplayUsb"})
+	-- Validate and deep copy the settings
+	err, msg = check_fields(args, settings_fields)
 	if err then return err, msg end
+	local c = {}
+	for _, key in ipairs(settings_fields) do
+		c[key] = args[key]
+	end
 
-	RAME.config.autoplay_usb(args.autoplayUsb)
+	-- Write and activate new settings
+	if not RAME.write_settings_file(settings_json, json.encode(c)) then
+		return 500, "file write error"
+	end
+	RAME.settings = c
 	return 200
 end
 
@@ -410,6 +419,11 @@ local Plugin = {}
 function Plugin.init()
 	local ok, conf = SETTINGS.GET.system()
 	if ok == 200 then activate_config(conf) end
+
+	local conf = json.decode(RAME.read_settings_file(settings_json))
+	if check_fields(conf, settings_fields) == 200 then
+		RAME.settings = conf
+	end
 
 	RAME.rest.settings = function(ctx, reply) return ctx:route(reply, SETTINGS) end
 	RAME.rest.version = function(ctx, reply) return ctx:route(reply, VERSION) end

@@ -14,7 +14,9 @@ local RAME = {
 	config = {
 		settings_path = "/media/mmcblk0p1/user/",
 		omxplayer_audio_out = "hdmi",
-		autoplay_usb = push.property(false, "Play's USB automatically"),
+	},
+	settings = {
+		autoplayUsb = false,
 	},
 	system = {
 		ip = push.property("0.0.0.0", "Current IP-address"),
