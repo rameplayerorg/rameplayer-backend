@@ -30,8 +30,7 @@ local function media_changed(name, mountpoint, mounted)
 		local item = Item.new{title=name, uri="file:///"..mountpoint}
 		items[name] = item
 		RAME.root:add(item)
-		local autoplay=true
-		if autoplay then
+		if RAME.settings.autoplayUsb then
 			item:expand()
 			if #item.items > 0 then
 				RAME:set_cursor(item.items[1].id)
@@ -49,7 +48,7 @@ function Plugin.active()
 end
 
 function Plugin.init()
-	local path = RAME.config.settings_path .. "media"
+	local path = "/media/mmcblk0p1/media"
 	if plpath.exists(path) then
 		RAME.rame:add(Item.new({id="internal", title="Internal", uri="file:///"..path}))
 	end

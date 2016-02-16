@@ -1,6 +1,7 @@
 local cqueues = require 'cqueues'
 local pldir = require 'pl.dir'
 local plpath = require 'pl.path'
+local plfile = require 'pl.file'
 local push = require 'cqp.push'
 local process = require 'cqp.process'
 local condition = require 'cqueues.condition'
@@ -11,9 +12,11 @@ local RAME = {
 	version = "development",
 	running = true,
 	config = {
-		settings_path = "/media/mmcblk0p1/",
+		settings_path = "/media/mmcblk0p1/user/",
 		omxplayer_audio_out = "hdmi",
-		autoplay_usb = push.property(false, "Play's USB automatically"),
+	},
+	settings = {
+		autoplayUsb = false,
 	},
 	system = {
 		ip = push.property("0.0.0.0", "Current IP-address"),
@@ -176,6 +179,22 @@ function RAME.main()
 			end
 		end
 	end
+end
+
+function RAME.read_settings_file(file)
+	return plfile.read(RAME.config.settings_path..file)
+end
+
+function RAME.write_settings_file(file, data)
+	process.run("mount", "-o", "remount,rw", "/media/mmcblk0p1")
+	local ok = plfile.write(RAME.config.settings_path..file, data)
+	process.run("mount", "-o", "remount,ro", "/media/mmcblk0p1")
+	return ok
+end
+
+function RAME.commit_overlay()
+	process.run("lbu", "commit", "-d")
+	return true
 end
 
 return RAME
