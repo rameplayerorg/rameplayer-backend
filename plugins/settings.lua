@@ -421,7 +421,7 @@ function Plugin.init()
 	if ok == 200 then activate_config(conf) end
 
 	local conf = json.decode(RAME.read_settings_file(settings_json) or "")
-	if check_fields(conf, settings_fields) == 200 then
+	if check_fields(conf, settings_fields) == nil then
 		RAME.settings = conf
 	end
 
