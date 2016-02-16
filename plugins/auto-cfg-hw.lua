@@ -21,6 +21,7 @@ function Plugin.init()
 	local config = RAME.config.settings_path.."ramehw.txt"
 
 	local ramehw = {}
+	table.insert(ramehw, "# NOTE: This file is auto-generated and overwritten")
 	if plpath.exists("/proc/device-tree/rame/eeprom-cids") then
 		local cids, cid = {}
 		local str = plfile.read("/proc/device-tree/rame/eeprom-cids") or ""
