@@ -13,50 +13,42 @@ local Plugin = {}
 -- check will the mount fail or not
 function write_file_sd(file, data)
 	process.run("mount", "-o", "remount,rw", "/media/mmcblk0p1")
-	local status = plfile.write(file, data)
+	plfile.write(file, data)
 	process.run("mount", "-o", "remount,ro", "/media/mmcblk0p1")
-
-	if not status then return nil, "file write failed" else return end
 end
 
--- one time (1st boot) operation only
 function Plugin.init()
-	if not plpath.exists(RAME.config.settings_path.."ramehw.txt") then
-		local ramehw = {}
+	local config = RAME.config.settings_path.."ramehw.txt"
 
-		if plpath.exists("/proc/device-tree/rame/eeprom-cids") then
-			local str, cid
-			local cids = {}
-	 		str = plfile.read("/proc/device-tree/rame/eeprom-cids")
+	local ramehw = {}
+	if plpath.exists("/proc/device-tree/rame/eeprom-cids") then
+		local cids, cid = {}
+		local str = plfile.read("/proc/device-tree/rame/eeprom-cids") or ""
 
-			-- extract numbers from string into array
-	 		for cid in str:gmatch("%d+") do cids[#cids+1] = cid end
+		-- extract numbers from string into table
+		for cid in str:gmatch("%d+") do cids[cid] = true end
 
-			-- replace dts with correct dir
-			for _, _, files in pldir.walk("/media/mmcblk0p1/overlays") do
-				for i, val in pairs(files) do
-					for _, val2 in pairs(cids) do
-						if val2 == val:match("rame%-cid(%d)") then
-							--print(i, val)
-							table.insert(ramehw, "dtoverlay=" ..
-										val:match("(rame%-cid%d[^.]+)"))
-						end
-					end
-				end
+		-- replace dts with correct dir
+		for _, file in ipairs(pldir.getfiles("/media/mmcblk0p1/overlays", "rame-cid*.dtb")) do
+			if cids[file:match("rame%-cid(%d)")] then
+				table.insert(ramehw, "dtoverlay=" ..
+					file:match("(rame%-cid%d[^.]+)"))
 			end
-		else
-			--print("no eeprom-cids found")
-			table.insert(ramehw, "#No additional HW components detected")
 		end
-
-		if write_file_sd(RAME.config.settings_path.."ramehw.txt",
-			table.concat(ramehw, "\n")) then
-			-- automatic reboot here
-			--process.run("reboot", "now")
-			-- Signal the user that reboot is required
-			RAME.system.reboot_required(true)
-		end
+	else
+		--print("no eeprom-cids found")
+		table.insert(ramehw, "# No additional HW components detected")
 	end
+
+	local oldcfg = plfile.read(config)
+	local newcfg = table.concat(ramehw, "\n").."\n"
+	if oldcfg == newcfg then return end
+
+	write_file_sd(config, newcfg)
+	-- automatic reboot here
+	--process.run("reboot", "now")
+	-- Signal the user that reboot is required
+	RAME.system.reboot_required(true)
 end
 
 return Plugin
