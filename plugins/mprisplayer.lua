@@ -73,17 +73,19 @@ function Plugin.control.omxplay(uri)
 	table.insert(cmd, uri)
 	Plugin.process = process.spawn(table.unpack(cmd))
 	cqueues.running():wrap(Plugin.control.status_update)
-	Plugin.process:wait()
+	local status = Plugin.process:wait()
 	Plugin.process = nil
 	Plugin.control.cond:wait()
+	return status == 0
 end
 
 function Plugin.control.vlcplay(uri)
 	Plugin.process = process.spawn("vlc", "--control", "dbus", "--intf", "dummy", uri)
 	cqueues.running():wrap(Plugin.control.status_update)
-	Plugin.process:wait()
+	local status = Plugin.process:wait()
 	Plugin.process = nil
 	Plugin.control.cond:wait()
+	return status == 0
 end
 
 function Plugin.control.stop()
@@ -94,10 +96,12 @@ end
 
 function Plugin.control.seek(pos)
 	Plugin.mpris:SetPosition("/", pos * 1000000)
+	return true
 end
 
 function Plugin.control.pause()
 	Plugin.mpris:PlayPause()
+	return true
 end
 
 function Plugin.active()

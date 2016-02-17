@@ -117,12 +117,7 @@ end
 local CURSOR = {}
 
 function CURSOR.PUT(ctx, reply)
-	if RAME.player.status() ~= "stopped" then return 400 end
-	local id = ctx.args.id
-	local item = Item.find(id)
-	if item == nil then return 404 end
-	RAME.player.cursor(id)
-	return 200
+	return RAME:action("set_cursor", ctx.args.id)
 end
 
 -- REST API: /status/
@@ -163,51 +158,29 @@ end
 local PLAYER = { GET = {}, POST = {} }
 
 function PLAYER.GET.play(ctx, reply)
-	return delayed(function()
-		return RAME:action("play") and 200 or 400
-	end, ctx.args.delay)
+	return RAME:action("play", nil, tonumber(ctx.args.pos))
 end
 
 function PLAYER.GET.stop(ctx, reply)
-	return delayed(function()
-		return RAME:action("stop") and 200 or 400
-	end, ctx.args.delay)
+	return RAME:action("stop")
 end
 
 PLAYER.GET["step-forward"] = function(ctx, reply)
-	return RAME:action("next", RAME.player.__autoplay) and 200 or 400
+	return RAME:action("next")
 end
 
 PLAYER.GET["step-backward"] = function(ctx, reply)
-	return RAME:action("prev", RAME.player.__autoplay) and 200 or 400
+	return RAME:action("prev")
 end
 
 function PLAYER.GET.pause(ctx, reply)
-	return delayed(function()
-		if not RAME.player.control or not RAME.player.control.pause then return 400 end
-		return RAME.player.control.pause() and 200 or 400
-	end, ctx.args.delay)
+	return RAME:action("pause")
 end
 
 function PLAYER.GET.seek(ctx, reply)
-	return delayed(function()
-		if not RAME.player.control or not RAME.player.control.seek then return 400 end
-		local pos = tonumber(ctx.paths[ctx.path_pos])
-		if pos == nil then return 500 end
-		return RAME.player.control.seek(pos) and 200 or 400
-	end, ctx.args.delay)
-end
-
-function delayed(func, delay)
-	if delay then
-		cqueues.running():wrap(function()
-			cqueues.sleep(delay)
-			func()
-		end)
-		return 200
-	else
-		return func()
-	end
+	local pos = tonumber(ctx.paths[ctx.path_pos])
+	if pos == nil then return 500 end
+	return RAME:action("seek", nil, pos)
 end
 
 function Plugin.early_init()

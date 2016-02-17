@@ -79,30 +79,72 @@ function RAME:hook(hook, ...)
 	return ret
 end
 
-function RAME:__trigger(item_id, autoplay)
-	print("Player: requested to play: " .. item_id)
-	self.player.__next_item_id = item_id
-	self.player.__autoplay = autoplay and true or false
-	self.player.__trigger = -1
-	self.player.control.stop()
-	return true
-end
+-- commands:
+--   autoplay with item_id
+--   set_cursor with item_id
+--   play (with delay)
+--   seek (with negative offset)
+--   pause, stop, next, prev
 
-function RAME:set_cursor(id)
-	self:__trigger(id, true)
-end
+function RAME:action(command, item_id, pos)
+	local status = RAME.player.status()
 
-function RAME:action(id, autoplay)
-	if id == "play" then
-		local s = RAME.player.status()
-		if s == "paused" or s == "playing" then
-			self.player.control.pause()
-			return
-		elseif s ~= "stopped" then
-			return
+	if command == "seek" then
+		if status == "stopped" then return 400 end
+		if pos == nil then return 400 end
+		if pos < 0 then
+			-- Kill player and go to waiting state
+			self.player.__wait = math.abs(pos)
+			self.player.control.stop()
+			return 200
+		end
+		if self.player.control and self.player.control.seek then
+			return self.player.control.seek(pos) and 200 or 400
+		end
+		return 400
+	end
+
+	if command == "stop" then
+		self.player.__playing = false
+		self.player.__autoplay = false
+		if status ~= "stopped" and self.player.control and self.player.control.stop then
+			self.player.control.stop()
+		end
+		return 200
+	end
+
+	if command == "play" and status == "paused" then
+		if self.player.control and self.player.control.pause then
+			return self.player.control.pause() and 200 or 400
+		end
+		return 400
+	end
+
+	if status ~= "stopped" then return 400 end
+	if command == "set_cursor" and not item_id then return 404 end
+	if item_id and Item.find(item_id) == nil then return 404 end
+
+	if command == "next" or command == "prev" then
+		local item, cursor_id = Item.find(self.player.cursor()), nil
+		if not item then return 404 end
+		item = item:navigate(request_id == "prev")
+		item_id = item.id
+	end
+
+	if item_id then RAME.player.cursor(item_id) end
+
+	if command == "autoplay" or command == "play" then
+		print("Player: sending " .. command .. " command, cursor " .. self.player.cursor())
+		self.player.__autoplay = (command == "autoplay")
+		self.player.__playing = true
+		if pos and pos < 0 then self.player.__wait = -pos end
+		-- This kills the idle player to wake up idle thread
+		if self.player.control and self.player.control.stop then
+			self.player.control.stop()
 		end
 	end
-	self:__trigger(id, autoplay)
+
+	return 200
 end
 
 function RAME.idle_controls.play()
@@ -118,65 +160,58 @@ function RAME.main()
 	cqueues.running():wrap(Item.scanner)
 
 	while true do
-		-- If cursor changed or play/stop requested
-		local play_requested, wrapped = false, false
-		local cursor_id  = self.player.cursor()
-		local request_id = self.player.__next_item_id or "next"
-		local item
-
-		if request_id == "next" or request_id == "prev" then
-			item, cursor_id = Item.find(cursor_id), nil
-			if item then
-				item, wrapped = item:navigate(request_id == "prev")
-				cursor_id = item.id
-				play_requested = self.player.__autoplay
-			end
-			if wrapped then
-				local r = RAME.player.__repeat or 0
-				play_requested = r ~= 0 and play_requested
-				if r >= 1 then
-					self.player.__repeat = r - 1
-				end
-			end
-		elseif request_id == "stop" then
-			play_requested = false
-		elseif request_id == "play" then
-			item = Item.find(cursor_id)
-			play_requested = true
-		else
-			cursor_id = request_id
-			item = Item.find(cursor_id)
-			play_requested = self.player.__autoplay
-		end
-
 		-- Start process matching current state
-		print("Play", cursor_id, item)
-		self.player.__next_item_id = nil
-		self.player.cursor(cursor_id or "")
+		local move_next = true
+		local item = Item.find(self.player.cursor())
 		self.player.position(0)
 		self.player.duration(0)
 
-		if item or not play_requested then
-			local uri, control
-			if play_requested then
-				uri = item.uri
-				control = RAME.players:resolve(uri)
-				self.player.status("buffering")
-			else
-				uri = self.idle_uri
-				control = RAME.players:resolve(uri)
-				       or RAME.idle_controls
-				self.player.status("stopped")
+		-- item or idle url to play?
+		local uri, control
+		if item and self.player.__playing then
+			uri = item.uri
+			control = RAME.players:resolve(uri)
+			self.player.status("buffering")
+		else
+			uri = self.idle_uri
+			control = RAME.players:resolve(uri)
+			       or RAME.idle_controls
+			self.player.__wait = nil
+			self.player.status("stopped")
+		end
+
+		if control and self.player.__playing and self.player.__wait then
+			while self.player.__playing and self.player.__wait > 0 do
+				self.player.status("waiting")
+				self.player.position(-self.player.__wait)
+				local d = math.min(0.1, self.player.__wait)
+				cqueues.sleep(d)
+				self.player.__wait = self.player.__wait - d
 			end
-			if control then
-				print("Playing", uri)
-				if item then item.on_delete = function() return RAME:__trigger("") end end
-				RAME.player.control = control
-				RAME.player.control.play(uri)
-				RAME.player.control = nil
-				if item then item.on_delete = nil end
-				print("Stopped", uri)
+			self.player.__wait = nil
+
+			-- stopped while waiting?
+			if not self.player.__playing then
+				control = nil
+				move_next = false
 			end
+		end
+
+		if control then
+			print("Playing", uri, control, item)
+			if item then item.on_delete = function() return RAME:action("stop") end end
+			RAME.player.control = control
+			move_next = RAME.player.control.play(uri)
+			RAME.player.control = nil
+			if item then item.on_delete = nil end
+			print("Stopped", uri)
+		end
+
+		-- Move cursor to next item if playback stopped normally
+		if item and move_next then
+			item = item:navigate()
+			self.player.cursor(item.id)
+			self.player.__playing = self.player.__autoplay
 		end
 	end
 end

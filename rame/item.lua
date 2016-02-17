@@ -126,7 +126,9 @@ function Item:navigate(backwards)
 		if ndx < 1 then ndx, wrapped = #parent.items, true
 		elseif ndx > #parent.items then ndx, wrapped = 1, true end
 		item = parent.items[ndx]
-		if item.uri then return item, wrapped end
+		if item.uri and item.type == "regular" then
+			return item, wrapped
+		end
 	end
 
 	return self, true

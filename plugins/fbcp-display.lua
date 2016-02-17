@@ -30,7 +30,7 @@ function Plugin.main()
 	RAME.player.cursor:push_to(update)
 	RAME.system.ip:push_to(update)
 
-	--S:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering)
+	--S:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering/waiting)
 	--T:a,b
 	--X[12]:text
 	--P:0-1000 (progress)
@@ -38,6 +38,7 @@ function Plugin.main()
 		playing = 2,
 		paused = 3,
 		buffering = 5,
+		waiting = 5,
 	}
 	local out = process.popenw(fbcputil)
 	while true do
@@ -52,7 +53,7 @@ function Plugin.main()
 
 		if status_id > 0 then
 			out:write(("X1:%s\n"):format(filename))
-			local position = RAME.player.position()
+			local position = math.abs(RAME.player.position())
 			local duration = RAME.player.duration()
 			if duration > 0 then
 				out:write(("T:%.0f,%.0f\n"):format(position * 1000, duration * 1000))
