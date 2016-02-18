@@ -161,8 +161,23 @@ function RAME.wait_controls.pause()
 	return true
 end
 
+local function on_cursor_change(item_id)
+	if RAME.cursor_item then
+		RAME.cursor_item.on_delete = nil
+	end
+	local item = Item.find(item_id)
+	if item then
+		item.on_delete = function()
+			RAME:action("stop")
+			RAME.player.cursor("")
+		end
+	end
+	RAME.cursor_item = item
+end
+
 function RAME.main()
 	local self = RAME
+	self.player.cursor:push_to(on_cursor_change)
 	cqueues.running():wrap(Item.scanner)
 
 	while true do
@@ -209,15 +224,9 @@ function RAME.main()
 
 		if control then
 			print("Playing", uri, control, item)
-			if item then
-				item.on_delete = function()
-					return self:action("stop")
-				end
-			end
 			self.player.control = control
 			move_next = RAME.player.control.play(uri)
 			self.player.control = nil
-			if item then item.on_delete = nil end
 			print("Stopped", uri)
 		end
 
