@@ -162,8 +162,6 @@ function SETTINGS.GET.system(ctx, reply)
 	return 200, conf
 end
 
--- todo add support for IP settings
--- these settings require reboot which is not implemented
 function SETTINGS.POST.system(ctx, reply)
 	local args = ctx.args
 	local err, msg, i, cidr_prefix
