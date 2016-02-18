@@ -39,6 +39,7 @@ local RAME = {
 	idle_controls = {
 		cond = condition.new(),
 	},
+	wait_controls = {},
 	players = UrlMatch.new(),
 }
 
@@ -155,6 +156,11 @@ function RAME.idle_controls.stop()
 	RAME.idle_controls.cond:signal()
 end
 
+function RAME.wait_controls.pause()
+	RAME.player.status((RAME.player.status() == "waiting") and "paused" or "waiting")
+	return true
+end
+
 function RAME.main()
 	local self = RAME
 	cqueues.running():wrap(Item.scanner)
@@ -181,13 +187,17 @@ function RAME.main()
 		end
 
 		if control and self.player.__playing and self.player.__wait then
+			self.player.status("waiting")
+			self.player.control = self.wait_controls
 			while self.player.__playing and self.player.__wait > 0 do
-				self.player.status("waiting")
 				self.player.position(-self.player.__wait)
 				local d = math.min(0.1, self.player.__wait)
 				cqueues.sleep(d)
-				self.player.__wait = self.player.__wait - d
+				if self.player.status() == "waiting" then
+					self.player.__wait = self.player.__wait - d
+				end
 			end
+			self.player.control = nil
 			self.player.__wait = nil
 
 			-- stopped while waiting?
@@ -199,10 +209,14 @@ function RAME.main()
 
 		if control then
 			print("Playing", uri, control, item)
-			if item then item.on_delete = function() return RAME:action("stop") end end
-			RAME.player.control = control
+			if item then
+				item.on_delete = function()
+					return self:action("stop")
+				end
+			end
+			self.player.control = control
 			move_next = RAME.player.control.play(uri)
-			RAME.player.control = nil
+			self.player.control = nil
 			if item then item.on_delete = nil end
 			print("Stopped", uri)
 		end
