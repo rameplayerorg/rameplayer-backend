@@ -113,7 +113,7 @@ function RAME:action(command, item_id, pos)
 		return 200
 	end
 
-	if command == "play" and status == "paused" then
+	if command == "pause" or (command == "play" and status == "paused") then
 		if self.player.control and self.player.control.pause then
 			return self.player.control.pause() and 200 or 400
 		end
