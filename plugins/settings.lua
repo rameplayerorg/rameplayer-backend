@@ -65,11 +65,37 @@ local omxplayer_audio_outs = {
 	rameHdmiAndAnalog = "both",
 }
 
+local function check_hostname(value)
+	if type(value) ~= "string" then return false end
+	if #value < 1 or #value > 63 then return false end
+	return value:match("^[a-zA-Z0-9][-a-zA-Z0-9]*$") ~= nil
+end
+
+local function check_ip(value)
+	if type(value) ~= "string" then return false end
+	return value:match("^%d+%.%d+%.%d+%.%d+$") ~= nil
+end
+
 local function check_fields(data, schema)
 	if type(data) ~= "table" then return 422, "input missing" end
-	for _, field in ipairs(schema) do
-		if data[field] == nil then
+	for field, spec in pairs(schema) do
+		local t = type(spec)
+		if t == "string" then
+			spec = { typeof=spec }
+		elseif t == "function" then
+			spec = { validate=spec }
+		elseif t ~= "table" then
+			return 422, "bad schema: "..field
+		end
+
+		local val = data[field]
+		if val == nil and spec.optional ~= true then
 			return 422, "missing required parameter: "..field
+		end
+		if (spec.typeof and type(val) ~= spec.typeof) or
+		   (spec.validate and not spec.validate(val)) or
+		   (spec.choices and spec.choices[val] == nil) then
+			return 422, "invalid value for parameter: "..field
 		end
 	end
 end
@@ -94,7 +120,9 @@ function SETTINGS.GET.user(ctx, reply)
 	return 200, RAME.settings
 end
 
-local settings_fields = {"autoplayUsb"}
+local settings_fields = {
+	autoplayUsb = "boolean"
+}
 
 function SETTINGS.POST.user(ctx, reply)
 	local args = ctx.args
@@ -104,7 +132,7 @@ function SETTINGS.POST.user(ctx, reply)
 	err, msg = check_fields(args, settings_fields)
 	if err then return err, msg end
 	local c = {}
-	for _, key in ipairs(settings_fields) do
+	for key, spec in pairs(settings_fields) do
 		c[key] = args[key]
 	end
 
@@ -171,14 +199,16 @@ function SETTINGS.POST.system(ctx, reply)
 	local ip_conf = {}
 	local udhcpd_conf = {}
 
-	err, msg = check_fields(args, {"resolution", "audioPort", "ipDhcpClient"})
+	err, msg = check_fields(args, {
+		resolution = {typeof="string",choices=rpi_resolutions},
+		audioPort = {typeof="string",choices=rpi_audio_ports},
+		ipDhcpClient = "boolean",
+		hostname = check_hostname,
+	})
 	if err then return err, msg end
 
 	local rpi_resolution = rpi_resolutions[args.resolution]
-	if not rpi_resolution then return 422, "invalid resolution" end
-
 	local rpi_audio_port = rpi_audio_ports[args.audioPort]
-	if not rpi_audio_port then return 422, "invalid audioPort" end
 
 	-- ramecfg.txt parsing
 	local usercfg = plutils.readlines(RAME.config.settings_path..ramecfg_txt) or {""}
@@ -237,15 +267,13 @@ function SETTINGS.POST.system(ctx, reply)
 	--
 	-- HOSTNAME
 	--
-	if args.hostname then
-		local hostname = plfile.read("/etc/hostname")
-		if hostname and hostname ~= args.hostname.."\n" then
-			hostname = args.hostname.."\n"
-			if not plfile.write("/etc/hostname", hostname) then
-				return 500, "file write error"
-			end
-			commit = true
+	local hostname = plfile.read("/etc/hostname")
+	if hostname and hostname ~= args.hostname.."\n" then
+		hostname = args.hostname.."\n"
+		if not plfile.write("/etc/hostname", hostname) then
+			return 500, "file write error"
 		end
+		commit = true
 	end
 
 	--
@@ -256,12 +284,17 @@ function SETTINGS.POST.system(ctx, reply)
 	if not dhcpcd then return 500, "file read failed" end
 
 	if args.ipDhcpClient == false then
-		err, msg = check_fields(args, {"ipAddress", "ipSubnetMask", "ipDefaultGateway", "ipDnsPrimary", "ipDnsSecondary", "ipDhcpServer"})
+		err, msg = check_fields(args, {
+			ipAddress = check_ip,
+			ipSubnetMask = {typeof="string", choices = ipv4_masks_rev},
+			ipDefaultGateway = check_ip,
+			ipDnsPrimary = check_ip,
+			ipDnsSecondary = check_ip,
+			ipDhcpServer = "boolean",
+		})
 		if err then return err, msg end
 
 		cidr_prefix = ipv4_masks_rev[args.ipSubnetMask]
-		if not cidr_prefix then return 422, "invalid subnet mask" end
-
 		ip_conf = {
 		ip_address = "static ip_address="..args.ipAddress.."/"..cidr_prefix,
 		default_gw = "static routers="..args.ipDefaultGateway,
@@ -302,7 +335,10 @@ function SETTINGS.POST.system(ctx, reply)
 		end
 
 		if args.ipDhcpServer == true then
-			err, msg = check_fields(args, {"ipDhcpRangeStart", "ipDhcpRangeStart"})
+			err, msg = check_fields(args, {
+				ipDhcpRangeStart = check_ip,
+				ipDhcpRangeStart = check_ip,
+			})
 			if err then return err, msg end
 
 			local udhcpd = plutils.readlines("/etc/udhcpd.conf")
