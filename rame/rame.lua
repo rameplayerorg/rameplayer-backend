@@ -23,6 +23,7 @@ local RAME = {
 		hostname = push.property("", "hostname"),
 		reboot_required = push.property(false, "Reboot required"),
 		update_available = push.property(false, "Update available"),
+		headphone_volume = push.property(100, "Headphone volume"),
 	},
 	player = {
 		status   = push.property("stopped", "Playback status"),

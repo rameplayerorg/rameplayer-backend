@@ -120,6 +120,11 @@ function Plugin.early_init()
 	Plugin.dbus = dbus.get_bus()
 	if Plugin.omxplayer then
 		Plugin.use_alsa = plpath.exists("/proc/asound/sndrpiwsp")
+		if Plugin.use_alsa then
+			RAME.system.headphone_volume:push_to(function(val)
+				process.run("amixer", "-Dhw:sndrpiwsp", "--", "sset", "HPOUT1 Digital", ("%.2fdB"):format(64.0*val/100 - 64.0))
+			end)
+		end
 		Plugin.control.play = Plugin.control.omxplay
 		mprissvc = "org.mpris.MediaPlayer2.omxplayer"
 		mprisapi = MprisPlayerDBusAPI_OMX
