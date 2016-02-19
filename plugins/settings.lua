@@ -187,6 +187,12 @@ function SETTINGS.GET.system(ctx, reply)
 		conf.ipDnsPrimary, conf.ipDnsSecondary = entries(dns)
 	end
 
+	--reading the output "date -Iseconds" produces: "2016-02-09T15:36:53+0000"
+	str = "2016-02-09T15:36:53+0000"
+	conf.dateAndTimeInUTC = str:match("%d+-%d+-%d+").." "
+							..str:match("%d+:%d+:%d+")
+	--print(conf.dateAndTimeInUTC)
+
 	return 200, conf
 end
 
@@ -425,6 +431,18 @@ function SETTINGS.POST.system(ctx, reply)
 		end
 		changed = false
 		commit = true
+	end
+
+	-- it would be nice to define ntpServerAddress & dateAndTimeInUTC
+	-- as optional parameter i.g. do check if they exist but don't require
+	--err, msg = check_fields(args, {
+	--	ntpServerAddress = {typeof="string"},
+    --    dateAndTimeInUTC = {typeof="string"},
+	--})
+	--if err then return err, msg end
+
+	if args.dateAndTimeInUTC then
+		process.run("date", "-u", "-s", args.dateAndTimeInUTC)
 	end
 
 	activate_config(args)
