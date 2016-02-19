@@ -170,7 +170,7 @@ function SETTINGS.GET.system(ctx, reply)
 		local ip, cidr = dhcpcd.static_ip_address:match("(%d+.%d+.%d+.%d+)/(%d+)")
 		conf.ipDhcpClient = false
 		conf.ipAddress = ip
-		conf.ipSubnetMask = ipv4_masks[toint(cidr)]
+		conf.ipSubnetMask = ipv4_masks[tonumber(cidr)]
 		conf.ipDefaultGateway = dhcpcd.static_routers
 		conf.ipDnsPrimary, conf.ipDnsSecondary = entries(dhcpcd.static_domain_name_servers)
 	else
@@ -182,7 +182,7 @@ function SETTINGS.GET.system(ctx, reply)
 			if srv then table.insert(dns, srv) end
 		end
 		conf.ipAddress = RAME.system.ip()
-		conf.ipSubnetMask = ipv4_masks[cidr]
+		conf.ipSubnetMask = ipv4_masks[tonumber(cidr)]
 		conf.ipDefaultGateway = routes:match("default via ([0-9.]+) ")
 		conf.ipDnsPrimary, conf.ipDnsSecondary = entries(dns)
 	end
