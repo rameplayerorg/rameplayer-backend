@@ -187,11 +187,7 @@ function SETTINGS.GET.system(ctx, reply)
 		conf.ipDnsPrimary, conf.ipDnsSecondary = entries(dns)
 	end
 
-	--reading the output "date -Iseconds" produces: "2016-02-09T15:36:53+0000"
-	str = "2016-02-09T15:36:53+0000"
-	conf.dateAndTimeInUTC = str:match("%d+-%d+-%d+").." "
-							..str:match("%d+:%d+:%d+")
-	--print(conf.dateAndTimeInUTC)
+	conf.dateAndTimeInUTC = os.date("!%Y-%m-%d %T")
 
 	return 200, conf
 end
