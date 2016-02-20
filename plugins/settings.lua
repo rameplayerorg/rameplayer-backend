@@ -187,8 +187,10 @@ function SETTINGS.GET.system(ctx, reply)
 		conf.ipDnsPrimary, conf.ipDnsSecondary = entries(dns)
 	end
 
-	conf.dateAndTimeInUTC = os.date("!%Y-%m-%d %T")
+	local ntp_server = plfile.read("/etc/ntp.conf")
+	if ntp_server then conf.ntpServerAddress = ntp_server:match("server ([^\n]+)") end
 
+	conf.dateAndTimeInUTC = os.date("!%Y-%m-%d %T")
 	return 200, conf
 end
 
@@ -436,6 +438,17 @@ function SETTINGS.POST.system(ctx, reply)
     --    dateAndTimeInUTC = {typeof="string"},
 	--})
 	--if err then return err, msg end
+
+	if args.ntpServerAddress then
+		local ntp_server = plfile.read("/etc/ntp.conf")
+		local str = "server "..args.ntpServerAddress.."\n"
+		if ntp_server and ntp_server ~= str then
+			if not plfile.write("/etc/ntp.conf", str) then
+				return 500, "file write error"
+			end
+			commit = true
+		end
+	end
 
 	if args.dateAndTimeInUTC then
 		process.run("date", "-u", "-s", args.dateAndTimeInUTC)
