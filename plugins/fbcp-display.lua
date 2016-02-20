@@ -29,16 +29,24 @@ function Plugin.main()
 	RAME.player.status:push_to(update)
 	RAME.player.cursor:push_to(update)
 	RAME.system.ip:push_to(update)
+	RAME.system.reboot_required:push_to(update)
 
 	--S:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering/waiting)
 	--T:a,b
 	--X[12]:text
 	--P:0-1000 (progress)
+	--V:0(disabled), 1(enabled) -- video cloning
 	local statmap = {
 		playing = 2,
 		paused = 3,
 		buffering = 5,
-		waiting = 5,
+		waiting = 6,
+	}
+	local vidmap = {
+		playing = 1,
+		paused = 1,
+		buffering = 0,
+		waiting = 0,
 	}
 	local out = process.popenw(fbcputil)
 	while true do
@@ -46,13 +54,19 @@ function Plugin.main()
 
 		local status = RAME.player.status()
 		local status_id = statmap[status] or 0
-		out:write(("S:%d\n"):format(status_id))
+		local video_enabled = vidmap[status] or 0
+		out:write(("S:%d\nV:%d\n"):format(status_id, video_enabled))
+
+		local reboot_required = RAME.system.reboot_required() and true or nil
+		if reboot_required then
+			out:write("X3:‼ Restart Pending...\n")
+		end
 
 		local item = Item.find(RAME.player.cursor())
 		local filename = item and item.filename or ""
 
 		if status_id > 0 then
-			out:write(("X1:%s\n"):format(filename))
+			out:write(("X6:%s\n"):format(filename))
 			local position = math.abs(RAME.player.position())
 			local duration = RAME.player.duration()
 			if duration > 0 then
@@ -62,7 +76,7 @@ function Plugin.main()
 				out:write(("T:%.0f\nP:0\n"):format(position * 1000))
 			end
 		else
-			out:write(("S:0\nX1:%s\nX2:IP %s\nP:0\n"):format(filename, RAME.system.ip()))
+			out:write(("S:0\nX6:%s\nX7:IP %s\nP:0\n"):format(filename, RAME.system.ip()))
 		end
 
 		if not pending then cond:wait() end
