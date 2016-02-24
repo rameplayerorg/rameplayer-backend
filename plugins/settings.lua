@@ -101,6 +101,7 @@ local function check_fields(data, schema)
 end
 
 local function activate_config(conf)
+	RAME.system.hostname(conf.hostname)
 	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[conf.audioPort]
 end
 
