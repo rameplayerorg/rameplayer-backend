@@ -30,6 +30,7 @@ function Plugin.main()
 	RAME.player.cursor:push_to(update)
 	RAME.system.ip:push_to(update)
 	RAME.system.reboot_required:push_to(update)
+	RAME.system.hostname:push_to(update)
 
 	--S:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering/waiting)
 	--T:a,b
@@ -57,9 +58,15 @@ function Plugin.main()
 		local video_enabled = vidmap[status] or 0
 		out:write(("S:%d\nV:%d\n"):format(status_id, video_enabled))
 
+		local hostname = RAME.system.hostname() or nil
+		if hostname then
+			out:write(("X1:%s\n"):format(hostname))
+		end
+		out:write(("X2:IP %s\n"):format(RAME.system.ip()))
+
 		local reboot_required = RAME.system.reboot_required() and true or nil
 		if reboot_required then
-			out:write("X3:‼ Restart Pending...\n")
+			out:write("X4:‼ Restart Pending...\n")
 		end
 
 		local item = Item.find(RAME.player.cursor())
@@ -76,7 +83,7 @@ function Plugin.main()
 				out:write(("T:%.0f\nP:0\n"):format(position * 1000))
 			end
 		else
-			out:write(("S:0\nX6:%s\nX7:IP %s\nP:0\n"):format(filename, RAME.system.ip()))
+			out:write(("S:4\nX6:%s\nX7:\nP:0\n"):format(filename))
 		end
 
 		if not pending then cond:wait() end
