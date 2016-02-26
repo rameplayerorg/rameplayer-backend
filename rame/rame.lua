@@ -130,7 +130,7 @@ function RAME:action(command, item_id, pos)
 	if command == "next" or command == "prev" then
 		local item, cursor_id = Item.find(self.player.cursor()), nil
 		if not item then return 404 end
-		item = item:navigate(request_id == "prev")
+		item = item:navigate(command == "prev")
 		item_id = item.id
 	end
 
