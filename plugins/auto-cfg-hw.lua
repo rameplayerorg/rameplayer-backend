@@ -1,6 +1,7 @@
 local plfile = require 'pl.file'
 local plpath = require 'pl.path'
 local pldir = require "pl.dir"
+local plutils = require "pl.utils"
 local process = require 'cqp.process'
 local RAME = require 'rame.rame'
 
@@ -8,8 +9,11 @@ local ramehw_txt = "ramehw.txt"
 local Plugin = {}
 
 function Plugin.init()
-	local ramehw = {}
-	table.insert(ramehw, "# NOTE: This file is auto-generated and overwritten")
+	local updated = false
+	local ramehw = plutils.readlines(RAME.config.settings_path..ramehw_txt) or {}
+	if next(ramehw) == nil then
+		table.insert(ramehw, "# NOTE: This file is auto-updated")
+	end
 	if plpath.exists("/proc/device-tree/rame/eeprom-cids") then
 		local cids, cid = {}
 		local str = plfile.read("/proc/device-tree/rame/eeprom-cids") or ""
@@ -17,27 +21,34 @@ function Plugin.init()
 		-- extract numbers from string into table
 		for cid in str:gmatch("%d+") do cids[cid] = true end
 
-		-- replace dts with correct dir
+		-- find matches between eeprom cids and available rame dtb overlays
 		for _, file in ipairs(pldir.getfiles("/media/mmcblk0p1/overlays", "rame-cid*.dtb")) do
 			if cids[file:match("rame%-cid(%d)")] then
-				table.insert(ramehw, "dtoverlay=" ..
-					file:match("(rame%-cid%d[^.]+)"))
+				-- found overlay for cid, check if its dtb is already in ramehw
+				local dtoverlay_entry = "dtoverlay=" ..
+					file:match("(rame%-cid%d[^.]+)")
+				local exists = false
+				for _, ramehw_row in pairs(ramehw) do
+					if ramehw_row == dtoverlay_entry then
+						exists = true
+					end
+				end
+				if not exists then
+					table.insert(ramehw, dtoverlay_entry)
+					updated = true
+				end
 			end
 		end
-	else
-		--print("no eeprom-cids found")
-		table.insert(ramehw, "# No additional HW components detected")
 	end
 
-	local oldcfg = RAME.read_settings_file(ramehw_txt)
-	local newcfg = table.concat(ramehw, "\n").."\n"
-	if oldcfg == newcfg then return end
-
-	RAME.write_settings_file(ramehw_txt, newcfg)
-	-- automatic reboot here
-	--process.run("reboot", "now")
-	-- Signal the user that reboot is required
-	RAME.system.reboot_required(true)
+	if updated then
+		local newcfg = table.concat(ramehw, "\n").."\n"
+		RAME.write_settings_file(ramehw_txt, newcfg)
+		-- automatic reboot here
+		--process.run("reboot", "now")
+		-- Signal the user that reboot is required
+		RAME.system.reboot_required(true)
+	end
 end
 
 return Plugin
