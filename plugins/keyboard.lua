@@ -13,6 +13,7 @@ local actions = {
 	[evdev.KEY_PAUSE] = "pause",
 	[evdev.KEY_PLAY] = "play",
 	[evdev.KEY_STOP] = "stop",
+	[evdev.KEY_MENU] = "menu",
 }
 
 local Plugin = { }

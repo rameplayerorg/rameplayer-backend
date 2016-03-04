@@ -31,6 +31,7 @@ function Plugin.main()
 	RAME.system.ip:push_to(update)
 	RAME.system.reboot_required:push_to(update)
 	RAME.system.hostname:push_to(update)
+	RAME.localui.menu:push_to(update)
 
 	--S:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering/waiting)
 	--T:a,b
@@ -55,7 +56,20 @@ function Plugin.main()
 
 		local status = RAME.player.status()
 		local status_id = statmap[status] or 0
+		local menu = RAME.localui.menu()
 		local video_enabled = vidmap[status] or 0
+
+		local turn_off_menu = false
+		if menu then
+			if video_enabled == 0 then
+				-- In current placeholder implementation state, Rame menu
+				-- button just blinks its led when video is not playing.
+				turn_off_menu = true
+			end
+
+			video_enabled = 0
+		end
+
 		out:write(("S:%d\nV:%d\n"):format(status_id, video_enabled))
 
 		local hostname = RAME.system.hostname() or nil
@@ -84,6 +98,11 @@ function Plugin.main()
 			end
 		else
 			out:write(("S:4\nX6:%s\nX7:\nP:0\n"):format(filename))
+		end
+
+		if turn_off_menu then
+			cqueues.sleep(0.25)
+			RAME.localui.menu(false)
 		end
 
 		if not pending then cond:wait() end

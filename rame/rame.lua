@@ -31,6 +31,9 @@ local RAME = {
 		position = push.property(0, "Active media play position"),
 		duration = push.property(0, "Active media duration"),
 	},
+	localui = {
+		menu = push.property(false, "Local UI menu toggle"),
+	},
 	root = Item.new_list{id="root", title="Root"},
 	rame = Item.new_list{id="rame", filename="rame", title="RAME"},
 	default = Item.new_list{id="default", title="Default playlist", editable=true},
@@ -121,6 +124,10 @@ function RAME:action(command, item_id, pos)
 			return self.player.control.pause() and 200 or 400
 		end
 		return 400
+	end
+
+	if command == "menu" then
+		self.localui.menu(not self.localui.menu())
 	end
 
 	if status ~= "stopped" then return 400 end
