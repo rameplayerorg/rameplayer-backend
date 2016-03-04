@@ -22,6 +22,7 @@ function Plugin.main()
 			if vol <= 0 then vol = 0 end
 			if vol >= 100 then vol = 100 end
 			RAME.system.headphone_volume(vol)
+			RAME.localui.rotary_flag(true)
 		end
 	end
 end

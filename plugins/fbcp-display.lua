@@ -31,7 +31,9 @@ function Plugin.main()
 	RAME.system.ip:push_to(update)
 	RAME.system.reboot_required:push_to(update)
 	RAME.system.hostname:push_to(update)
+	RAME.system.headphone_volume:push_to(update)
 	RAME.localui.menu:push_to(update)
+	RAME.localui.rotary_flag:push_to(update)
 
 	--S:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering/waiting)
 	--T:a,b
@@ -51,6 +53,8 @@ function Plugin.main()
 		waiting = 0,
 	}
 	local out = process.popenw(fbcputil)
+	local hold_volume_display_until_time = 0
+
 	while true do
 		pending = false
 
@@ -86,20 +90,53 @@ function Plugin.main()
 		local item = Item.find(RAME.player.cursor())
 		local filename = item and item.filename or ""
 
-		if status_id > 0 then
-			out:write(("X6:%s\n"):format(filename))
-			local position = math.abs(RAME.player.position())
-			local duration = RAME.player.duration()
-			if duration > 0 then
-				out:write(("T:%.0f,%.0f\n"):format(position * 1000, duration * 1000))
-				out:write(("P:%.0f\n"):format(position / duration * 1000))
+		local showing_volume = false
+
+		out:write(("X6:%s\n"):format(filename))
+
+		-- If rotary has just been turned, show Volume info
+		if RAME.localui.rotary_flag() then
+			local volume = RAME.system.headphone_volume()
+			hold_volume_display_until_time = cqueues.monotime() + 1.5
+			out:write(("X7:Headp. volume: %d%%\n"):format(volume))
+			RAME.localui.rotary_flag(false)
+		end
+		if hold_volume_display_until_time ~= 0 then
+			if cqueues.monotime() < hold_volume_display_until_time then
+				pending = true
+				showing_volume = true
 			else
-				out:write(("T:%.0f\nP:0\n"):format(position * 1000))
+				hold_volume_display_until_time = 0
 			end
-		else
-			out:write(("S:4\nX6:%s\nX7:\nP:0\n"):format(filename))
 		end
 
+		-- Default status for 2 last rows: filename, status icon and play time info
+		if status_id > 0 then
+			local position = math.abs(RAME.player.position())
+			local duration = RAME.player.duration()
+			-- progress:
+			if duration > 0 then
+				out:write(("P:%.0f\n"):format(position / duration * 1000))
+			else
+				out:write("P:0\n")
+			end
+			-- times (when not showing volume)
+			if not showing_volume then
+				if duration > 0 then
+					out:write(("T:%.0f,%.0f\n"):format(position * 1000, duration * 1000))
+				else
+					out:write(("T:%.0f\n"):format(position * 1000))
+				end
+			end
+		else
+			-- stopped state, progress 0
+			out:write("S:4\nP:0\n")
+			if not showing_volume then
+				out:write("X7:\n") -- empty last row
+			end
+		end
+
+		-- part of placeholder Rame menu button implementation:
 		if turn_off_menu then
 			cqueues.sleep(0.25)
 			RAME.localui.menu(false)
@@ -107,7 +144,7 @@ function Plugin.main()
 
 		if not pending then cond:wait() end
 		-- Aggregate further changes before updating the screen
-		cqueues.poll(0.01)
+		cqueues.poll(0.02)
 	end
 end
 

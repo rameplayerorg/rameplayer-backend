@@ -33,6 +33,7 @@ local RAME = {
 	},
 	localui = {
 		menu = push.property(false, "Local UI menu toggle"),
+		rotary_flag = push.property(false, "Rotary notification flag"),
 	},
 	root = Item.new_list{id="root", title="Root"},
 	rame = Item.new_list{id="rame", filename="rame", title="RAME"},
@@ -128,6 +129,11 @@ function RAME:action(command, item_id, pos)
 
 	if command == "menu" then
 		self.localui.menu(not self.localui.menu())
+	end
+
+	if command == "ok" then
+		-- placeholder test functionality for pressing rotary button
+		self.localui.rotary_flag(true)
 	end
 
 	if status ~= "stopped" then return 400 end
