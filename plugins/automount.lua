@@ -39,6 +39,15 @@ local function media_changed(name, mountpoint, mounted)
 			if #item.items > 0 then
 				RAME:action("autoplay", item.items[1].id)
 			end
+		elseif RAME.player.cursor() == "" then
+			-- initialize cursor if it was empty
+			item:expand()
+			for _,i in pairs(item.items) do
+				if i.type == "regular" then
+					RAME.player.cursor(i.id)
+					break
+				end
+			end
 		end
 	end
 end
