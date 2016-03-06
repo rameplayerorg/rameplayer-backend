@@ -40,9 +40,9 @@ end
 --todo implement check_fields() checking
 function UPGRADE.PUT(ctx, reply)
 	print(ctx.args.uri)
-
-	local out = process.popen("/sbin/rame-upgrade-firmware",
-							  srv_url.."/"..ctx.args.uri)
+	srv_path = srv_url.."/"..ctx.args.uri.."/"
+	print(srv_path)
+	local out = process.popen("/sbin/rame-upgrade-firmware", srv_path)
 	str = out:read_all()
 	out:close()
 	print(str)
