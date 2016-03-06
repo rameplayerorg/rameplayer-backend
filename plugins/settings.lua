@@ -115,7 +115,7 @@ end
 
 
 -- REST API: /settings/
-local SETTINGS = { GET = {}, POST = {} }
+local SETTINGS = { GET = {}, POST = {}, PUT = {} }
 
 function SETTINGS.GET.user(ctx, reply)
 	return 200, RAME.settings
@@ -461,6 +461,11 @@ function SETTINGS.POST.system(ctx, reply)
 		RAME.system.reboot_required(true)
 	end
 
+	return 200
+end
+
+function SETTINGS.PUT.reset(ctx, reply)
+	print("doing something really drastic here to wipe out everything ;)")
 	return 200
 end
 
