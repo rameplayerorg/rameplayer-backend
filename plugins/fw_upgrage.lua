@@ -49,7 +49,7 @@ function UPGRADE.PUT(ctx, reply)
 	end
 	print("Upgrade firmware from " .. (uri or "(default location)"))
 
-	if RAME.system.firmware_upgrade() >= 0 then
+	if RAME.system.firmware_upgrade() ~= nil then
 		return 500, "Firmware upgrade already in progress"
 	end
 

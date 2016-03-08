@@ -138,6 +138,7 @@ function RAME.rest.status(ctx, reply)
 	local player = {
 		rebootRequired = RAME.system.reboot_required() and true or nil,
 		updateAvailable = RAME.system.update_available() and true or nil,
+		upgradeProgress = RAME.system.firmware_upgrade(),
 	}
 
 	return 200, {
