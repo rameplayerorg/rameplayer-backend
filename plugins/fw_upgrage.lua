@@ -6,34 +6,37 @@ local RAME = require 'rame.rame'
 
 local UPGRADE = {}
 
-function UPGRADE.GET(ctx, reply)
-	local srv_fw_paths = {}
-	local fws = {}
-	local firmwares = {}
+local function get_rsync_base()
+	local str = plfile.read("/etc/rame-upgrade.conf")
+	if not str then return nil, "file read failed" end
 
-	local out = process.popen("rsync", srv_url)
+	local srv_url, srv_path = str:match('(rsync://[^%/]+)([^"]+)')
+	if srv_url == nil or srv_path == nil then
+		return nil, "rsync server and path parsing failed"
+	end
+	return srv_url
+end
+
+
+function UPGRADE.GET(ctx, reply)
+	local base = get_rsync_base()
+	if not base then return 500, "upgrade server not configured" end
+
+	local out = process.popen("rsync", base)
 	local str = out:read_all()
 	out:close()
 
 	-- firmware path must contain keyword "rameplayer" to be included
-	for v, k in str:gmatch("(rameplayer[^\t]+)\t([^\n]+)") do
-		srv_fw_paths[v]=k
+	local fws = {}
+	for uri, title in str:gmatch("(rameplayer[^\t]+)\t([^\n]+)") do
+		table.insert(fws, {
+			uri = uri,
+			title = title,
+			latest = uri:match("(latest)") and true or nil,
+			stable = uri:match("(stable)") and true or nil,
+		})
 	end
-
-	if next(srv_fw_paths) == nil then
-   		return 500, "parsing of available firmwares failed"
-	end
-
-	for i, v in pairs(srv_fw_paths) do
-		local t = {}
-		t.uri = i
-	 	t.title = v
-		-- firmware path must contain keyword "latest" to identify LATEST rel
-		if i:match("(latest)") ~= nil then t.latest = true end
-		-- firmware path must contain keyword "stable" to identify STABLE rel
-		if i:match("(stable)") ~= nil then t.stable = true end
-		table.insert(fws,t)
-	end
+	if #fws == 0 then return 500, "no available firmwares" end
 
 	return 200, { firmwares = fws }
 end
@@ -41,7 +44,9 @@ end
 --todo implement check_fields() checking
 function UPGRADE.PUT(ctx, reply)
 	local uri = nil
-	if ctx.args then uri = ctx.args.uri end
+	if ctx.args and ctx.args.uri then
+		uri = get_rsync_base() .. "/" .. ctx.args.uri
+	end
 	print("Upgrade firmware from " .. (uri or "(default location)"))
 
 	if RAME.system.firmware_upgrade() >= 0 then
