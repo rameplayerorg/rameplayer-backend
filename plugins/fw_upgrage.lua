@@ -59,7 +59,7 @@ function UPGRADE.PUT(ctx, reply)
 		while true do
 			local data, errmsg, errnum = out:read(1024)
 			if data == nil and errnum == posix.EAGAIN then
-				cqueues.poll(self)
+				cqueues.poll(out)
 			elseif data == nil or #data == 0 then
 				break
 			else
