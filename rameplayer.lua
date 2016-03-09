@@ -61,6 +61,8 @@ end
 
 local function update_ip()
 	local nlfd, err = posix.socket(posix.AF_NETLINK, posix.SOCK_RAW, posix.NETLINK_ROUTE)
+	posix.fcntl(nlfd, posix.F_SETFD, posix.FD_CLOEXEC)
+	posix.fcntl(nlfd, posix.F_SETFL, posix.O_NONBLOCK)
 	posix.bind(nlfd, {family=posix.AF_NETLINK, pid=posix.getpid("pid"), groups=0x440}) --groups=RTMGRP_IPV4_ROUTE|RTMGRP_IPV6_ROUTE
 	local nlsock = posixfd.openfd(nlfd, 'r')
 	local timeout = 0.05
