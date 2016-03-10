@@ -22,6 +22,7 @@ local Plugin = {}
 function Plugin.init()
 	local hat_path = "/proc/device-tree/hat/"
 	local rame_cfg_path = "/proc/device-tree/rame/"
+	local fw_ver_path = "/media/mmcblk0p1/rameversion.txt"
 
 	-- e.g. "Raspberry Pi 2 Model B Rev 1.1" (cleartext hardware model)
 	local hw_base = ""
@@ -89,7 +90,7 @@ function Plugin.init()
 		end
 		--print("rame_cfg_eeprom_cids_id", rame_cfg_eeprom_cids_id)
 
-		if (plpath.exists(rame_cfg_path.."hardware")) then
+		if plpath.exists(rame_cfg_path.."hardware") then
 			rame_cfg_hardware = plfile.read(rame_cfg_path.."hardware"):match("[^\n]+") or ""
 		end
 		--print("rame_cfg_hardware", rame_cfg_hardware)
@@ -106,8 +107,11 @@ function Plugin.init()
 	RAME.version.hardware_cfg(rame_cfg_info)
 
 	-- RAME.version.backend is set on build script
-	local firmware = plfile.read("/media/mmcblk0p1/rameversion.txt") or "?"
-	RAME.version.firmware(firmware:match("[^\n]+"))
+	local firmware = "?"
+	if plpath.exists(fw_ver_path) then
+		firmware = plfile.read(fw_ver_path):match("[^\n]+") or "?"
+	end
+	RAME.version.firmware(firmware)
 
 	local ver_short = ("%s/%X:%X,%s"):format(firmware, rame_cfg_cids_id,
 	                                      rame_cfg_eeprom_cids_id, hw_revision)
