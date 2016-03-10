@@ -10,8 +10,10 @@ local Plugin = {}
 
 function Plugin.init()
 	local updated = false
+	local auto_reboot = false
 	local ramehw = plutils.readlines(RAME.config.settings_path..ramehw_txt) or {}
 	if next(ramehw) == nil then
+		auto_reboot = true
 		table.insert(ramehw, "# NOTE: This file is auto-updated")
 	end
 	if plpath.exists("/proc/device-tree/rame/eeprom-cids") then
@@ -44,10 +46,12 @@ function Plugin.init()
 	if updated then
 		local newcfg = table.concat(ramehw, "\n").."\n"
 		RAME.write_settings_file(ramehw_txt, newcfg)
-		-- automatic reboot here
-		--process.run("reboot", "now")
-		-- Signal the user that reboot is required
-		RAME.system.reboot_required(true)
+		if auto_reboot then
+			process.run("reboot", "now")
+		else
+			-- Signal the user that reboot is required
+			RAME.system.reboot_required(true)
+		end
 	end
 end
 
