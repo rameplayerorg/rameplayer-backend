@@ -32,6 +32,7 @@ function Plugin.main()
 	RAME.system.reboot_required:push_to(update)
 	RAME.system.hostname:push_to(update)
 	RAME.system.headphone_volume:push_to(update)
+	RAME.system.firmware_upgrade:push_to(update)
 	RAME.version.short:push_to(update)
 	RAME.localui.menu:push_to(update)
 	RAME.localui.rotary_flag:push_to(update)
@@ -63,6 +64,7 @@ function Plugin.main()
 		local status_id = statmap[status] or 0
 		local menu = RAME.localui.menu()
 		local video_enabled = vidmap[status] or 0
+		local item, filename
 
 		local turn_off_menu = false
 		if menu then
@@ -73,6 +75,15 @@ function Plugin.main()
 			end
 
 			video_enabled = 0
+		end
+
+		local fw_upgrade = RAME.system.firmware_upgrade()
+		if fw_upgrade ~= nil and type(fw_upgrade) == "number" then
+			if fw_upgrade < 100 then
+				status_id = 5 -- animated "buffering"
+			else
+				status_id = 4 -- stopped
+			end
 		end
 
 		out:write(("S:%d\nV:%d\n"):format(status_id, video_enabled))
@@ -90,12 +101,8 @@ function Plugin.main()
 			out:write("X5:‼ Restart Pending...\n")
 		end
 
-		local item = Item.find(RAME.player.cursor())
-		local filename = item and item.filename or ""
 
 		local showing_volume = false
-
-		out:write(("X6:%s\n"):format(filename))
 
 		-- If rotary has just been turned, show Volume info
 		if RAME.localui.rotary_flag() then
@@ -112,6 +119,28 @@ function Plugin.main()
 				hold_volume_display_until_time = 0
 			end
 		end
+
+
+		if fw_upgrade ~= nil and type(fw_upgrade) == "number" then
+			-- firmware upgrade mode
+			out:write(("P:%d\n"):format(fw_upgrade * 10))
+			if fw_upgrade < 100 then
+				out:write("X6:--- DO NOT TURN OFF! ---\n")
+			else
+				out:write("X6:\n")
+			end
+			if not showing_volume then
+				out:write(("X7:Firmware upg.: %d%%\n"):format(fw_upgrade))
+			end
+			goto update_done -- skip normal update logic
+		end
+
+		-- normal mode
+
+		item = Item.find(RAME.player.cursor())
+		filename = item and item.filename or ""
+
+		out:write(("X6:%s\n"):format(filename))
 
 		-- Default status for 2 last rows: filename, status icon and play time info
 		if status_id > 0 then
@@ -138,6 +167,8 @@ function Plugin.main()
 				out:write("X7:\n") -- empty last row
 			end
 		end
+
+		::update_done::
 
 		-- part of placeholder Rame menu button implementation:
 		if turn_off_menu then
