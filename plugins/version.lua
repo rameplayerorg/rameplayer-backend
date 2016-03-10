@@ -33,6 +33,18 @@ function Plugin.init()
 		RAME.version.hardware(base_board_name)
 	end
 
+	if plpath.exists("/proc/device-tree/rame/") then
+  		local rame_hw_id = 0
+		-- find loaded rame dtb overlays
+		for _, file in ipairs(pldir.getfiles("rame", "cid*")) do
+			print(file)
+			for cid in file:gmatch("%d+") do rame_hw_id = rame_hw_id + (1 << (cid - 1)) end
+			print("rame_hw_id", rame_hw_id)
+		end
+
+		print("rame_hw_id", rame_hw_id)
+	end
+
 	-- RAME.version.backend is set on build script
 	local firmware = plfile.read("/media/mmcblk0p1/rameversion.txt") or ""
 	RAME.version.firmware(firmware:match("[^\n]+"))
