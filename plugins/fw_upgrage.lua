@@ -83,9 +83,6 @@ end
 local Plugin = {}
 
 function Plugin.init()
-	local str = plfile.read("/etc/rame-upgrade.conf")
-	if not str then return nil, "file read failed" end
-
 	RAME.rest.upgrade = function(ctx, reply) return ctx:route(reply, UPGRADE) end
 end
 
