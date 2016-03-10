@@ -469,17 +469,6 @@ function SETTINGS.PUT.reset(ctx, reply)
 	return 200
 end
 
--- REST API: /version/
-local VERSION = {}
-
-function VERSION.GET(ctx, reply)
-	local hw = plfile.read("/sys/firmware/devicetree/base/model") or ""
-	return 200, {
-		hw = hw:sub(1, -2),
-		backend = RAME.version,
-	}
-end
-
 -- Plugin Hooks
 local Plugin = {}
 
@@ -493,7 +482,6 @@ function Plugin.init()
 	end
 
 	RAME.rest.settings = function(ctx, reply) return ctx:route(reply, SETTINGS) end
-	RAME.rest.version = function(ctx, reply) return ctx:route(reply, VERSION) end
 end
 
 return Plugin

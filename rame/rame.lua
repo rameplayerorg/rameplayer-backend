@@ -9,7 +9,11 @@ local Item = require 'rame.item'
 local UrlMatch = require 'rame.urlmatch'
 
 local RAME = {
-	version = "development",
+	version = {
+		backend = push.property("development", "Backend version"),
+		firmware = push.property(nil, "Firmware version"),
+		hardware = push.property(nil, "Hardware version"),
+	},
 	running = true,
 	config = {
 		settings_path = "/media/mmcblk0p1/user/",
