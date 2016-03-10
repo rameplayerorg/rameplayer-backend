@@ -13,6 +13,9 @@ local RAME = {
 		backend = push.property("development", "Backend version"),
 		firmware = push.property(nil, "Firmware version"),
 		hardware = push.property(nil, "Hardware version"),
+		hardware_addon = push.property(nil, "Hardware addon"),
+		hardware_cfg = push.property(nil, "Hardware config"),
+		short = push.property(nil, "Short combined version"), -- for local UI
 	},
 	running = true,
 	config = {

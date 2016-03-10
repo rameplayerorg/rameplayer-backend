@@ -32,6 +32,7 @@ function Plugin.main()
 	RAME.system.reboot_required:push_to(update)
 	RAME.system.hostname:push_to(update)
 	RAME.system.headphone_volume:push_to(update)
+	RAME.version.short:push_to(update)
 	RAME.localui.menu:push_to(update)
 	RAME.localui.rotary_flag:push_to(update)
 
@@ -82,9 +83,11 @@ function Plugin.main()
 		end
 		out:write(("X2:IP %s\n"):format(RAME.system.ip()))
 
+		out:write(("X4:%s\n"):format(RAME.version.short()))
+
 		local reboot_required = RAME.system.reboot_required() and true or nil
 		if reboot_required then
-			out:write("X4:‼ Restart Pending...\n")
+			out:write("X5:‼ Restart Pending...\n")
 		end
 
 		local item = Item.find(RAME.player.cursor())
