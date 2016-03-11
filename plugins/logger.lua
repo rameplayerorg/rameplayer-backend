@@ -1,15 +1,7 @@
 local RAME = require 'rame.rame'
-local syslog = require "posix.syslog"
 
 local LOG = {}
 
--- GLOBAL
-log_levels = {
-	INFO = 6, --LOG_INFO	6
-	DEBUG = 7, --LOG_DEBUG 7
-	WARNING = 4, --LOG_WARNING	4
-	ERROR = 3, --LOG_ERR	3
-}
 
 function LOG.GET(ctx, reply)
 	log_f = io.open("/var/log/messages", "r")
@@ -33,14 +25,13 @@ function LOG.POST(ctx, reply)
 	if err then return err, msg end
 
 	local str = ctx.ip..", "..args.time..", "..args.message.."\n"
-	syslog.syslog(log_levels[args.level],str)
+	RAME.log.level_func[args.level](str)
 	return 200
 end
 
 local Plugin = {}
 
 function Plugin.init()
-	syslog.openlog("RAME")
 	RAME.rest.log = function(ctx, reply) return ctx:route(reply, LOG) end
 end
 

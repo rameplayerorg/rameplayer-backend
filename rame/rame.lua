@@ -7,7 +7,7 @@ local process = require 'cqp.process'
 local condition = require 'cqueues.condition'
 local Item = require 'rame.item'
 local UrlMatch = require 'rame.urlmatch'
-local syslog = require "posix.syslog"
+local syslog = require 'posix.syslog'
 
 local RAME = {
 	version = {
@@ -49,6 +49,17 @@ local RAME = {
 	default = Item.new_list{id="default", title="Default playlist", editable=true},
 	rest = {},
 	plugins = {},
+	log = {
+		levels = {
+			DEBUG   = syslog.LOG_DEBUG,   -- 7
+			INFO    = syslog.LOG_INFO,    -- 6
+			WARNING = syslog.LOG_WARNING, -- 4
+			ERROR   = syslog.LOG_ERR,     -- 3
+		},
+		level_func = {},
+		syslog = syslog,
+		with_stdout = true,
+	},
 
 	idle_uri = nil,
 	idle_controls = {
@@ -57,6 +68,8 @@ local RAME = {
 	wait_controls = {},
 	players = UrlMatch.new(),
 }
+
+syslog.openlog("RAME")
 
 RAME.root:add(RAME.rame)
 
@@ -304,20 +317,46 @@ function RAME.commit_overlay()
 	return true
 end
 
-function RAME.info(...)
-	syslog.syslog(log_levels["INFO"], table.concat({...}, " "))
+
+function RAME.log.level(str)
+	local default_level = RAME.log.levels["DEBUG"]
+	return RAME.log.levels[str] or default_level
 end
 
-function RAME.warn(...)
-	syslog.syslog(log_levels["WARNING"], table.concat({...}, " "))
+function RAME.log.info(...)
+	syslog.syslog(RAME.log.level("INFO"), table.concat({...}, " "))
+	if RAME.log.with_stdout then
+		print("info:", ...)
+	end
 end
 
-function RAME.error(...)
-	syslog.syslog(log_levels["ERROR"], table.concat({...}, " "))
+function RAME.log.warn(...)
+	syslog.syslog(RAME.log.level("WARNING"), table.concat({...}, " "))
+	if RAME.log.with_stdout then
+		print("warn:", ...)
+	end
 end
 
-function RAME.debug(...)
-	syslog.syslog(log_levels["DEBUG"], table.concat({...}, " "))
+function RAME.log.error(...)
+	syslog.syslog(RAME.log.level("ERROR"), table.concat({...}, " "))
+	if RAME.log.with_stdout then
+		print("error:", ...)
+	end
 end
+
+function RAME.log.debug(...)
+	syslog.syslog(RAME.log.level("DEBUG"), table.concat({...}, " "))
+	if RAME.log.with_stdout then
+		print("debug:", ...)
+	end
+end
+
+RAME.log.level_func = {
+	DEBUG   = RAME.log.debug,
+	INFO    = RAME.log.info,
+	WARNING = RAME.log.warn,
+	ERROR   = RAME.log.error,
+}
+
 
 return RAME
