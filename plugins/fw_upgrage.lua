@@ -74,7 +74,7 @@ function UPGRADE.PUT(ctx, reply)
 		end
 		out:close()
 		RAME.system.firmware_upgrade(100)
-		RAME.system.reboot_required(true)
+		process.run("reboot", "now")
 	end)
 
 	return 200
