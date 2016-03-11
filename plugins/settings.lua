@@ -76,30 +76,6 @@ local function check_ip(value)
 	return value:match("^%d+%.%d+%.%d+%.%d+$") ~= nil
 end
 
-local function check_fields(data, schema)
-	if type(data) ~= "table" then return 422, "input missing" end
-	for field, spec in pairs(schema) do
-		local t = type(spec)
-		if t == "string" then
-			spec = { typeof=spec }
-		elseif t == "function" then
-			spec = { validate=spec }
-		elseif t ~= "table" then
-			return 422, "bad schema: "..field
-		end
-
-		local val = data[field]
-		if val == nil and spec.optional ~= true then
-			return 422, "missing required parameter: "..field
-		end
-		if (spec.typeof and type(val) ~= spec.typeof) or
-		   (spec.validate and not spec.validate(val)) or
-		   (spec.choices and spec.choices[val] == nil) then
-			return 422, "invalid value for parameter: "..field
-		end
-	end
-end
-
 local function activate_config(conf)
 	RAME.system.hostname(conf.hostname)
 	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[conf.audioPort]
@@ -112,7 +88,6 @@ end
 local function entries(e)
 	return type(e) == "table" and table.unpack(e) or e
 end
-
 
 -- REST API: /settings/
 local SETTINGS = { GET = {}, POST = {}, PUT = {} }
@@ -130,7 +105,7 @@ function SETTINGS.POST.user(ctx, reply)
 	local err, msg
 
 	-- Validate and deep copy the settings
-	err, msg = check_fields(args, settings_fields)
+	err, msg = RAME.check_fields(args, settings_fields)
 	if err then return err, msg end
 	local c = {}
 	for key, spec in pairs(settings_fields) do
@@ -204,7 +179,7 @@ function SETTINGS.POST.system(ctx, reply)
 	local ip_conf = {}
 	local udhcpd_conf = {}
 
-	err, msg = check_fields(args, {
+	err, msg = RAME.check_fields(args, {
 		resolution = {typeof="string",choices=rpi_resolutions},
 		audioPort = {typeof="string",choices=rpi_audio_ports},
 		ipDhcpClient = "boolean",
@@ -289,7 +264,7 @@ function SETTINGS.POST.system(ctx, reply)
 	if not dhcpcd then return 500, "file read failed" end
 
 	if args.ipDhcpClient == false then
-		err, msg = check_fields(args, {
+		err, msg = RAME.check_fields(args, {
 			ipAddress = check_ip,
 			ipSubnetMask = {typeof="string", choices = ipv4_masks_rev},
 			ipDefaultGateway = check_ip,
@@ -340,7 +315,7 @@ function SETTINGS.POST.system(ctx, reply)
 		end
 
 		if args.ipDhcpServer == true then
-			err, msg = check_fields(args, {
+			err, msg = RAME.check_fields(args, {
 				ipDhcpRangeStart = check_ip,
 				ipDhcpRangeStart = check_ip,
 			})
@@ -477,7 +452,7 @@ function Plugin.init()
 	if ok == 200 then activate_config(conf) end
 
 	local conf = json.decode(RAME.read_settings_file(settings_json) or "")
-	if check_fields(conf, settings_fields) == nil then
+	if RAME.check_fields(conf, settings_fields) == nil then
 		RAME.settings = conf
 	end
 

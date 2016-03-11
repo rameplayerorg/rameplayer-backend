@@ -25,11 +25,18 @@ function LOG.GET(ctx, reply)
 	return 200, data
 end
 
---todo implement check_fields() checking
 function LOG.POST(ctx, reply)
-	local str = ctx.ip..", "..ctx.args.time..", "..ctx.args.message.."\n"
+	local args = ctx.args
+	err, msg = RAME.check_fields(args, {
+		time = {typeof="string"},
+		level = {typeof="string"},
+		message = {typeof="string"},
+	})
+	if err then return err, msg end
+
+	local str = ctx.ip..", "..args.time..", "..args.message.."\n"
 	--print(str)
-	syslog.syslog(log_levels[ctx.args.level],str)
+	syslog.syslog(log_levels[args.level],str)
 	return 200
 end
 

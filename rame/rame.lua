@@ -262,6 +262,30 @@ function RAME.main()
 	end
 end
 
+function RAME.check_fields(data, schema)
+	if type(data) ~= "table" then return 422, "input missing" end
+	for field, spec in pairs(schema) do
+		local t = type(spec)
+		if t == "string" then
+			spec = { typeof=spec }
+		elseif t == "function" then
+			spec = { validate=spec }
+		elseif t ~= "table" then
+			return 422, "bad schema: "..field
+		end
+
+		local val = data[field]
+		if val == nil and spec.optional ~= true then
+			return 422, "missing required parameter: "..field
+		end
+		if (spec.typeof and type(val) ~= spec.typeof) or
+		   (spec.validate and not spec.validate(val)) or
+		   (spec.choices and spec.choices[val] == nil) then
+			return 422, "invalid value for parameter: "..field
+		end
+	end
+end
+
 function RAME.read_settings_file(file)
 	return plfile.read(RAME.config.settings_path..file)
 end
