@@ -3,29 +3,43 @@ local RAME = require 'rame.rame'
 -- REST API: /audio/
 local AUDIO = { GET = {}, PUT = {} }
 
-local function revtable(tbl)
-	local rev={}
-	for k, v in pairs(tbl) do rev[v] = k end
-	return rev
-end
 
 local audio_chs = {
-	headphone = "HPOUT1 Digital",
-	lineout = "HPOUT2 Digital",
+	headphone = {
+		prop = RAME.system.headphone_volume,
+		min = 0,
+		max = 100,
+		-- db values are only used for sending to web as reference
+		min_db = "-64.0",
+		max_db = "0",
+	},
+	lineout = {
+		prop = RAME.system.lineout_volume,
+		min = 0,
+		max = 110,
+		-- db values are only used for sending to web as reference
+		min_db = "-64.0",
+		max_db = "6.4",
+	}
 }
-local audio_chs_rev = revtable(audio_chs)
 
 function AUDIO.GET(ctx, reply)
 	local temp = {}
 
-	for k, v in pairs(audio_chs_rev) do
-		table.insert(temp, { channel_name = { volume = 32 } })
-		--table.insert(temp, k)
+	for k, v in pairs(audio_chs) do
+		local chn = {}
+		chn[k] = {
+			volume = v.prop(),
+			min = v.min,
+			max = v.max,
+			minDb = v.min_db,
+			maxDb = v.max_db
+		}
+		table.insert(temp, chn)
 	end
 
 	return 200, {
 	  channels = temp
-
 	}
 end
 
@@ -36,7 +50,7 @@ function AUDIO.PUT(ctx, reply)
 
 	-- add check function for volume
 	err, msg = RAME.check_fields(args, {
-		volume
+		volume = {typeof="number"}
 	})
 	if err then return err, msg end
 
@@ -44,21 +58,17 @@ function AUDIO.PUT(ctx, reply)
 		return 404, "specify the channel"
 	end
 
-	--print(paths[path_pos])
-
-	channel = audio_chs[paths[path_pos]]
+	local chn_name = paths[path_pos]
+	local channel = audio_chs[chn_name]
 	if channel then
- 		print(channel)
+		local vol = args.volume
+		if vol < channel.min then vol = channel.min end
+		if vol > channel.max then vol = channel.max end
+		channel.prop(vol)
+		RAME.log.debug("audio.put "..chn_name.."="..vol)
 	end
 
-	-- todo do validy function
-	--err, msg = RAME.check_val(, {typeof="string", choises=audio_chs}})
-	--if err then return err, msg end
-	-- todo check that range is 0-110!
-	local volume = 50
-	--process.run("amixer", "-Dhw:sndrpiwsp", "--", "sset", channel, ("%.2fdB"):format(64.0*volume/100 - 64.0))
-
-	return 200--, return the set value in decibels
+	return 200
 end
 
 local Plugin = {}

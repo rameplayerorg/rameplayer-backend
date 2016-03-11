@@ -33,6 +33,7 @@ local RAME = {
 		update_available = push.property(false, "Update available"),
 		firmware_upgrade = push.property(nil, "Firmware upgrade progress"),
 		headphone_volume = push.property(100, "Headphone volume"),
+		lineout_volume = push.property(100, "Lineout volume"),
 	},
 	player = {
 		status   = push.property("stopped", "Playback status"),

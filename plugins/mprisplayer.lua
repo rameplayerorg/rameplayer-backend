@@ -124,6 +124,11 @@ function Plugin.early_init()
 			RAME.system.headphone_volume:push_to(function(val)
 				process.run("amixer", "-Dhw:sndrpiwsp", "--", "sset", "HPOUT1 Digital", ("%.2fdB"):format(64.0*val/100 - 64.0))
 			end)
+			RAME.system.lineout_volume:push_to(function(val)
+				process.run("amixer", "-Dhw:sndrpiwsp", "--", "sset", "HPOUT2 Digital", ("%.2fdB"):format(64.0*val/100 - 64.0))
+			end)
+		else
+			RAME.log.warn("ALSA not available - no volume change implementation")
 		end
 		Plugin.control.play = Plugin.control.omxplay
 		mprissvc = "org.mpris.MediaPlayer2.omxplayer"
