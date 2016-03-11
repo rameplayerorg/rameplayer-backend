@@ -27,15 +27,15 @@ function AUDIO.GET(ctx, reply)
 	local temp = {}
 
 	for k, v in pairs(audio_chs) do
-		local chn = {}
-		chn[k] = {
-			volume = v.prop(),
-			min = v.min,
-			max = v.max,
-			minDb = v.min_db,
-			maxDb = v.max_db
-		}
-		table.insert(temp, chn)
+		table.insert(temp,
+			{
+				id = k,
+				volume = v.prop(),
+				min = v.min,
+				max = v.max,
+				minDb = v.min_db,
+				maxDb = v.max_db
+			})
 	end
 
 	return 200, {
