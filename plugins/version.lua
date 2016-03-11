@@ -48,7 +48,6 @@ function Plugin.init()
 		--print("hw_revision", hw_revision)
 	end
 	hw_base = hw_base_model.." ("..hw_revision..")"
-	print("hw_base", hw_base)
 
 	if plpath.exists(hat_path.."product")
 	  and plpath.exists(hat_path.."product_ver")
@@ -63,7 +62,10 @@ function Plugin.init()
 		          " v.:"..addon_board_ver..
 		        " uuid:"..addon_board_uuid..")"
 		print("hw_addon_info", hw_addon_info)
+		hw_base = hw_base.." "..addon_board_name
 	end
+
+	print("hw_base", hw_base)
 
 	if plpath.exists(rame_cfg_path) then
 		local cids = {}
