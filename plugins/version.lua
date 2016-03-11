@@ -41,6 +41,17 @@ function Plugin.init()
 	local rame_cfg_cids_id, rame_cfg_eeprom_cids_id = 0,0
 	local rame_cfg_info = ""
 
+
+	local firmware = "?"
+	if plpath.exists(fw_ver_path) then
+		firmware = plfile.read(fw_ver_path):match("[^\n]+") or "?"
+	end
+	RAME.version.firmware(firmware)
+	RAME.log.info("firmware: "..firmware)
+
+	-- RAME.version.backend is set on build script
+	RAME.log.info("backend: "..RAME.version.backend())
+
 	local hw_base_model = plfile.read("/sys/firmware/devicetree/base/model"):sub(1, -2) or ""
 	--print("hw_base_model", hw_base_model)
 	for rev in plfile.read("/proc/cpuinfo"):gmatch("Revision.-:%s*([^\n]+)") do
@@ -61,11 +72,11 @@ function Plugin.init()
 		       " (p.id:"..addon_board_pid..
 		          " v.:"..addon_board_ver..
 		        " uuid:"..addon_board_uuid..")"
-		RAME.log.info("hw_addon_info", hw_addon_info)
+		RAME.log.info("hw_addon_info: "..hw_addon_info)
 		hw_base = hw_base.." "..addon_board_name
 	end
 
-	RAME.log.info("hw_base", hw_base)
+	RAME.log.info("hw_base: "..hw_base)
 
 	if plpath.exists(rame_cfg_path) then
 		local cids = {}
@@ -101,23 +112,16 @@ function Plugin.init()
 			rame_cfg_cids_id, rame_cfg_cids,
 			rame_cfg_eeprom_cids_id, rame_cfg_eeprom_cids,
 			rame_cfg_hardware)
-		RAME.log.info("rame_cfg_info", rame_cfg_info)
+		RAME.log.info("rame_cfg_info: "..rame_cfg_info)
 	end
 
 	RAME.version.hardware(hw_base)
 	RAME.version.hardware_addon(hw_addon_info)
 	RAME.version.hardware_cfg(rame_cfg_info)
 
-	-- RAME.version.backend is set on build script
-	local firmware = "?"
-	if plpath.exists(fw_ver_path) then
-		firmware = plfile.read(fw_ver_path):match("[^\n]+") or "?"
-	end
-	RAME.version.firmware(firmware)
-
 	local ver_short = ("%s/%X:%X,%s"):format(firmware, rame_cfg_cids_id,
 	                                      rame_cfg_eeprom_cids_id, hw_revision)
-	RAME.log.info("ver_short", ver_short)
+	RAME.log.info("ver_short: "..ver_short)
 	RAME.version.short(ver_short)
 
 	RAME.rest.version = function(ctx, reply) return ctx:route(reply, VERSION) end
