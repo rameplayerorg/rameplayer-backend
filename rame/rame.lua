@@ -7,6 +7,7 @@ local process = require 'cqp.process'
 local condition = require 'cqueues.condition'
 local Item = require 'rame.item'
 local UrlMatch = require 'rame.urlmatch'
+local syslog = require "posix.syslog"
 
 local RAME = {
 	version = {
@@ -301,6 +302,22 @@ end
 function RAME.commit_overlay()
 	process.run("lbu", "commit", "-d")
 	return true
+end
+
+function RAME.info(...)
+	syslog.syslog(log_levels["INFO"],...)
+end
+
+function RAME.warn(...)
+	syslog.syslog(log_levels["WARNING"],...)
+end
+
+function RAME.error(...)
+	syslog.syslog(log_levels["ERROR"],...)
+end
+
+function RAME.debug(...)
+	syslog.syslog(log_levels["DEBUG"],...)
 end
 
 return RAME

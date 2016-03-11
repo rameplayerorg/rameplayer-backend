@@ -3,7 +3,8 @@ local syslog = require "posix.syslog"
 
 local LOG = {}
 
-local log_levels = {
+-- GLOBAL
+log_levels = {
 	INFO = 6, --LOG_INFO	6
 	DEBUG = 7, --LOG_DEBUG 7
 	WARNING = 4, --LOG_WARNING	4
@@ -32,7 +33,6 @@ function LOG.POST(ctx, reply)
 	if err then return err, msg end
 
 	local str = ctx.ip..", "..args.time..", "..args.message.."\n"
-	--print(str)
 	syslog.syslog(log_levels[args.level],str)
 	return 200
 end
@@ -40,7 +40,7 @@ end
 local Plugin = {}
 
 function Plugin.init()
-	syslog.openlog("WEBUI")
+	syslog.openlog("RAME")
 	RAME.rest.log = function(ctx, reply) return ctx:route(reply, LOG) end
 end
 
