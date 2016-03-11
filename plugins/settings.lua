@@ -440,7 +440,8 @@ function SETTINGS.POST.system(ctx, reply)
 end
 
 function SETTINGS.PUT.reset(ctx, reply)
-	print("doing something really drastic here to wipe out everything ;)")
+	-- TODO - "factory reset" here
+	print("TODO - Factory reset: doing something really drastic here to wipe out everything ;)")
 	return 200
 end
 

@@ -16,7 +16,7 @@ function Plugin.main()
 	while true do
 		cqueues.poll(input)
 		local timestamp, eventType, eventCode, value = input:read()
-		print("rotary", timestamp, eventType, eventCode, value)
+		--print("rotary", timestamp, eventType, eventCode, value)
 		if eventType == evdev.EV_REL and eventCode == evdev.REL_X then
 			local vol = RAME.system.headphone_volume() + 5 * value
 			if vol <= 0 then vol = 0 end

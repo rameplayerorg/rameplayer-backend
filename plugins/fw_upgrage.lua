@@ -47,7 +47,7 @@ function UPGRADE.PUT(ctx, reply)
 	if ctx.args and ctx.args.uri then
 		uri = get_rsync_base() .. "/" .. ctx.args.uri
 	end
-	print("Upgrade firmware from " .. (uri or "(default location)"))
+	RAME.log.warn("Upgrade firmware from " .. (uri or "(default location)"))
 
 	if RAME.system.firmware_upgrade() ~= nil then
 		return 500, "Firmware upgrade already in progress"

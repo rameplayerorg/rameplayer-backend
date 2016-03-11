@@ -90,6 +90,6 @@ loop:wrap(start_player)
 loop:wrap(update_ip)
 for e in loop:errors() do
 	if not RAME.running then break end
-	print(e)
+	RAME.log.error(e)
 end
 process.killall(9)

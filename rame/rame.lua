@@ -88,7 +88,7 @@ function RAME:load_plugins(...)
 					act, err = false, "failed to load: " .. plugin
 				end
 
-				print(("Plugin %s: %s"):format(f, act and "loaded" or "not active: "..(err or "disabled")))
+				RAME.log.info(("Plugin %s: %s"):format(f, act and "loaded" or "not active: "..(err or "disabled")))
 				if act then
 					self.plugins[plpath.basename(f)] = plugin
 				end
@@ -172,7 +172,7 @@ function RAME:action(command, item_id, pos)
 	if item_id then RAME.player.cursor(item_id) end
 
 	if command == "autoplay" or command == "play" then
-		print("Player: sending " .. command .. " command, cursor " .. self.player.cursor())
+		RAME.log.info("Player: sending " .. command .. " command, cursor " .. self.player.cursor())
 		self.player.__autoplay = (command == "autoplay")
 		self.player.__playing = true
 		if pos and pos < 0 then self.player.__wait = -pos end
@@ -260,11 +260,11 @@ function RAME.main()
 		end
 
 		if control then
-			print("Playing", uri, control, item)
+			RAME.log.info("Playing", uri, control, item)
 			self.player.control = control
 			move_next = RAME.player.control.play(uri)
 			self.player.control = nil
-			print("Stopped", uri)
+			RAME.log.info("Stopped", uri)
 		end
 
 		-- Move cursor to next item if playback stopped normally

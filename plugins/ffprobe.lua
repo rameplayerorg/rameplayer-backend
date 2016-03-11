@@ -20,7 +20,7 @@ local function ffprobe_file(fn)
 end
 
 function Plugin.uri_scanner(self)
-	print("Scanning", self.uri)
+	RAME.log.info("Scanning", self.uri)
 
 	local data = ffprobe_file(self.uri)
 	if data == nil then return false end

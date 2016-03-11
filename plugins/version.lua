@@ -61,11 +61,11 @@ function Plugin.init()
 		       " (p.id:"..addon_board_pid..
 		          " v.:"..addon_board_ver..
 		        " uuid:"..addon_board_uuid..")"
-		print("hw_addon_info", hw_addon_info)
+		RAME.log.info("hw_addon_info", hw_addon_info)
 		hw_base = hw_base.." "..addon_board_name
 	end
 
-	print("hw_base", hw_base)
+	RAME.log.info("hw_base", hw_base)
 
 	if plpath.exists(rame_cfg_path) then
 		local cids = {}
@@ -101,7 +101,7 @@ function Plugin.init()
 			rame_cfg_cids_id, rame_cfg_cids,
 			rame_cfg_eeprom_cids_id, rame_cfg_eeprom_cids,
 			rame_cfg_hardware)
-		print("rame_cfg_info", rame_cfg_info)
+		RAME.log.info("rame_cfg_info", rame_cfg_info)
 	end
 
 	RAME.version.hardware(hw_base)
@@ -117,7 +117,7 @@ function Plugin.init()
 
 	local ver_short = ("%s/%X:%X,%s"):format(firmware, rame_cfg_cids_id,
 	                                      rame_cfg_eeprom_cids_id, hw_revision)
-	print("ver_short", ver_short)
+	RAME.log.info("ver_short", ver_short)
 	RAME.version.short(ver_short)
 
 	RAME.rest.version = function(ctx, reply) return ctx:route(reply, VERSION) end
