@@ -24,7 +24,8 @@ function LOG.POST(ctx, reply)
 	})
 	if err then return err, msg end
 
-	local str = ctx.ip..", "..args.time..", "..args.message.."\n"
+	local time_fmt = os.date("%Y-%m-%d %H:%M:%S", tonumber(args.time:sub(1,-4)))
+	local str = ctx.ip..", "..time_fmt..", "..args.message.."\n"
 	RAME.log.level_func[args.level](str)
 	return 200
 end
