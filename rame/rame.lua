@@ -305,19 +305,19 @@ function RAME.commit_overlay()
 end
 
 function RAME.info(...)
-	syslog.syslog(log_levels["INFO"],...)
+	syslog.syslog(log_levels["INFO"], table.concat({...}, " "))
 end
 
 function RAME.warn(...)
-	syslog.syslog(log_levels["WARNING"],...)
+	syslog.syslog(log_levels["WARNING"], table.concat({...}, " "))
 end
 
 function RAME.error(...)
-	syslog.syslog(log_levels["ERROR"],...)
+	syslog.syslog(log_levels["ERROR"], table.concat({...}, " "))
 end
 
 function RAME.debug(...)
-	syslog.syslog(log_levels["DEBUG"],...)
+	syslog.syslog(log_levels["DEBUG"], table.concat({...}, " "))
 end
 
 return RAME
