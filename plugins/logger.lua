@@ -16,10 +16,7 @@ function LOG.GET(ctx, reply)
 		return 500
 	end
 	local data = log_f:read("*a")
-
 	log_f:close()
-	--print(data)
-	--print(#data)
 	reply.headers["Content-Type"] = "text/plain"
 
 	return 200, data
@@ -29,7 +26,7 @@ function LOG.POST(ctx, reply)
 	local args = ctx.args
 	err, msg = RAME.check_fields(args, {
 		time = {typeof="string"},
-		level = {typeof="string"},
+		level = {typeof="string", choices=log_levels},
 		message = {typeof="string"},
 	})
 	if err then return err, msg end
@@ -43,7 +40,7 @@ end
 local Plugin = {}
 
 function Plugin.init()
-	syslog.openlog("RAME_WEBUI")
+	syslog.openlog("WEBUI")
 	RAME.rest.log = function(ctx, reply) return ctx:route(reply, LOG) end
 end
 
