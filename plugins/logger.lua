@@ -26,7 +26,10 @@ function LOG.POST(ctx, reply)
 
 	local time_fmt = os.date("%Y-%m-%d %H:%M:%S", tonumber(args.time:sub(1,-4)))
 	local str = ctx.ip..", "..time_fmt..", "..args.message.."\n"
-	RAME.log.level_func[args.level](str)
+	local logfunc = RAME.log.level_func[args.level]
+	if logfunc ~= nil then
+		logfunc(str)
+	end
 	return 200
 end
 

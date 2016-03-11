@@ -77,7 +77,9 @@ local function update_ip()
 			s:setpeername("8.8.8.8", 80)
 			local ip, port = s:getsockname()
 			s:close()
-			RAME.system.ip(tostring(ip))
+			local ip_str = tostring(ip)
+			RAME.system.ip(ip_str)
+			RAME.log.info("IP "..ip_str)
 			timeout = nil
 		end
 	end

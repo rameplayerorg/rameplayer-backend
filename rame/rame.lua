@@ -260,7 +260,8 @@ function RAME.main()
 		end
 
 		if control then
-			RAME.log.info("Playing", uri, control, item)
+			--print("Playing", uri, control, item)
+			RAME.log.info("Playing", uri)
 			self.player.control = control
 			move_next = RAME.player.control.play(uri)
 			self.player.control = nil
