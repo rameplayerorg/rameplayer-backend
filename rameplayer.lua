@@ -78,8 +78,10 @@ local function update_ip()
 			local ip, port = s:getsockname()
 			s:close()
 			local ip_str = tostring(ip)
+			if ip_str ~= RAME.system.ip() then
+				RAME.log.info("IP "..ip_str)
+			end
 			RAME.system.ip(ip_str)
-			RAME.log.info("IP "..ip_str)
 			timeout = nil
 		end
 	end
