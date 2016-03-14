@@ -159,6 +159,9 @@ end
 local PLAYER = { GET = {}, POST = {} }
 
 function PLAYER.GET.play(ctx, reply)
+	if ctx.args.id then
+		RAME:action("set_cursor", ctx.args.id)
+	end
 	return RAME:action("play", nil, tonumber(ctx.args.pos))
 end
 
