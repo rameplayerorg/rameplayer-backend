@@ -74,8 +74,15 @@ function AUDIO.PUT(ctx, reply)
 		channel.func(vol)
 	end
 
+	local saved = {}
+	for k, v in pairs(audio_chs) do
+		saved[k] = { volume = v.volume }
+	end
+	local saved_json, err = json.encode(saved)
+	--print(saved_json, err)
+
 	-- Store the new audio levels - writing the whole table
-	if not RAME.write_settings_file(audio_json, json.encode(audio_chs)) then
+	if saved_json == nil or not RAME.write_settings_file(audio_json, saved_json) then
 		return 500, "file write error"
 	end
 
@@ -89,7 +96,12 @@ function Plugin.init()
 	local audio_conf = json.decode(RAME.read_settings_file(audio_json) or "")
 	if audio_conf ~= nil then
 		for k, v in pairs(audio_chs) do
-			audio_chs[k].volume = audio_conf[k].volume
+			if audio_conf[k] ~= nil then
+				local vol = audio_conf[k].volume
+				v.volume = vol
+				v.func(vol)
+				--print("vol:", k, vol)
+			end
 		end
 	else RAME.log.info("No audio info stored - going with defaults") end
 
