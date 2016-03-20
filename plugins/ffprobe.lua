@@ -1,5 +1,6 @@
 local json = require 'cjson.safe'
 local process = require 'cqp.process'
+local RAME = require 'rame.rame'
 local Item = require 'rame.item'
 
 local Plugin = {}
