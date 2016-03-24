@@ -426,7 +426,8 @@ function SETTINGS.POST.system(ctx, reply)
 		end
 	end
 
-	if args.dateAndTimeInUTC then
+	if args.dateAndTimeInUTC and type(args.dateAndTimeInUTC) == "string" then
+		RAME.log.info("New date&time: "..args.dateAndTimeInUTC)
 		process.run("date", "-u", "-s", args.dateAndTimeInUTC)
 	end
 
