@@ -18,19 +18,19 @@ end
 function LOG.POST(ctx, reply)
 	local args = ctx.args
 	err, msg = RAME.check_fields(args, {
-		time = {typeof="string"},
+		time = {typeof="number"},
 		level = {typeof="string", choices=log_levels},
 		message = {typeof="string"},
 	})
 	if err then return err, msg end
 
-	local time_fmt = os.date("%Y-%m-%d %H:%M:%S", tonumber(args.time:sub(1,-4)))
+	local time_fmt = os.date("%Y-%m-%d %H:%M:%S", tonumber(math.floor(args.time / 1000)))
 	local str = ctx.ip..", "..time_fmt..", "..args.message.."\n"
 	local logfunc = RAME.log.level_func[args.level]
 	if logfunc ~= nil then
 		logfunc(str)
 	end
-	return 200
+	return 200, {}
 end
 
 local Plugin = {}
