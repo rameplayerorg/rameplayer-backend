@@ -60,7 +60,8 @@ function AUDIO.PUT(ctx, reply)
 	if err then return err, msg end
 
 	if not #paths == 2 then
-		return 404, "specify the channel"
+		RAME.log.error("Specify the channel!")
+		return 404, { error= "Specify the channel!" }
 	end
 
 	local chn_name = paths[path_pos]
@@ -83,7 +84,8 @@ function AUDIO.PUT(ctx, reply)
 
 	-- Store the new audio levels - writing the whole table
 	if saved_json == nil or not RAME.write_settings_file(audio_json, saved_json) then
-		return 500, "file write error"
+		RAME.log.error("File write error: "..audio_json)
+		return 500, { error="File write error: "..audio_json }
 	end
 
 	return 200
@@ -103,7 +105,7 @@ function Plugin.init()
 				--print("vol:", k, vol)
 			end
 		end
-	else RAME.log.info("No audio info stored - going with defaults") end
+	else RAME.log.info("No audio info stored - going with defaults.") end
 
 
 	RAME.rest.audio = function(ctx, reply) return ctx:route(reply, AUDIO) end

@@ -114,7 +114,8 @@ function SETTINGS.POST.user(ctx, reply)
 
 	-- Write and activate new settings
 	if not RAME.write_settings_file(settings_json, json.encode(c)) then
-		return 500, "file write error"
+		RAME.log.error("File write error: "..settings_json)
+		return 500, { error="File write error: "..settings_json }
 	end
 	RAME.settings = c
 	return 200
@@ -237,7 +238,8 @@ function SETTINGS.POST.system(ctx, reply)
 
 	if changed then
 		if not RAME.write_settings_file(ramecfg_txt, table.concat(usercfg, "\n")) then
-			return 500, "file write error"
+			RAME.log.error("File write error: "..ramecfg_txt)
+			return 500, { error="File write error: "..ramecfg_txt }
 		end
 		changed = false
 		-- Signal the user that reboot is required
@@ -251,7 +253,8 @@ function SETTINGS.POST.system(ctx, reply)
 	if hostname and hostname ~= args.hostname.."\n" then
 		hostname = args.hostname.."\n"
 		if not plfile.write("/etc/hostname", hostname) then
-			return 500, "file write error"
+			RAME.log.error("File write error: ".."/etc/hostname")
+			return 500, { error="File write error: ".."/etc/hostname" }
 		end
 		commit = true
 	end
@@ -261,7 +264,10 @@ function SETTINGS.POST.system(ctx, reply)
 	--
 	-- Read existing configuration
 	local dhcpcd = plutils.readlines("/etc/dhcpcd.conf")
-	if not dhcpcd then return 500, "file read failed" end
+	if not dhcpcd then
+		RAME.log.error("File read failed: ".."/etc/dhcpcd.conf")
+		return 500, { error="File read failed: ".."/etc/dhcpcd.conf" }
+	end
 
 	if args.ipDhcpClient == false then
 		err, msg = RAME.check_fields(args, {
@@ -322,7 +328,10 @@ function SETTINGS.POST.system(ctx, reply)
 			if err then return err, msg end
 
 			local udhcpd = plutils.readlines("/etc/udhcpd.conf")
-			if not udhcpd then return 500, "file read failed" end
+			if not udhcpd then
+				RAME.log.error("File read failed: ".."/etc/udhcpd.conf")
+				return 500, { error="File read failed: ".."/etc/udhcpd.conf" }
+			end
 
 			udhcpd_conf = {
 				range_start = "start\t\t" .. args.ipDhcpRangeStart,
@@ -377,7 +386,8 @@ function SETTINGS.POST.system(ctx, reply)
 
 			if changed then
 				if not plfile.write("/etc/udhcpd.conf", table.concat(udhcpd, "\n")) then
-					return 500, "file write error"
+					RAME.log.error("File write error: ".."/etc/udhcpd.conf")
+					return 500, {error="File write error: ".."/etc/udhcpd.conf"}
 				end
 				changed = false
 				commit = true
@@ -401,7 +411,8 @@ function SETTINGS.POST.system(ctx, reply)
 
 	if changed then
 		if not plfile.write("/etc/dhcpcd.conf", table.concat(dhcpcd, "\n")) then
-			return 500, "file write error"
+			RAME.log.error("File write error: ".."/etc/dhcpcd.conf")
+			return 500, { error="File write error: ".."/etc/dhcpcd.conf" }
 		end
 		changed = false
 		commit = true
@@ -420,7 +431,8 @@ function SETTINGS.POST.system(ctx, reply)
 		local str = "server "..args.ntpServerAddress.."\n"
 		if ntp_server and ntp_server ~= str then
 			if not plfile.write("/etc/ntp.conf", str) then
-				return 500, "file write error"
+				RAME.log.error("File write error: ".."/etc/ntp.conf")
+				return 500, { error="File write error: ".."/etc/ntp.conf" }
 			end
 			commit = true
 		end
