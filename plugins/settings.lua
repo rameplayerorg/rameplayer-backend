@@ -184,12 +184,9 @@ function SETTINGS.POST.system(ctx, reply)
 		resolution = {typeof="string",choices=rpi_resolutions},
 		audioPort = {typeof="string",choices=rpi_audio_ports},
 		ipDhcpClient = "boolean",
-		--hostname = {check_hostname, optional=true},
-		hostname = {optional=true},
-		--ntpServerAddress = {typeof="string", optional=true },
-		ntpServerAddress = {optional=true },
-		--dateAndTimeInUTC = {typeof="string", optional=true },
-		dateAndTimeInUTC = {optional=true },
+		hostname = {validate=check_hostname, optional=true},
+		ntpServerAddress = {typeof="string", optional=true },
+		dateAndTimeInUTC = {typeof="string", optional=true },
 	})
 	if err then return err, msg end
 
@@ -255,7 +252,7 @@ function SETTINGS.POST.system(ctx, reply)
 	-- HOSTNAME
 	--
 	local hostname = plfile.read("/etc/hostname")
-	if hostname and hostname ~= args.hostname.."\n" then
+	if hostname and args.hostname and hostname ~= args.hostname.."\n" then
 		hostname = args.hostname.."\n"
 		if not plfile.write("/etc/hostname", hostname) then
 			RAME.log.error("File write error: ".."/etc/hostname")
@@ -279,25 +276,27 @@ function SETTINGS.POST.system(ctx, reply)
 		err, msg = RAME.check_fields(args, {
 			ipAddress = check_ip,
 			ipSubnetMask = {typeof="string", choices=ipv4_masks_rev},
-			ipDefaultGateway = check_ip,
-			ipDnsPrimary = check_ip,
-			ipDnsSecondary = { check_ip, optional=true },
-			ipDnsSecondary = { optional=true },
-			--ipDhcpServer = { "boolean", optional=true },
-			ipDhcpServer = { optional=true},
+			ipDefaultGateway = { validate=check_ip, optional=true },
+			ipDnsPrimary = { validate=check_ip, optional=true },
+			ipDnsSecondary = { validate=check_ip, optional=true },
+			ipDhcpServer = { typeof="boolean", optional=true},
 		})
 		if err then return err, msg end
 
 		cidr_prefix = ipv4_masks_rev[args.ipSubnetMask]
 
-		str = "static domain_name_servers="..args.ipDnsPrimary
-		if args.ipDnsSecondary then str = str.." "..args.ipDnsSecondary end
-
 		ip_conf = {
 			ip_address = "static ip_address="..args.ipAddress.."/"..cidr_prefix,
-			default_gw = "static routers="..args.ipDefaultGateway,
-			dns = str
 		}
+		if args.ipDnsPrimary then
+			ip_conf["dns"] = "static domain_name_servers="..args.ipDnsPrimary
+			if args.ipDnsSecondary then
+				ip_conf["dns"] = ip_conf["dns"].." "..args.ipDnsSecondary
+			end
+		end
+		if args.ipDefaultGateway then
+			ip_conf["default_gw"] = "static routers="..args.ipDefaultGateway
+		end
 
 		for i, val in ipairs(dhcpcd) do
 			if val:match("static ip_address=[^\n]+") then
@@ -334,7 +333,7 @@ function SETTINGS.POST.system(ctx, reply)
 		if args.ipDhcpServer == true then
 			err, msg = RAME.check_fields(args, {
 				ipDhcpRangeStart = check_ip,
-				ipDhcpRangeStart = check_ip,
+				ipDhcpRangeEnd = check_ip,
 			})
 			if err then return err, msg end
 

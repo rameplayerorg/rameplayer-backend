@@ -293,12 +293,14 @@ function RAME.check_fields(data, schema)
 		local val = data[field]
 		if val == nil and spec.optional ~= true then
 			return 422, { error="missing required parameter: "..field }
+		elseif val ~= nil then
+			if (spec.typeof and type(val) ~= spec.typeof) or
+			   (spec.validate and not spec.validate(val)) or
+			   (spec.choices and spec.choices[val] == nil) then
+				return 422, { error="invalid value for parameter: "..field }
+			end
 		end
-		if (spec.typeof and type(val) ~= spec.typeof) or
-		   (spec.validate and not spec.validate(val)) or
-		   (spec.choices and spec.choices[val] == nil) then
-			return 422, { error="invalid value for parameter: "..field }
-		end
+		-- following criteria is omitted val ~= nil and spec.optional == true
 	end
 end
 
