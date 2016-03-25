@@ -173,7 +173,7 @@ end
 
 function SETTINGS.POST.system(ctx, reply)
 	local args = ctx.args
-	local err, msg, i, cidr_prefix
+	local err, msg, i, cidr_prefix, str
 	local changed = false
 	local commit = false
 	local rpi_conf = {}
@@ -184,7 +184,12 @@ function SETTINGS.POST.system(ctx, reply)
 		resolution = {typeof="string",choices=rpi_resolutions},
 		audioPort = {typeof="string",choices=rpi_audio_ports},
 		ipDhcpClient = "boolean",
-		hostname = check_hostname,
+		--hostname = {check_hostname, optional=true},
+		hostname = {optional=true},
+		--ntpServerAddress = {typeof="string", optional=true },
+		ntpServerAddress = {optional=true },
+		--dateAndTimeInUTC = {typeof="string", optional=true },
+		dateAndTimeInUTC = {optional=true },
 	})
 	if err then return err, msg end
 
@@ -270,22 +275,28 @@ function SETTINGS.POST.system(ctx, reply)
 	end
 
 	if args.ipDhcpClient == false then
+		local optional = true
 		err, msg = RAME.check_fields(args, {
 			ipAddress = check_ip,
-			ipSubnetMask = {typeof="string", choices = ipv4_masks_rev},
+			ipSubnetMask = {typeof="string", choices=ipv4_masks_rev},
 			ipDefaultGateway = check_ip,
 			ipDnsPrimary = check_ip,
-			ipDnsSecondary = check_ip,
-			ipDhcpServer = "boolean",
+			ipDnsSecondary = { check_ip, optional=true },
+			ipDnsSecondary = { optional=true },
+			--ipDhcpServer = { "boolean", optional=true },
+			ipDhcpServer = { optional=true},
 		})
 		if err then return err, msg end
 
 		cidr_prefix = ipv4_masks_rev[args.ipSubnetMask]
+
+		str = "static domain_name_servers="..args.ipDnsPrimary
+		if args.ipDnsSecondary then str = str.." "..args.ipDnsSecondary end
+
 		ip_conf = {
-		ip_address = "static ip_address="..args.ipAddress.."/"..cidr_prefix,
-		default_gw = "static routers="..args.ipDefaultGateway,
-		dns = "static domain_name_servers="..args.ipDnsPrimary
-					.." "..args.ipDnsSecondary
+			ip_address = "static ip_address="..args.ipAddress.."/"..cidr_prefix,
+			default_gw = "static routers="..args.ipDefaultGateway,
+			dns = str
 		}
 
 		for i, val in ipairs(dhcpcd) do
@@ -418,14 +429,7 @@ function SETTINGS.POST.system(ctx, reply)
 		commit = true
 	end
 
-	-- it would be nice to define ntpServerAddress & dateAndTimeInUTC
-	-- as optional parameter i.g. do check if they exist but don't require
-	--err, msg = check_fields(args, {
-	--	ntpServerAddress = {typeof="string"},
-    --    dateAndTimeInUTC = {typeof="string"},
-	--})
-	--if err then return err, msg end
-
+	-- optional
 	if args.ntpServerAddress then
 		local ntp_server = plfile.read("/etc/ntp.conf")
 		local str = "server "..args.ntpServerAddress.."\n"
@@ -438,7 +442,8 @@ function SETTINGS.POST.system(ctx, reply)
 		end
 	end
 
-	if args.dateAndTimeInUTC and type(args.dateAndTimeInUTC) == "string" then
+	-- optional
+	if args.dateAndTimeInUTC then
 		RAME.log.info("New date&time: "..args.dateAndTimeInUTC)
 		process.run("date", "-u", "-s", args.dateAndTimeInUTC)
 	end
