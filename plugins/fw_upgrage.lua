@@ -17,6 +17,31 @@ local function get_rsync_base()
 	return srv_url
 end
 
+-- splitByDot("a.bbc.d") == {"a", "bbc", "d"}
+local function splitByDot(str)
+	str = str or ""
+	local t, count = {}, 0
+	str:gsub("([^%.]+)", function(c)
+		count = count + 1
+		t[count] = c
+	end)
+	return t
+end
+
+local function comparever(a, b)
+	local at = splitByDot(a or "")
+	local bt = splitByDot(b or "")
+	for i, ai in ipairs(at) do
+		local av = tonumber(ai)
+		local bv = tonumber(bt[i])
+		if av == nil and bv == nil then return 0 end
+		if av == nil then return -1 end
+		if bv == nil then return 1 end
+		if av > bv then return 1 end
+		if av < bv then return -1 end
+	end
+	return 0
+end
 
 function UPGRADE.GET(ctx, reply)
 	local base = get_rsync_base()
@@ -27,16 +52,21 @@ function UPGRADE.GET(ctx, reply)
 	out:close()
 
 	-- firmware path must contain keyword "rameplayer" to be included
-	local fws = {}
-	for uri, title in str:gmatch("(rameplayer[^\t]+)\t([^\n]+)") do
-		table.insert(fws, {
-			uri = uri,
+	local fws, latest = {}, {}
+	for version, title in str:gmatch("rameplayer%-([^\t]+)\t([^\n]+)") do
+		local info = {
+			uri = "rameplayer-"..version,
 			title = title,
-			latest = uri:match("(latest)") and true or nil,
-			stable = uri:match("(stable)") and true or nil,
-		})
+			version = version:match("^([0-9.]+)"),
+			stable = version:match("(stable)") and true or nil,
+		}
+		if info.stable and comparever(info.version, latest.version) > 0 then
+			latest = info
+		end
+		table.insert(fws, info)
 	end
 	if #fws == 0 then return 500, "no available firmwares" end
+	if latest then latest.latest = true end
 
 	return 200, { firmwares = fws }
 end
