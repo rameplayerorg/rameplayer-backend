@@ -18,10 +18,12 @@ function Plugin.main()
 		local timestamp, eventType, eventCode, value = input:read()
 		--print("rotary", timestamp, eventType, eventCode, value)
 		if eventType == evdev.EV_REL and eventCode == evdev.REL_X then
-			local vol = RAME.system.headphone_volume() + 5 * value
-			if vol <= 0 then vol = 0 end
-			if vol >= 100 then vol = 100 end
-			RAME.system.headphone_volume(vol)
+			if RAME.config.omxplayer_audio_out ~= "hdmi" then
+				local vol = RAME.system.headphone_volume() + 5 * value
+				if vol <= 0 then vol = 0 end
+				if vol >= 100 then vol = 100 end
+				RAME.system.headphone_volume(vol)
+			end
 			RAME.localui.rotary_flag(true)
 		end
 	end

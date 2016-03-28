@@ -108,7 +108,11 @@ function Plugin.main()
 		if RAME.localui.rotary_flag() then
 			local volume = RAME.system.headphone_volume()
 			hold_volume_display_until_time = cqueues.monotime() + 1.5
-			out:write(("X7:Headp. volume: %d%%\n"):format(volume))
+			if RAME.config.omxplayer_audio_out ~= "hdmi" then
+				out:write(("X7:Headp. volume: %d%%\n"):format(volume))
+			else
+				out:write("X7:Only HDMI audio!\n")
+			end
 			RAME.localui.rotary_flag(false)
 		end
 		if hold_volume_display_until_time ~= 0 then
