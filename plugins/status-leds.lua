@@ -6,10 +6,10 @@ local RAME = require 'rame.rame'
 
 local properties = {}
 local mappings = {
-	["rame:green:play"]	= function() local s = RAME.player.status() return s == "playing" or s == "buffering" end,
-	["rame:yellow:pause"]	= function() local s = RAME.player.status() return s == "waiting" or s == "paused"  or s == "buffering" end,
-	["rame:red:stop"]	= function() local s = RAME.player.status() return s == "waiting" or s == "stopped" end,
-	["rame:orange:rame"]	= function() return RAME.localui.menu() end,
+	["rame:play"]	= function() local s = RAME.player.status() return s == "playing" or s == "buffering" end,
+	["rame:pause"]	= function() local s = RAME.player.status() return s == "waiting" or s == "paused"  or s == "buffering" end,
+	["rame:stop"]	= function() local s = RAME.player.status() return s == "waiting" or s == "stopped" end,
+	["rame:rame"]	= function() return RAME.localui.menu() end,
 }
 
 local Plugin = { }
