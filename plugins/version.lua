@@ -119,8 +119,14 @@ function Plugin.init()
 	RAME.version.hardware_addon(hw_addon_info)
 	RAME.version.hardware_cfg(rame_cfg_info)
 
-	local ver_short = ("%s/%X:%X,%s"):format(firmware, rame_cfg_cids_id,
-	                                      rame_cfg_eeprom_cids_id, hw_revision)
+	local ver_short
+	-- cids id shown only once if effective matches eeprom
+	if rame_cfg_cids_id == rame_cfg_eeprom_cids_id then
+		ver_short = ("%s/%X,%s"):format(firmware, rame_cfg_cids_id, hw_revision)
+	else
+		ver_short = ("%s/%X:%X,%s"):format(firmware, rame_cfg_cids_id,
+		                                   rame_cfg_eeprom_cids_id, hw_revision)
+	end
 	RAME.log.info("ver_short: "..ver_short)
 	RAME.version.short(ver_short)
 
