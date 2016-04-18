@@ -445,6 +445,10 @@ function SETTINGS.POST.system(ctx, reply)
 	if args.dateAndTimeInUTC then
 		RAME.log.info("New date&time: "..args.dateAndTimeInUTC)
 		process.run("date", "-u", "-s", args.dateAndTimeInUTC)
+		-- write date&time to RTC if it's available:
+		if plpath.exists("/proc/device-tree/rame/cid6") then
+			process.run("hwclock", "-u", "-w")
+		end
 	end
 
 	activate_config(args)
