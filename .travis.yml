@@ -8,7 +8,9 @@ before_install:
   - docker run -d -p 127.0.0.1:8000:8000 -v `pwd`:/opt/rame/rameplayer-backend rameplayerorg/rameplayer
   - docker ps -a
   - docker run rameplayerorg/rameplayer /bin/ash -c "ls -la / /opt"
+  - curl http://localhost:8000/lists/root
 
 script:
   - ls -la / /opt .
+  - netstat -a -l
   - curl http://localhost:8000/lists/root
