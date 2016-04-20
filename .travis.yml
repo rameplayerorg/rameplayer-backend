@@ -10,7 +10,12 @@ before_install:
   - docker run rameplayerorg/rameplayer /bin/ash -c "ls -la / /opt /opt/rame/rameplayer-backend"
 #  - curl http://localhost:8000/lists/root
 
+before_script:
+  # wait backend server to get up
+  - sleep 10
+
 script:
   - ls -la / /opt .
   - netstat -a -l
-  - curl http://localhost:8000/lists/root
+  - docker ps -a
+  - curl 'http://localhost:8000/lists/root'
