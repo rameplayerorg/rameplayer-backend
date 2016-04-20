@@ -4,6 +4,8 @@ services:
   - docker
 
 before_install:
+  # git version of backend needs cqp symlink, used in Docker image
+  - ln -s ../lua-cqueues-pushy/cqp cqp
   # See https://hub.docker.com/r/rameplayerorg/rameplayer/
   - docker pull rameplayerorg/rameplayer
   - docker run -d -p 127.0.0.1:8000:8000 -v `pwd`:/opt/rame/rameplayer-backend rameplayerorg/rameplayer /bin/ash -c /etc/cqpushy/cqpushy.lua > container.id
