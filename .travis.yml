@@ -8,17 +8,20 @@ before_install:
   - ln -s ../lua-cqueues-pushy/cqp cqp
   # See https://hub.docker.com/r/rameplayerorg/rameplayer/
   - docker pull rameplayerorg/rameplayer
-  - docker run -d -p 127.0.0.1:8000:8000 -v `pwd`:/opt/rame/rameplayer-backend rameplayerorg/rameplayer /bin/ash -c /etc/cqpushy/cqpushy.lua > container.id
-  - docker ps -a
-  - docker run rameplayerorg/rameplayer /bin/ash -c "ls -la / /opt /opt/rame /opt/rame/rameplayer-backend; ps auxf"
+  - docker run -d -p 127.0.0.1:8000:8000 -v `pwd`:/opt/rame/rameplayer-backend rameplayerorg/rameplayer > /tmp/container.id
+  #- docker ps -a
+  #- docker run rameplayerorg/rameplayer /bin/ash -c "ls -la / /opt /opt/rame /opt/rame/rameplayer-backend; ps auxf"
 
-before_script:
+#before_script:
   # wait backend server to get up
-  - sleep 10
+  #  - sleep 10
 
 script:
-  - ls -la / /opt .
-  - netstat -a -l
-  - docker ps -a
-  - docker logs `cat container.id`
+  #- ls -la / /opt .
+  #- netstat -a -l
+  #- docker ps -a
+  #- docker logs `cat container.id`
   - curl 'http://localhost:8000/lists/root'
+
+after_script:
+  - docker logs `cat /tmp/container.id`
