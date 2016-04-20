@@ -4,11 +4,11 @@ services:
   - docker
 
 before_install:
+  # See https://hub.docker.com/r/rameplayerorg/rameplayer/
   - docker pull rameplayerorg/rameplayer
-  - docker run -d -p 127.0.0.1:8000:8000 -v `pwd`:/opt/rame/rameplayer-backend rameplayerorg/rameplayer
+  - docker run -d -p 127.0.0.1:8000:8000 -v `pwd`:/opt/rame/rameplayer-backend rameplayerorg/rameplayer > docker.log
   - docker ps -a
-  - docker run rameplayerorg/rameplayer /bin/ash -c "ls -la / /opt /opt/rame/rameplayer-backend"
-#  - curl http://localhost:8000/lists/root
+  #- docker run rameplayerorg/rameplayer /bin/ash -c "ls -la / /opt /opt/rame /opt/rame/rameplayer-backend"
 
 before_script:
   # wait backend server to get up
@@ -18,4 +18,5 @@ script:
   - ls -la / /opt .
   - netstat -a -l
   - docker ps -a
+  - cat docker.log
   - curl 'http://localhost:8000/lists/root'
