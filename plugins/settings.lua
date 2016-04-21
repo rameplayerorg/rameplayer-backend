@@ -460,6 +460,11 @@ function SETTINGS.POST.system(ctx, reply)
 	return 200
 end
 
+function SETTINGS.PUT.reboot(ctx, reply)
+	process.run("reboot", "now")
+	return 200
+end
+
 function SETTINGS.PUT.reset(ctx, reply)
 	-- TODO - "factory reset" here
 	print("TODO - Factory reset: doing something really drastic here to wipe out everything ;)")
