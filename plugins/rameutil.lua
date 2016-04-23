@@ -1,4 +1,5 @@
 local plpath = require 'pl.path'
+local stringx = require 'pl.stringx'
 local url = require 'socket.url'
 local process = require 'cqp.process'
 local RAME = require 'rame.rame'
@@ -31,7 +32,16 @@ function Plugin.control.play(uri)
 	if type(cmd) == "function" then
 		Plugin.process = process.spawn(cmd(uri))
 	else
-		Plugin.process = process.spawn(cmd, (su.path or ""):sub(2))
+		local args = {cmd}
+		for _, s in ipairs{stringx.splitv(su.query or '', '&')} do
+			local opt, _, val = stringx.partition(s, '=')
+			table.insert(args, '--'..url.unescape(opt))
+			table.insert(args, url.unescape(val))
+		end
+		if su.path then
+			table.insert(args, url.unescape(su.path:sub(2)))
+		end
+		Plugin.process = process.spawn(table.unpack(args))
 	end
 	Plugin.process:wait()
 	Plugin.process = nil
