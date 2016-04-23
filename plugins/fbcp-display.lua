@@ -56,6 +56,7 @@ function Plugin.main()
 	}
 	local out = process.popenw(fbcputil)
 	local hold_volume_display_until_time = 0
+	local last_displayed_filename = ""
 
 	while true do
 		pending = false
@@ -133,6 +134,7 @@ function Plugin.main()
 			else
 				out:write("X6:\n")
 			end
+			last_displayed_filename = ""
 			if not showing_volume then
 				out:write(("X7:Firmware upg.: %d%%\n"):format(fw_upgrade))
 			end
@@ -144,7 +146,10 @@ function Plugin.main()
 		item = Item.find(RAME.player.cursor())
 		filename = item and item.filename or ""
 
-		out:write(("X6:%s\n"):format(filename))
+		if filename ~= last_displayed_filename then
+			out:write(("X6:%s\n"):format(filename))
+			last_displayed_filename = filename
+		end
 
 		-- Default status for 2 last rows: filename, status icon and play time info
 		if status_id > 0 then
