@@ -1,0 +1,31 @@
+sudo: required
+
+language: node_js
+
+node_js:
+  - '5.11'
+
+services:
+  - docker
+
+before_install:
+  # git version of backend needs cqp symlink, used in Docker image
+  - ln -s ../lua-cqueues-pushy/cqp cqp
+  # See https://hub.docker.com/r/rameplayerorg/rameplayer/
+  - docker pull rameplayerorg/rameplayer
+  # Run Docker image
+  - docker run -d -p 127.0.0.1:8000:8000 -v `pwd`:/opt/rame/rameplayer-backend rameplayerorg/rameplayer > /tmp/container.id
+
+before_script:
+  - npm install -g jasmine-node
+  - npm install --save-dev frisby
+  # wait backend server to get up
+  - sleep 3
+
+script:
+  - cd test
+  # run REST API tests with using Frisby.js
+  - jasmine-node rest/
+
+after_script:
+  - docker logs `cat /tmp/container.id`
