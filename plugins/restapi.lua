@@ -1,9 +1,12 @@
 local cqueues = require 'cqueues'
+local condition = require 'cqueues.condition'
 local json = require 'cjson.safe'
 local RAME = require 'rame.rame'
 local Item = require 'rame.item'
 
 local Plugin = {}
+
+Plugin.cluster_cond = condition.new()
 
 -- REST API: /lists/ID
 local function rest_info(item)
@@ -133,6 +136,12 @@ function RAME.rest.status(ctx, reply)
 		end
 	end
 
+	if ctx.args.cluster then
+		RAME.cluster.controller(ctx.ip)
+		-- Start timer for auto clearing cluster controller status
+		Plugin.cluster_cond:signal()
+	end
+
 	local item = Item.find(RAME.player.cursor())
 
 	local player = {
@@ -141,7 +150,7 @@ function RAME.rest.status(ctx, reply)
 		upgradeProgress = RAME.system.firmware_upgrade(),
 	}
 
-	return 200, {
+	local response = {
 		listsRefreshed = lists,
 		state = RAME.player.status(),
 		position = RAME.player.position(),
@@ -153,6 +162,14 @@ function RAME.rest.status(ctx, reply)
 		},
 		player = next(player) and player,
 	}
+
+	if RAME.cluster.controller() then
+		response["cluster"] = {
+			controller = RAME.cluster.controller()
+		}
+	end
+
+	return 200, response
 end
 
 -- REST API: /player/
@@ -191,6 +208,21 @@ function Plugin.early_init()
 	RAME.rest.player = function(ctx, reply) return ctx:route(reply, PLAYER) end
 	RAME.rest.cursor = function(ctx, reply) return ctx:route(reply, CURSOR) end
 	RAME.rest.lists = function(ctx, reply) return ctx:route(reply, LISTS) end
+end
+
+function Plugin.main()
+	local timeout = nil
+	while true do
+		local ret = cqueues.poll(Plugin.cluster_cond, timeout)
+		if ret == timeout then
+			timeout = nil
+			RAME.log.info("Clearing cluster controller status")
+			RAME.cluster.controller(false)
+		else
+			-- Trigger timeout to clear cluster controller
+			timeout = 3.0
+		end
+	end
 end
 
 return Plugin

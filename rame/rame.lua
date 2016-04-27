@@ -45,6 +45,9 @@ local RAME = {
 		menu = push.property(false, "Local UI menu toggle"),
 		rotary_flag = push.property(false, "Rotary notification flag"),
 	},
+	cluster = {
+		controller = push.property(false, "Cluster controller"),
+	},
 	root = Item.new_list{id="root", title="Root"},
 	rame = Item.new_list{id="rame", filename="rame", title="RAME"},
 	default = Item.new_list{id="default", title="Default playlist", editable=true},
