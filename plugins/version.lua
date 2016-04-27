@@ -52,7 +52,7 @@ function Plugin.init()
 	-- RAME.version.backend is set on build script
 	RAME.log.info("backend: "..RAME.version.backend())
 
-	local hw_base_model = plfile.read("/sys/firmware/devicetree/base/model"):sub(1, -2) or ""
+	local hw_base_model = (plfile.read("/sys/firmware/devicetree/base/model") or ""):sub(1, -2)
 	--print("hw_base_model", hw_base_model)
 	for rev in plfile.read("/proc/cpuinfo"):gmatch("Revision.-:%s*([^\n]+)") do
 		hw_revision = rev
