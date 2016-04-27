@@ -8,6 +8,22 @@ local Item = require 'rame.item'
 local fbcputil = "/usr/bin/ramefbcp"
 local Plugin = {}
 
+local function get_localui_tz()
+	local ts = os.time()
+	local utcdate   = os.date("!*t", ts)
+	local localdate = os.date( "*t", ts)
+	localdate.isdst = false
+	local tzoffset = os.difftime(os.time(localdate), os.time(utcdate))
+	local tznfo = "UTC "
+	if tzoffset ~= 0 then
+		local h, m = math.modf(tzoffset / 3600)
+		tznfo = ("UTC%+.4d "):format(h * 100 + m * 60)
+	end
+	--print(tznfo, localdate["hour"], localdate["min"], localdate["sec"], cqueues.monotime())
+	--return ("%s %02d:%02d:%02d"):format(tznfo, localdate["hour"], localdate["min"], localdate["sec"])
+	return tznfo
+end
+
 function Plugin.active()
 	if not plpath.isfile(fbcputil) then
 		return nil, fbcputil.." not found"
@@ -57,8 +73,11 @@ function Plugin.main()
 	local out = process.popenw(fbcputil)
 	local hold_volume_display_until_time = 0
 	local last_displayed_filename = ""
+	local tznfo = 0
+	local sched_update_tznfo_time = cqueues.monotime()
 
 	while true do
+		local monotime = cqueues.monotime()
 		pending = false
 
 		local status = RAME.player.status()
@@ -66,6 +85,11 @@ function Plugin.main()
 		local menu = RAME.localui.menu()
 		local video_enabled = vidmap[status] or 0
 		local item, filename
+
+		if monotime >= sched_update_tznfo_time then
+			tznfo = get_localui_tz()
+			sched_update_tznfo_time = monotime + 30*60
+		end
 
 		local turn_off_menu = false
 		if menu then
@@ -95,6 +119,8 @@ function Plugin.main()
 		end
 		out:write(("X2:IP %s\n"):format(RAME.system.ip()))
 
+		out:write(("C3:%s\n"):format(tznfo))
+
 		out:write(("X4:%s\n"):format(RAME.version.short()))
 
 		local reboot_required = RAME.system.reboot_required() and true or nil
@@ -108,7 +134,7 @@ function Plugin.main()
 		-- If rotary has just been turned, show Volume info
 		if RAME.localui.rotary_flag() then
 			local volume = RAME.system.headphone_volume()
-			hold_volume_display_until_time = cqueues.monotime() + 1.5
+			hold_volume_display_until_time = monotime + 1.5
 			if RAME.config.omxplayer_audio_out ~= "hdmi" then
 				out:write(("X7:Headp. volume: %d%%\n"):format(volume))
 			else
@@ -117,7 +143,7 @@ function Plugin.main()
 			RAME.localui.rotary_flag(false)
 		end
 		if hold_volume_display_until_time ~= 0 then
-			if cqueues.monotime() < hold_volume_display_until_time then
+			if monotime < hold_volume_display_until_time then
 				pending = true
 				showing_volume = true
 			else
