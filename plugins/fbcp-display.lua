@@ -76,6 +76,15 @@ function Plugin.main()
 	local tznfo = 0
 	local sched_update_tznfo_time = cqueues.monotime()
 
+	-- using only one default color for each row, for now
+	out:write("O1:FFFFFFFF\n") -- hostname
+	out:write("O2:FFFFFFFF\n") -- IP
+	out:write("O3:FF8899AA\n") -- clock
+	out:write("O4:FF777777\n") -- version
+	out:write("O5:FFFF8800\n") -- reboot req.
+	out:write("O6:FFFFFFFF\n") -- filename (usually)
+	out:write("O7:FFFFFFFF\n") -- play pos/len (usually)
+
 	while true do
 		local monotime = cqueues.monotime()
 		pending = false
