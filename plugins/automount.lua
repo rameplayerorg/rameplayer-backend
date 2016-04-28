@@ -90,7 +90,7 @@ function Plugin.main()
 			local mountpoint = "/media/"..name
 			if bit32.band(notify.CREATE, changes) == notify.CREATE then
 				posix.mkdir(mountpoint)
-				process.run("mount", "-o", "ro", dev, mountpoint)
+				process.run("mount", "-o", "iocharset=utf8,ro", dev, mountpoint)
 				media_changed(name, mountpoint, true)
 			elseif bit32.band(notify.DELETE, changes) == notify.DELETE then
 				media_changed(name, mountpoint, false)
