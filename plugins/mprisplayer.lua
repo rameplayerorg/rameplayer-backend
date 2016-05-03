@@ -66,6 +66,9 @@ function Plugin.control.omxplay(uri)
 			"--nohdmiclocksync",
 			"--adev", RAME.config.omxplayer_audio_out,
 	}
+	if uri:match("^rtmp:") then
+		table.insert(cmd, "--live")
+	end
 	if Plugin.use_alsa then
 		table.insert(cmd, "-A")
 		table.insert(cmd, "default")
