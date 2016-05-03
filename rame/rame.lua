@@ -48,6 +48,7 @@ local RAME = {
 	cluster = {
 		controller = push.property(false, "Cluster controller"),
 	},
+	media = {},
 	root = Item.new_list{id="root", title="Root"},
 	rame = Item.new_list{id="rame", filename="rame", title="RAME"},
 	default = Item.new_list{id="default", title="Default playlist", editable=true},
@@ -214,6 +215,16 @@ local function on_cursor_change(item_id)
 		end
 	end
 	RAME.cursor_item = item
+end
+
+function RAME.resolve_uri(uri)
+	RAME.log.info(("mapping %s"):format(uri))
+	if uri:match("^file:") == nil then return uri end
+	local host, path = uri:match("^file://([^/]+)(.*)")
+	if host == nil or RAME.media[host] == nil then return nil end
+	local file = RAME.media[host]..path
+	RAME.log.info(("Mapped %s -> %s"):format(uri, file))
+	return file
 end
 
 function RAME.main()

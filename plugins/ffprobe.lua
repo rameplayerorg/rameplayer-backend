@@ -8,6 +8,7 @@ local Plugin = {}
 -- Media scanning
 local function ffprobe_file(fn)
 	-- reference: https://ffmpeg.org/ffprobe.html
+	if not fn then return nil end
 	local out = process.popen(
 		"ffprobe",
 			"-probesize", "1000",
@@ -23,7 +24,7 @@ end
 function Plugin.uri_scanner(self)
 	RAME.log.info("Scanning", self.uri)
 
-	local data = ffprobe_file(self.uri)
+	local data = ffprobe_file(RAME.resolve_uri(self.uri))
 	if data == nil then return false end
 
 	local ff = json.decode(data)

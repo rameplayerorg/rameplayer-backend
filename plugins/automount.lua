@@ -3,6 +3,7 @@ local plpath = require 'pl.path'
 local cqueues = require 'cqueues'
 local notify = require 'cqueues.notify'
 local process = require 'cqp.process'
+local stamp = require 'rame.stamp'
 local RAME = require 'rame.rame'
 local Item = require 'rame.item'
 
@@ -16,24 +17,48 @@ end
 local data_devices = {
 	"sda1",
 	"sdb1",
+	"sdc1",
+	"sdd1",
 	"mmcblk0p2"
 }
 
 local items = {}
 
-local function media_changed(name, mountpoint, mounted)
-	if items[name] then
-		items[name]:unlink()
+local function media_changed(name, mounted)
+	local devname = "/dev/"..name
+	local mountpoint = "/media/"..name
+
+	local item = items[name]
+	if item then
+		RAME.media[item.id] = nil
+		item:unlink()
 		items[name] = nil
 	end
+
 	if mounted then
+		local blkid = process.popen("blkid", devname):read_all() or ""
+		local label = blkid and blkid:match('LABEL="(%S+)"') or "NONAME"
+		local uuid  = blkid and blkid:match('UUID="(%S+)"') or tostring(stamp.next())
+
+		RAME.log.info(("Device %s: mounting label=%s, uuid=%s"):format(devname, label, uuid))
+		if not is_mount_point(mountpoint) then
+			posix.mkdir(mountpoint)
+			process.run("mount", "-o", "iocharset=utf8,ro", devname, mountpoint)
+		end
+
+		RAME.media[uuid] = mountpoint
+		RAME.log.info(("Adding %s -> %s"):format(uuid, mountpoint))
+
 		local item = Item.new{
 			["type"]="device",
-			title=name,
-			uri="file:///"..mountpoint,
+			title=label or name,
+			mountpoint=mountpoint,
+			id=uuid,
+			uri="file://"..uuid.."/",
 		}
 		items[name] = item
 		RAME.root:add(item)
+
 		if RAME.settings.autoplayUsb then
 			item:expand()
 			if #item.items > 0 then
@@ -42,13 +67,17 @@ local function media_changed(name, mountpoint, mounted)
 		elseif RAME.player.cursor() == "" then
 			-- initialize cursor if it was empty
 			item:expand()
-			for _,i in pairs(item.items) do
+			for _,i in pairs(item.items or {}) do
 				if i.type == "regular" then
 					RAME.player.cursor(i.id)
 					break
 				end
 			end
 		end
+	else
+		RAME.log.info(("Device '%s': umounting"):format(devname))
+		process.run("umount", "-l", mountpoint)
+		posix.rmdir(mountpoint)
 	end
 end
 
@@ -61,9 +90,10 @@ function Plugin.active()
 end
 
 function Plugin.init()
-	local path = "/media/mmcblk0p1/media"
+	local id, path = "internal", "/media/mmcblk0p1/media"
 	if plpath.exists(path) then
-		RAME.rame:add(Item.new({id="internal", title="Internal", uri="file:///"..path}))
+		RAME.media[id] = path
+		RAME.root:add(Item.new({id=id, title="Internal", mountpoint="/media/mmcblk0p1", uri="file://internal/"}))
 	end
 end
 
@@ -72,29 +102,18 @@ function Plugin.main()
 	local n = notify.opendir("/dev/", 0)
 	for _, name in ipairs(data_devices) do
 		n:add(name)
-		local dev = "/dev/"..name
-		local mountpoint = "/media/"..name
-		if posix.stat(dev) then
-			if not is_mount_point(mountpoint) then
-				posix.mkdir(mountpoint)
-				process.run("mount", "-o", "iocharset=utf8,ro", dev, mountpoint)
-			end
-			media_changed(name, mountpoint, true)
+		if posix.stat("/dev/"..name) then
+			media_changed(name, true)
 		end
 	end
 
 	-- Act on changes
 	for changes, name in n:changes() do
 		if name ~= "." then
-			local dev = "/dev/"..name
-			local mountpoint = "/media/"..name
 			if bit32.band(notify.CREATE, changes) == notify.CREATE then
-				posix.mkdir(mountpoint)
-				process.run("mount", "-o", "iocharset=utf8,ro", dev, mountpoint)
-				media_changed(name, mountpoint, true)
+				media_changed(name, true)
 			elseif bit32.band(notify.DELETE, changes) == notify.DELETE then
-				media_changed(name, mountpoint, false)
-				process.run("umount", "-l", mountpoint)
+				media_changed(name, false)
 			end
 		end
 	end

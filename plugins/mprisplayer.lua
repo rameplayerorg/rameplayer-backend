@@ -73,7 +73,7 @@ function Plugin.control.omxplay(uri)
 		table.insert(cmd, "-A")
 		table.insert(cmd, "default")
 	end
-	table.insert(cmd, uri)
+	table.insert(cmd, RAME.resolve_uri(uri))
 	Plugin.process = process.spawn(table.unpack(cmd))
 	cqueues.running():wrap(Plugin.control.status_update)
 	local status = Plugin.process:wait()
@@ -83,7 +83,9 @@ function Plugin.control.omxplay(uri)
 end
 
 function Plugin.control.vlcplay(uri)
-	Plugin.process = process.spawn("vlc", "--control", "dbus", "--intf", "dummy", uri)
+	Plugin.process = process.spawn(
+		"vlc", "--control", "dbus", "--intf", "dummy",
+		RAME.resolve_uri(uri))
 	cqueues.running():wrap(Plugin.control.status_update)
 	local status = Plugin.process:wait()
 	Plugin.process = nil

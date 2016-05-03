@@ -6,7 +6,7 @@ local Item = require 'rame.item'
 local Plugin = {}
 
 function Plugin.expand(self)
-	local path = self.uri:gsub("^file://", "")
+	local path = RAME.resolve_uri(self.uri)
 	local items = {}
 	for file in posix.files(path) do
 		if file:sub(1, 1) ~= "." then
@@ -24,7 +24,8 @@ function Plugin.expand(self)
 end
 
 function Plugin.uri_helper(self)
-	local path = self.uri:gsub("^file://", "")
+	local path = RAME.resolve_uri(self.uri)
+	if not path then return end
 	local st = posix.stat(path)
 	if not st then return end
 
