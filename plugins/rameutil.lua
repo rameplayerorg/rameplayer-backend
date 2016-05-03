@@ -43,6 +43,7 @@ function Plugin.control.play(uri)
 		end
 		Plugin.process = process.spawn(table.unpack(args))
 	end
+	RAME.player.status("playing")
 	Plugin.process:wait()
 	Plugin.process = nil
 	if Plugin.control.cleanup then
@@ -66,7 +67,9 @@ function Plugin.early_init()
 	if not RAME.config.second_display then
 		RAME.idle_uri = "rameutil://status"
 	end
-	RAME.rame:add(Item.new{title="Clock", uri="rameutil://clock"})
+	RAME.rame:add(Item.new{title="Clock (Analog)", uri="rameutil://clock/?display=analog"})
+	RAME.rame:add(Item.new{title="Clock (Combined)", uri="rameutil://clock/?display=combined"})
+	RAME.rame:add(Item.new{title="Clock (Digital)", uri="rameutil://clock/?display=digital"})
 	RAME.rame:add(Item.new{title="Status", uri="rameutil://status"})
 	RAME.rame:add(Item.new{title="Hello world", uri="rameutil://text/Hello world!"})
 end
