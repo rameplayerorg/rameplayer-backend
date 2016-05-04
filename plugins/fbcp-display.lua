@@ -44,6 +44,7 @@ function Plugin.main()
 	RAME.player.duration:push_to(update)
 	RAME.player.status:push_to(update)
 	RAME.player.cursor:push_to(update)
+	RAME.cluster.controller:push_to(update)
 	RAME.system.ip:push_to(update)
 	RAME.system.reboot_required:push_to(update)
 	RAME.system.hostname:push_to(update)
@@ -73,6 +74,7 @@ function Plugin.main()
 	local out = process.popenw(fbcputil)
 	local hold_volume_display_until_time = 0
 	local last_displayed_filename = ""
+	local last_displayed_notifyinfo = ""
 	local tznfo = 0
 	local sched_update_tznfo_time = cqueues.monotime()
 
@@ -132,9 +134,23 @@ function Plugin.main()
 
 		out:write(("X4:%s\n"):format(RAME.version.short()))
 
-		local reboot_required = RAME.system.reboot_required() and true or nil
-		if reboot_required then
-			out:write("X5:‼ Restart Pending...\n")
+		local cluster_controller = RAME.cluster.controller()
+		local reboot_required = RAME.system.reboot_required()
+		local notify1 = cluster_controller and "In cluster controlled by "..cluster_controller or ""
+		local notifysep = ""
+		local notify2 = reboot_required and "Restart Pending..." or ""
+		if notify1:len() > 0 and notify2:len() > 0 then
+			notifysep = " -- "
+		elseif notify2:len() > 0 then
+			notifysep = "‼ "
+		end
+		local notifyinfo = ""
+		if notify1:len() > 0 or notify2:len() > 0 then
+			notifyinfo = ("X5:%s%s%s\n"):format(notify1, notifysep, notify2)
+		end
+		if notifyinfo ~= last_displayed_notifyinfo then
+			out:write(notifyinfo)
+			last_displayed_notifyinfo = notifyinfo
 		end
 
 
