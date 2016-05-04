@@ -257,13 +257,17 @@ function RAME.commit_overlay()
 	return true
 end
 
-function RAME.load_playlists(item)
+function RAME.load_playlists(item, bootmedia)
 	local lists = json.decode(plfile.read(item.mountpoint .. item.playlistsfile) or "{}")
 	item:load_playlists(lists, function(item, playlistdata)
 		RAME.remount_rw_write(item.mountpoint, item.mountpoint..item.playlistsfile, json.encode(playlistdata))
 	end)
 	for name, pitem in pairs(item.playlists) do
 		RAME.root:add(pitem)
+		if name == "autoplay" and #pitem.items > 0
+		   and (bootmedia or RAME.settings.autoplayUsb) then
+			RAME:action("autoplay", pitem.items[1].id)
+		end
 	end
 end
 
@@ -272,7 +276,7 @@ function RAME.main()
 	self.player.cursor:push_to(on_cursor_change)
 	cqueues.running():wrap(Item.scanner)
 	cqueues.poll(0.1)
-	self.load_playlists(self.rame)
+	self.load_playlists(self.rame, true)
 
 	while true do
 		-- Start process matching current state
