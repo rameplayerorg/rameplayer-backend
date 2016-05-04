@@ -31,7 +31,7 @@ local function media_changed(name, mounted)
 	local item = items[name]
 	if item then
 		RAME.media[item.id] = nil
-		item:unlink()
+		item:unlink(true)
 		items[name] = nil
 	end
 
@@ -47,17 +47,19 @@ local function media_changed(name, mounted)
 		end
 
 		RAME.media[uuid] = mountpoint
-		RAME.log.info(("Adding %s -> %s"):format(uuid, mountpoint))
 
 		local item = Item.new{
 			["type"]="device",
 			title=label or name,
 			mountpoint=mountpoint,
+			playlists={},
+			playlistsfile="/.rameplaylists.json",
 			id=uuid,
 			uri="file://"..uuid.."/",
 		}
 		items[name] = item
 		RAME.root:add(item)
+		RAME.load_playlists(item)
 
 		if RAME.settings.autoplayUsb then
 			item:expand()
@@ -93,7 +95,7 @@ function Plugin.init()
 	local id, path = "internal", "/media/mmcblk0p1/media"
 	if plpath.exists(path) then
 		RAME.media[id] = path
-		RAME.root:add(Item.new({id=id, title="Internal", mountpoint="/media/mmcblk0p1", uri="file://internal/"}))
+		RAME.rame:add(Item.new({id=id, title="Internal", uri="file://internal/"}))
 	end
 end
 

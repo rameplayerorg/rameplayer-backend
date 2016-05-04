@@ -1,3 +1,4 @@
+local json = require 'cjson.safe'
 local cqueues = require 'cqueues'
 local pldir = require 'pl.dir'
 local plpath = require 'pl.path'
@@ -50,7 +51,15 @@ local RAME = {
 	},
 	media = {},
 	root = Item.new_list{id="root", title="Root"},
-	rame = Item.new_list{id="rame", filename="rame", title="RAME"},
+	rame = Item.new_list{
+		id="rame",
+		["type"]="device",
+		title="RAME",
+		filename="rame",
+		mountpoint="/media/mmcblk0p1",
+		playlists={},
+		playlistsfile="/user/playlists.json",
+	},
 	default = Item.new_list{id="default", title="Default playlist", editable=true},
 	rest = {},
 	plugins = {},
@@ -218,19 +227,52 @@ local function on_cursor_change(item_id)
 end
 
 function RAME.resolve_uri(uri)
-	RAME.log.info(("mapping %s"):format(uri))
 	if uri:match("^file:") == nil then return uri end
 	local host, path = uri:match("^file://([^/]+)(.*)")
 	if host == nil or RAME.media[host] == nil then return nil end
 	local file = RAME.media[host]..path
-	RAME.log.info(("Mapped %s -> %s"):format(uri, file))
+	RAME.log.debug(("Mapped %s -> %s"):format(uri, file))
 	return file
+end
+
+function RAME.read_settings_file(file)
+	return plfile.read(RAME.config.settings_path..file)
+end
+
+function RAME.remount_rw_write(mountpoint, file, data)
+	process.run("mount", "-o", "remount,rw", mountpoint)
+	local dirname = plpath.dirname(file)
+	if dirname ~= mountpoint then pldir.makepath(dirname) end
+	local ok = plfile.write(file, data)
+	process.run("mount", "-o", "remount,ro", mountpoint)
+	return ok
+end
+
+function RAME.write_settings_file(file, data)
+	return RAME.remount_rw_write("/media/mmcblk0p1", RAME.config.settings_path..file, data)
+end
+
+function RAME.commit_overlay()
+	process.run("lbu", "commit", "-d")
+	return true
+end
+
+function RAME.load_playlists(item)
+	local lists = json.decode(plfile.read(item.mountpoint .. item.playlistsfile) or "{}")
+	item:load_playlists(lists, function(item, playlistdata)
+		RAME.remount_rw_write(item.mountpoint, item.mountpoint..item.playlistsfile, json.encode(playlistdata))
+	end)
+	for name, pitem in pairs(item.playlists) do
+		RAME.root:add(pitem)
+	end
 end
 
 function RAME.main()
 	local self = RAME
 	self.player.cursor:push_to(on_cursor_change)
 	cqueues.running():wrap(Item.scanner)
+	cqueues.poll(0.1)
+	self.load_playlists(self.rame)
 
 	while true do
 		-- Start process matching current state
@@ -318,27 +360,8 @@ function RAME.check_fields(data, schema)
 	end
 end
 
-function RAME.read_settings_file(file)
-	return plfile.read(RAME.config.settings_path..file)
-end
-
-function RAME.write_settings_file(file, data)
-	process.run("mount", "-o", "remount,rw", "/media/mmcblk0p1")
-	pldir.makepath(RAME.config.settings_path)
-	local ok = plfile.write(RAME.config.settings_path..file, data)
-	process.run("mount", "-o", "remount,ro", "/media/mmcblk0p1")
-	return ok
-end
-
-function RAME.commit_overlay()
-	process.run("lbu", "commit", "-d")
-	return true
-end
-
-
 function RAME.log.level(str)
-	local default_level = RAME.log.levels["DEBUG"]
-	return RAME.log.levels[str] or default_level
+	return RAME.log.levels[str] or RAME.log.levels["DEBUG"]
 end
 
 function RAME.log.info(...)

@@ -1,3 +1,4 @@
+local tablex = require 'pl.tablex'
 local cqueues = require 'cqueues'
 local condition = require 'cqueues.condition'
 local json = require 'cjson.safe'
@@ -49,10 +50,23 @@ function LISTS.POST(ctx, reply)
 	local item
 	if #ctx.paths == ctx.path_pos-1 then
 		-- POST /lists/ -- add new list
-		item = Item.new{["type"]='playlist', title = ctx.args.title, editable = true, items = {}}
-		for _, c in pairs(ctx.args.items) do
-			item:add(Item.new{title = c.title, uri = c.uri})
+		local storage
+		if ctx.args.storage then
+			-- root item id to store the playlist in
+			storage = Item.find(ctx.args.storage)
+			if storage == nil then return 404 end
+			if not storage.playlists then return 405 end
 		end
+		item = Item.new {
+			["type"]='playlist',
+			title = ctx.args.title,
+			editable = true,
+			items = {}
+		}
+		for _, c in pairs(ctx.args.items) do
+			item:add(Item.new { title = c.title, uri = c.uri, editable = true })
+		end
+		if storage then storage:add_playlist(item) end
 		RAME.root:add(item)
 	elseif #ctx.paths == ctx.path_pos+1 and ctx.paths[ctx.path_pos+1] == "items" then
 		-- POST /lists/ID/items -- add new item
@@ -103,12 +117,14 @@ function LISTS.DELETE(ctx, reply)
 		while item.items[1] do
 			item.items[1]:unlink()
 		end
+		item:touch()
 	elseif #ctx.paths == ctx.path_pos+2 then
 		local id = ctx.paths[ctx.path_pos+2]
-		local item = Item.find(id)
-		if item == nil then return 404 end
-		if not item.editable then return 405 end
-		item:unlink()
+		local pitem = Item.find(id)
+		if pitem == nil or not tablex.find(item.items, pitem) then return 404 end
+		if not pitem.editable then return 405 end
+		pitem:unlink()
+		item:touch()
 	else
 		return 404
 	end

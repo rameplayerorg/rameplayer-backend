@@ -1,4 +1,7 @@
+local json = require 'cjson.safe'
+local plfile = require 'pl.file'
 local tablex = require 'pl.tablex'
+local cqueues = require 'cqueues'
 local stamp = require 'rame.stamp'
 local UrlMatch = require 'rame.urlmatch'
 local Queue = require 'rame.queue'
@@ -53,8 +56,12 @@ end
 
 function Item:touch()
 	self.refreshed = stamp.next()
+	if self.container then self.container:queue_save() end
 	if self.parent then
 		self.parent.refreshed = self.refreshed
+		if self.parent.container then
+			self.parent.container:queue_save()
+		end
 	end
 	return self
 end
@@ -96,9 +103,16 @@ function Item:move_after(id)
 	self:touch()
 end
 
-function Item:unlink()
+function Item:unlink(forced)
+	if self.pending_save then self:save_playlists() end
+
+	self.nuked = true
 	if self.parent then
 		self.parent:del(self)
+	end
+	if self.container then
+		self.container.playlists[self.title] = nil
+		if not forced then self.container:queue_save() end
 	end
 	if type(self.items) == "table" then
 		for _, child in ipairs(self.items) do
@@ -106,10 +120,74 @@ function Item:unlink()
 			child:unlink()
 		end
 	end
-	Item.__all_items[self.id] = nil
-	if self.on_delete then
-		self.on_delete()
+	if type(self.playlists) == "table" then
+		for _, item in pairs(self.playlists) do
+			item.container = nil
+			item:unlink()
+		end
 	end
+	Item.__all_items[self.id] = nil
+	if self.on_delete then self.on_delete() end
+end
+
+function Item:add_playlist(item)
+	if item.type ~= "playlist" then return end
+	if not self.playlists then return end
+	if self.playlists[item.title] then
+		self.playlists[item.title]:unlink()
+	end
+	self.playlists[item.title] = item
+	item.container = self
+	item:touch()
+end
+
+function Item:load_playlists(lists, save_func)
+	self.pending_save = true
+	for name, list in pairs(lists) do
+		local item = Item.new {
+			["type"]='playlist',
+			title = name,
+			editable = true,
+			items = {}
+		}
+		for _, c in pairs(list) do
+			item:add(Item.new { title = c.title, uri = c.uri, editable = true })
+		end
+		self:add_playlist(item)
+	end
+	self.pending_save = false
+	self.playlists_save = save_func
+end
+
+function Item:save_playlists()
+	if not self.nuked and self.playlists_save then
+		local data = {}
+		for name, pitem in pairs(self.playlists) do
+			local list = setmetatable({}, json.array)
+			for _, item in ipairs(pitem.items) do
+				table.insert(list, {
+					uri = item.uri,
+					title = item.title,
+				})
+			end
+			data[name] = list
+		end
+		self:playlists_save(data)
+	end
+	self.pending_save = nil
+end
+
+function Item:queue_save()
+	if self.type ~= "device"
+	   or not self.playlists or not self.playlistsfile
+	   or self.pending_save or not self.playlists_save then
+		return
+	end
+	self.pending_save = true
+	cqueues.running():wrap(function()
+		cqueues.poll(2)
+		if self.pending_save then self:save_playlists() end
+	end)
 end
 
 function Item:navigate(backwards)
