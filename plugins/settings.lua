@@ -52,6 +52,15 @@ local rpi_resolutions = {
 }
 local rpi_resolutions_rev = revtable(rpi_resolutions)
 
+-- supported displayRotation on RPi
+local rpi_display_rotation = {
+	[0] = "display_rotate=0 #Normal",
+	[90] = "display_rotate=1 #90 degrees",
+	[180] = "display_rotate=2 #180 degrees",
+	[270] = "display_rotate=3 #270 degrees",
+}
+local rpi_display_rotation_rev = revtable(rpi_display_rotation)
+
 local rpi_audio_ports = {
 	rameAnalogOnly = "hdmi_drive=1",
 	rameHdmiOnly =  "hdmi_drive=2",
@@ -64,6 +73,12 @@ local omxplayer_audio_outs = {
 	rameHdmiOnly = "hdmi",
 	rameHdmiAndAnalog = "both",
 }
+
+local function check_display_rotation(value)
+	if type(value) ~= "number" then return false end
+	if value == 0 or value == 90 or value == 180 or value == 270 then
+		return true else return false end
+end
 
 local function check_hostname(value)
 	if type(value) ~= "string" then return false end
@@ -126,6 +141,7 @@ function SETTINGS.GET.system(ctx, reply)
 		-- Defaults if not found from config files
 		resolution = "rameAutodetect",
 		audioPort = "rameAnalogOnly",
+		displayRotation = 0,
 		ipDhcpClient = true,
 	}
 
@@ -139,6 +155,9 @@ function SETTINGS.GET.system(ctx, reply)
 		end
 		if rpi_audio_ports_rev[val] then
 			conf.audioPort = rpi_audio_ports_rev[val]
+		end
+		if rpi_display_rotation_rev[val] then
+			conf.displayRotation = rpi_display_rotation_rev[val]
 		end
 	end
 
@@ -184,9 +203,10 @@ function SETTINGS.POST.system(ctx, reply)
 		resolution = {typeof="string",choices=rpi_resolutions},
 		audioPort = {typeof="string",choices=rpi_audio_ports},
 		ipDhcpClient = "boolean",
+		displayRotation = {validate=check_display_rotation},
 		hostname = {validate=check_hostname, optional=true},
-		ntpServerAddress = {typeof="string", optional=true },
-		dateAndTimeInUTC = {typeof="string", optional=true },
+		ntpServerAddress = {typeof="string", optional=true},
+		dateAndTimeInUTC = {typeof="string", optional=true},
 	})
 	if err then return err, msg end
 
@@ -210,6 +230,7 @@ function SETTINGS.POST.system(ctx, reply)
 		rpi_conf.resolution = rpi_resolutions[args.resolution]
 	end
 	rpi_conf.audio_port = rpi_audio_ports[args.audioPort]
+	rpi_conf.display_rotation = rpi_display_rotation[args.displayRotation]
 
 	for i, val in ipairs(usercfg) do
 		if val:match("hdmi_group=[^\n]+") then
@@ -221,6 +242,13 @@ function SETTINGS.POST.system(ctx, reply)
 				changed = true
 			end
 			rpi_conf.resolution = nil
+		elseif val:match("display_rotate=[^\n]+") then
+			-- updating only if change in config
+			if val ~= rpi_conf.display_rotation then
+				usercfg[i] = rpi_conf.display_rotation
+				changed = true
+			end
+			rpi_conf.display_rotation = nil
 		elseif val:match("hdmi_drive=[^\n]+") then
 			if val ~= rpi_conf.audio_port then
 				usercfg[i] = rpi_conf.audio_port
