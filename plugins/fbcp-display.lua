@@ -146,13 +146,12 @@ function Plugin.main()
 		end
 		local notifyinfo = ""
 		if notify1:len() > 0 or notify2:len() > 0 then
-			notifyinfo = ("X5:%s%s%s\n"):format(notify1, notifysep, notify2)
+			notifyinfo = ("%s%s%s"):format(notify1, notifysep, notify2)
 		end
 		if notifyinfo ~= last_displayed_notifyinfo then
-			out:write(notifyinfo)
+			out:write(("X5:%s\n"):format(notifyinfo))
 			last_displayed_notifyinfo = notifyinfo
 		end
-
 
 		local showing_volume = false
 
