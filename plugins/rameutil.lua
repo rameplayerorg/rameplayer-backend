@@ -43,7 +43,9 @@ function Plugin.control.play(uri)
 		end
 		Plugin.process = process.spawn(table.unpack(args))
 	end
-	RAME.player.status("playing")
+	if RAME.player.status() == "buffering" then
+		RAME.player.status("playing")
+	end
 	Plugin.process:wait()
 	Plugin.process = nil
 	if Plugin.control.cleanup then
