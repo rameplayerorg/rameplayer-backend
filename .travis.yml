@@ -29,7 +29,6 @@ before_script:
   - sleep 3
 
 script:
-  - cd test
   # run REST API tests with using Frisby.js
   - jasmine-node rest/01-initial/
   # restart backend
