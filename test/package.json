@@ -1,0 +1,21 @@
+{
+  "name": "rameplayer-backend-test",
+  "version": "1.0.0",
+  "description": "Automated tests for rameplayer-backend. Requires running backend in Docker container.",
+  "main": "gulpfile.js",
+  "dependencies": {},
+  "devDependencies": {
+    "frisby": "^0.8.5",
+    "jasmine-node": "^1.14.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rameplayerorg/rameplayer-backend.git"
+  },
+  "author": "Tuomas Jaakola <tuomas.jaakola@iki.fi>",
+  "license": "SEE LICENSE IN ../LICENSE",
+  "bugs": {
+    "url": "https://github.com/rameplayerorg/rameplayer-backend/issues"
+  },
+  "homepage": "https://github.com/rameplayerorg/rameplayer-backend#readme"
+}

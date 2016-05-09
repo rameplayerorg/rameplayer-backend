@@ -2,8 +2,10 @@
 
 var frisby = require('frisby');
 
+var host = process.env['host'] || 'http://localhost:8000';
+
 frisby.create('Status with lists')
-    .post('http://localhost:8000/status', {
+    .post(host + '/status', {
         lists: [
             "root",
             "rame"
@@ -30,7 +32,7 @@ frisby.create('Status with lists')
 // -----------
 
 frisby.create('Status with cluster')
-    .post('http://localhost:8000/status', {
+    .post(host + '/status', {
         cluster: true,
     }, {
         json: true
@@ -47,7 +49,7 @@ frisby.create('Status with cluster')
 // -----------
 
 frisby.create('Status with cluster cleared after 3 seconds')
-    .post('http://localhost:8000/status')
+    .post(host + '/status')
     .waits(3200)
     .expectStatus(200)
     .expectHeaderContains('content-type', 'application/json')

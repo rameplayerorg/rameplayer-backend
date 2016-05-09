@@ -5,7 +5,4 @@ Backend for RamePlayer
 
 ## Running tests
 
-- Move to `test` directory
-- Run `npm install -g jasmine-node`
-- Run `npm install --save-dev frisby`
-- Run `jasmine-node rest/`
+See .travis.yml how to run tests.
