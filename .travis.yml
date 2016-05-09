@@ -20,9 +20,10 @@ before_install:
   # See https://hub.docker.com/r/rameplayerorg/rameplayer/
   - docker pull rameplayerorg/rameplayer
   # Run Docker image, and mount test videos to /media/mmcblk0p1/media
-  - docker run -d -p 127.0.0.1:8000:8000 -v `pwd`:/opt/rame/rameplayer-backend -v `pwd`/test/videos:/media/mmcblk0p1/media rameplayerorg/rameplayer > /tmp/container.id
+  - docker run -d -p 8000:8000 -p 8022:22 -v `pwd`:/opt/rame/rameplayer-backend -v `pwd`/test/videos:/media/mmcblk0p1/media rameplayerorg/rameplayer > /tmp/container.id
 
 before_script:
+  - cd test
   - npm install
   # wait backend server to get up
   - sleep 3
