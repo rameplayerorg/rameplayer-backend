@@ -282,6 +282,7 @@ function RAME.main()
 		-- Start process matching current state
 		local move_next = true
 		local item = Item.find(self.player.cursor())
+		local initial_item = item
 		self.player.position(0)
 		self.player.duration(0)
 
@@ -325,6 +326,7 @@ function RAME.main()
 			RAME.log.info("Playing", uri)
 			self.player.control = control
 			move_next = RAME.player.control.play(uri)
+			if move_next then initial_item = nil end -- play was successful
 			self.player.control = nil
 			RAME.log.info("Stopped", uri)
 		end
@@ -333,6 +335,10 @@ function RAME.main()
 		if item and move_next then
 			item = item:navigate()
 			self.player.cursor(item.id)
+			if item == initial_item and self.player.__autoplay then
+				-- stop failed autoplay loop
+				self.player.__autoplay = false
+			end
 			self.player.__playing = self.player.__autoplay
 		end
 	end
