@@ -244,7 +244,7 @@ function Item.new(obj)
 	else
 		self.type = self.type or "regular"
 	end
-	self.id = self.id or tostring(stamp.uuid())
+	self.id = self.id or stamp.uuid()
 	Item.__all_items[self.id] = self
 	return self:touch()
 end

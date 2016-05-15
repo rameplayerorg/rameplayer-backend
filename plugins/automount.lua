@@ -38,7 +38,7 @@ local function media_changed(name, mounted)
 	if mounted then
 		local blkid = process.popen("blkid", devname):read_all() or ""
 		local label = blkid and blkid:match('LABEL="(%S+)"') or "NONAME"
-		local uuid  = blkid and blkid:match('UUID="(%S+)"') or tostring(stamp.next())
+		local uuid  = blkid and blkid:match('UUID="(%S+)"') or stamp.uuid()
 
 		RAME.log.info(("Device %s: mounting label=%s, uuid=%s"):format(devname, label, uuid))
 		if not is_mount_point(mountpoint) then
@@ -55,7 +55,7 @@ local function media_changed(name, mounted)
 			playlists={},
 			playlistsfile="/.rameplaylists.json",
 			id=uuid,
-			uri="file://"..uuid.."/",
+			uri="file://"..uuid,
 		}
 		items[name] = item
 		RAME.root:add(item)
