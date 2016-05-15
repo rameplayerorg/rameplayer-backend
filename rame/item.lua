@@ -144,14 +144,24 @@ end
 function Item:load_playlists(lists, save_func)
 	self.pending_save = true
 	for name, list in pairs(lists) do
+		print(name, list)
+		if type(name) == "string" then
+			print(name, list)
+			list = {
+				title = name,
+				items = list,
+			}
+		end
+		print(list.id, list.title)
 		local item = Item.new {
 			["type"]='playlist',
-			title = name,
+			id = list.id,
+			title = list.title or "unknown",
 			editable = true,
 			items = {}
 		}
-		for _, c in pairs(list) do
-			item:add(Item.new { title = c.title, uri = c.uri, editable = true })
+		for _, c in pairs(list.items or {}) do
+			item:add(Item.new { id = c.id, title = c.title, uri = c.uri, editable = true })
 		end
 		self:add_playlist(item)
 	end
@@ -161,16 +171,21 @@ end
 
 function Item:save_playlists()
 	if not self.nuked and self.playlists_save then
-		local data = {}
+		local data = setmetatable({}, json.array)
 		for name, pitem in pairs(self.playlists) do
 			local list = setmetatable({}, json.array)
 			for _, item in ipairs(pitem.items) do
 				table.insert(list, {
+					id = item.id,
 					uri = item.uri,
 					title = item.title,
 				})
 			end
-			data[name] = list
+			table.insert(data, {
+				id = pitem.id,
+				title = pitem.title,
+				items = list,
+			})
 		end
 		self:playlists_save(data)
 	end
@@ -229,7 +244,7 @@ function Item.new(obj)
 	else
 		self.type = self.type or "regular"
 	end
-	self.id = self.id or tostring(stamp.next()) --fixme
+	self.id = self.id or tostring(stamp.uuid())
 	Item.__all_items[self.id] = self
 	return self:touch()
 end

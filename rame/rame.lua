@@ -258,7 +258,7 @@ function RAME.commit_overlay()
 end
 
 function RAME.load_playlists(item, bootmedia)
-	local lists = json.decode(plfile.read(item.mountpoint .. item.playlistsfile) or "{}")
+	local lists,err = json.decode(plfile.read(item.mountpoint .. item.playlistsfile) or "{}")
 	item:load_playlists(lists, function(item, playlistdata)
 		RAME.remount_rw_write(item.mountpoint, item.mountpoint..item.playlistsfile, json.encode(playlistdata))
 	end)
