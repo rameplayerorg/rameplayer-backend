@@ -5,6 +5,7 @@ var fs = require('fs');
 
 var host = process.env['host'] || 'http://localhost:8000';
 var playlistTitle = 'Frisby test';
+var renamedPlaylistTitle = 'Frisby test – renamed';
 
 // file is used in after_restart/playlist_spec.js
 var savedPlaylistFile = '/tmp/playlist.json';
@@ -63,35 +64,50 @@ frisby.create('Rame list')
                     })
                     //.inspectJSON()
                     .afterJSON(function(createJson) {
-                        frisby.create('Read created playlist')
-                            // let backend scan media files
-                            .get(host + '/lists/' + createJson.id)
-                            .expectStatus(200)
-                            .expectHeader('content-type', 'application/json')
-                            .expectJSON({
+                        frisby.create('Rename playlist')
+                            .put(host + '/lists/' + createJson.id, {
                                 editable: true,
-                                title: playlistTitle,
+                                id: createJson.id,
+                                items: items,
+                                storage: 'rame',
+                                title: renamedPlaylistTitle,
                                 type: 'playlist'
                             })
-                            .expectJSONTypes({
-                                id: String,
-                                refreshed: Number
-                            })
-                            .expectJSON('items.?', {
-                                name: 'blue_screen.mp4',
-                                type: 'regular'
-                            })
-                            .expectJSON('items.?', {
-                                name: 'green_screen.mp4',
-                                type: 'regular'
-                            })
-                            .expectJSON('items.?', {
-                                name: 'red_screen.mp4',
-                                type: 'regular'
-                            })
-                            //.inspectJSON()
-                            .afterJSON(function(playlistJson) {
-                                fs.writeFile(savedPlaylistFile, JSON.stringify(playlistJson));
+                            .expectStatus(200)
+                            .expectHeader('content-type', 'application/json')
+                            .afterJSON(function(editJson) {
+
+                                frisby.create('Read created playlist')
+                                    // let backend scan media files
+                                    .get(host + '/lists/' + createJson.id)
+                                    .expectStatus(200)
+                                    .expectHeader('content-type', 'application/json')
+                                    .expectJSON({
+                                        editable: true,
+                                        title: renamedPlaylistTitle,
+                                        type: 'playlist'
+                                    })
+                                    .expectJSONTypes({
+                                        id: String,
+                                        refreshed: Number
+                                    })
+                                    .expectJSON('items.?', {
+                                        name: 'blue_screen.mp4',
+                                        type: 'regular'
+                                    })
+                                    .expectJSON('items.?', {
+                                        name: 'green_screen.mp4',
+                                        type: 'regular'
+                                    })
+                                    .expectJSON('items.?', {
+                                        name: 'red_screen.mp4',
+                                        type: 'regular'
+                                    })
+                                    //.inspectJSON()
+                                    .afterJSON(function(playlistJson) {
+                                        fs.writeFile(savedPlaylistFile, JSON.stringify(playlistJson));
+                                    })
+                                    .toss();
                             })
                             .toss();
                     })
