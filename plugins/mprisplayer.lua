@@ -44,7 +44,9 @@ function Plugin.control.status_update()
 			position = Plugin.mpris:Position("Position") or 0
 			if position >= 0 then
 				status = status == "Paused" and "paused" or "playing"
-				duration = Plugin.mpris:Duration("Duration") or 0
+				if not Plugin.live then
+					duration = Plugin.mpris:Duration("Duration") or 0
+				end
 			else
 				status = "buffering"
 				position = 0
@@ -68,6 +70,7 @@ function Plugin.control.omxplay(uri)
 	}
 	if uri:match("^rtmp:") then
 		table.insert(cmd, "--live")
+		Plugin.live = true
 	end
 	if Plugin.use_alsa then
 		table.insert(cmd, "-A")
@@ -79,6 +82,7 @@ function Plugin.control.omxplay(uri)
 	local status = Plugin.process:wait()
 	Plugin.process = nil
 	Plugin.control.cond:wait()
+	Plugin.live = nil
 	return status == 0
 end
 
