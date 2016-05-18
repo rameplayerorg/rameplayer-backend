@@ -171,19 +171,15 @@ function RAME.rest.status(ctx, reply)
 		state = RAME.player.status(),
 		position = RAME.player.position(),
 		duration = RAME.player.duration(),
+		["repeat"] = RAME.player.__itemrepeat and -1 or nil,
 		cursor = {
 			id = item and item.id,
 			name = item and (item.filename or item.uri),
 			parentId = item and item.parent and item.parent.id,
 		},
 		player = next(player) and player,
+		controller = RAME.cluster.controller() or nil,
 	}
-
-	if RAME.cluster.controller() then
-		response["cluster"] = {
-			controller = RAME.cluster.controller()
-		}
-	end
 
 	return 200, response
 end
@@ -192,10 +188,14 @@ end
 local PLAYER = { GET = {}, POST = {} }
 
 function PLAYER.GET.play(ctx, reply)
+	local cmd = "play"
 	if ctx.args.id then
 		RAME:action("set_cursor", ctx.args.id)
 	end
-	return RAME:action("play", nil, tonumber(ctx.args.pos))
+	if tonumber(ctx.args["repeat"]) == -1 then
+		cmd = "repeatplay"
+	end
+	return RAME:action(cmd, nil, tonumber(ctx.args.pos))
 end
 
 function PLAYER.GET.stop(ctx, reply)

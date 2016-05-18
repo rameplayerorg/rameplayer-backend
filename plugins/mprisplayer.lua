@@ -60,7 +60,7 @@ function Plugin.control.status_update()
 	Plugin.control.cond:signal()
 end
 
-function Plugin.control.omxplay(uri)
+function Plugin.control.omxplay(uri, itemrepeat)
 	local cmd = {
 		"omxplayer",
 			"--no-osd",
@@ -71,6 +71,9 @@ function Plugin.control.omxplay(uri)
 	if uri:match("^rtmp:") then
 		table.insert(cmd, "--live")
 		Plugin.live = true
+	end
+	if itemrepeat then
+		table.insert(cmd, "--loop")
 	end
 	if Plugin.use_alsa then
 		table.insert(cmd, "-A")

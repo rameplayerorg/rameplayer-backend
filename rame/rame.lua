@@ -185,8 +185,9 @@ function RAME:action(command, item_id, pos)
 
 	if item_id then RAME.player.cursor(item_id) end
 
-	if command == "autoplay" or command == "play" then
+	if command == "repeatplay" or command == "autoplay" or command == "play" then
 		RAME.log.info("Player: sending " .. command .. " command, cursor " .. self.player.cursor())
+		self.player.__itemrepeat = (command == "repeatplay")
 		self.player.__autoplay = (command == "autoplay")
 		self.player.__playing = true
 		if pos and pos < 0 then self.player.__wait = -pos end
@@ -325,7 +326,7 @@ function RAME.main()
 			--print("Playing", uri, control, item)
 			RAME.log.info("Playing", uri)
 			self.player.control = control
-			move_next = RAME.player.control.play(uri)
+			move_next = RAME.player.control.play(uri, self.player.__itemrepeat)
 			if move_next then initial_item = nil end -- play was successful
 			self.player.control = nil
 			RAME.log.info("Stopped", uri)
