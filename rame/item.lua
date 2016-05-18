@@ -22,19 +22,19 @@ function Item.scanner()
 end
 
 function Item.__eq(a, b)
-	return a.type == b.type and a.uri == b.uri
+	return a.type == b.type and a.uri == b.uri and a.id == b.id
 end
 
 function Item.__lt(a, b)
 	if a.type == "directory" and b.type ~= "directory" then return true end
 	if a.type ~= "directory" and b.type == "directory" then return false end
-	return a.uri < b.uri
+	return a.uri < b.uri or a.id < b.id
 end
 
 function Item:__le(a, b)
 	if a.type == "directory" and b.type ~= "directory" then return true end
 	if a.type ~= "directory" and b.type == "directory" then return false end
-	return a.uri <= b.uri
+	return a.uri <= b.uri or a.id < b.id
 end
 
 function Item:refresh() end
@@ -144,15 +144,12 @@ end
 function Item:load_playlists(lists, save_func)
 	self.pending_save = true
 	for name, list in pairs(lists) do
-		print(name, list)
 		if type(name) == "string" then
-			print(name, list)
 			list = {
 				title = name,
 				items = list,
 			}
 		end
-		print(list.id, list.title)
 		local item = Item.new {
 			["type"]='playlist',
 			id = list.id,
