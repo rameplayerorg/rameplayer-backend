@@ -22,6 +22,7 @@ local function rest_info(item)
 		size = item.size,
 		title = item.title,
 		uri = item.uri,
+		storage = item.container and item.container.id,
 	}
 end
 
