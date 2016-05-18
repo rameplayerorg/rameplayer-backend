@@ -97,7 +97,13 @@ function LISTS.PUT(ctx, reply)
 		local child = Item.find(cid)
 		if child == nil then return 404 end
 		if not child.editable then return 405 end
-		child:move_after(ctx.args.afterId)
+		local afterId = ctx.args.afterId
+		if afterId == json.null then
+			afterId = nil
+		elseif type(afterId) ~= "string" then
+			return 404
+		end
+		child:move_after(afterId)
 		return 200
 	end
 
