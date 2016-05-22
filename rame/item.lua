@@ -29,13 +29,15 @@ function Item.__lt(a, b)
 	if a.type == "directory" and b.type ~= "directory" then return true end
 	if a.type ~= "directory" and b.type == "directory" then return false end
 	if a.uri < b.uri then return true end
+	if a.uri > b.uri then return false end
 	return a.id < b.id
 end
 
 function Item:__le(a, b)
 	if a.type == "directory" and b.type ~= "directory" then return true end
 	if a.type ~= "directory" and b.type == "directory" then return false end
-	if a.uri <= b.uri then return true end
+	if a.uri < b.uri then return true end
+	if a.uri > b.uri then return false end
 	return a.id <= b.id
 end
 
