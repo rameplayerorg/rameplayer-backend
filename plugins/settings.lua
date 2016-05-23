@@ -143,6 +143,7 @@ function SETTINGS.GET.system(ctx, reply)
 		audioPort = "rameAnalogOnly",
 		displayRotation = 0,
 		ipDhcpClient = true,
+		ipDhcpServer = false,
 	}
 
 	local hostname = plfile.read("/etc/hostname")
@@ -181,6 +182,23 @@ function SETTINGS.GET.system(ctx, reply)
 		conf.ipSubnetMask = ipv4_masks[tonumber(cidr)]
 		conf.ipDefaultGateway = routes:match("default via ([0-9.]+) ")
 		conf.ipDnsPrimary, conf.ipDnsSecondary = entries(dns)
+	end
+
+	local rc_default = pexec("rc-update", "show", "default")
+	local udhcpd_status = rc_default:match("udhcpd")
+	if udhcpd_status then
+		conf.ipDhcpServer = true
+		local udhcpd = plutils.readlines("/etc/udhcpd.conf")
+		if not udhcpd then
+			RAME.log.error("File read failed: ".."/etc/udhcpd.conf")
+			return 500, { error="File read failed: ".."/etc/udhcpd.conf" }
+		end
+		for i, val in ipairs(udhcpd) do
+			local range_start = val:match("start%s+([^\n]+)")
+			local range_end = val:match("end%s+([^\n]+)")
+			if range_start then conf.ipDhcpRangeStart = range_start end
+			if range_end then conf.ipDhcpRangeEnd = range_end end
+		end
 	end
 
 	local ntp_server = plfile.read("/etc/ntp.conf")
