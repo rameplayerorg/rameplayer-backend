@@ -70,16 +70,23 @@ function LISTS.POST(ctx, reply)
 		if storage then storage:add_playlist(item) end
 		RAME.root:add(item)
 	elseif #ctx.paths == ctx.path_pos+1 and ctx.paths[ctx.path_pos+1] == "items" then
-		-- POST /lists/ID/items -- add new item
+		-- POST /lists/ID/items -- add new item(s)
 		local id = ctx.paths[ctx.path_pos]
 		local list = Item.find(id)
 		if list == nil then return 404 end
 		if not (list.editable and list.items) then return 405 end
-		if ctx.args.uri == nil then return 400 end
-
-		item = Item.new { title = ctx.args.title, uri = ctx.args.uri, editable = true }
-		if not item then return 400 end
-		list:add(item)
+		local argItems = {}
+		if ctx.args[1] == nil then
+			argItems[1] = ctx.args
+		else
+			argItems = ctx.args
+		end
+		for _, argItem in ipairs(argItems) do
+			if argItem == nil then return 400 end
+			item = Item.new { title = argItem.title, uri = argItem.uri, editable = true }
+			if not item then return 400 end
+			list:add(item)
+		end
 	else
 		return 404
 	end
