@@ -376,8 +376,15 @@ function SETTINGS.POST.system(ctx, reply)
 				range_end = "end\t\t" .. args.ipDhcpRangeEnd,
 				subnet_mask = "option\tsubnet\t" .. args.ipSubnetMask,
 				default_gw = "opt\trouter\t" .. args.ipDefaultGateway,
-				dns = "opt\tdns\t"..args.ipDnsPrimary.." "..args.ipDnsSecondary
 			}
+			if args.ipDnsPrimary then
+				local dnscfg = "opt\tdns\t"..args.ipDnsPrimary
+				if args.ipDnsSecondary then
+					dnscfg = dnscfg.." "..args.ipDnsSecondary
+				end
+				udhcpd_conf["dns"] = dnscfg
+			end
+			
 
 			for i, val in ipairs(udhcpd) do
 				if val:match("start\t\t[^\n]+") then
@@ -431,8 +438,10 @@ function SETTINGS.POST.system(ctx, reply)
 				commit = true
 			end
 			process.run("rc-update", "add", "udhcpd", "default")
+			commit = true
 		elseif args.ipDhcpServer == false then
 			process.run("rc-update", "del", "udhcpd", "default")
+			commit = true
 		end
 	elseif args.ipDhcpClient == true then
 		-- removing possible static config entries
