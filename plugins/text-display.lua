@@ -28,29 +28,69 @@ function Plugin.main()
 	RAME.system.ip:push_to(update)
 	RAME.system.reboot_required:push_to(update)
 
+	local lcd_width = 16
+	local prev_filename = ""
+	local scroll_time = 0
+	local scroll_pos = 0
+	local monotime = 0
+	local prev_player_status = ""
+
 	while true do
 		pending = false
 
-		local a, b = "", ""
-		if RAME.system.reboot_required() then
-			a = "Reboot Required"
-		else
-			a = RAME.system.ip()
+		local newtime = cqueues.monotime()
+		if monotime == 0 then monotime = newtime end
+		local deltatime = newtime - monotime
+		monotime = newtime
+
+		local player_status = RAME.player.status()
+
+		local row1, row2 = "", ""
+		local top_rotation = { RAME.system.ip() }
+		local hostname = RAME.system.hostname() or nil
+		if hostname then table.insert(top_rotation, hostname) end
+		if RAME.system.reboot_required() then table.insert(top_rotation, "Reboot Required") end
+
+		if #top_rotation > 0 then
+			local delay = 3
+			if #top_rotation > 2 then delay = 1.5 end
+			local idx = tonumber(math.floor(math.abs(monotime / delay))) % #top_rotation
+			row1 = top_rotation[idx + 1]
 		end
-		if RAME.player.status() ~= "stopped" then
+		
+		if player_status ~= "stopped" then
 			local pos = tonumber(math.floor(math.abs(RAME.player.position())))
-			print(pos)
-			b = string.format("%02d:%02d|", pos // 60, pos % 60)
+			--print(pos)
+			row2 = string.format("%02d:%02d ", pos // 60, pos % 60)
 		end
+
+		local remaining_size = lcd_width - row2:len()
 
 		local item = Item.find(RAME.player.cursor())
 		local filename = item and item.filename or ""
-		b = b .. filename
-		lcd:output(a, b)
+		if filename ~= prev_filename or prev_player_status ~= player_status then
+			scroll_time = 0
+			scroll_pos = 0
+			prev_filename = filename
+		end
 
-		if not pending then cond:wait() end
+		if filename:len() <= remaining_size then
+			row2 = row2 .. filename
+		else
+			local speed = 1.5
+			local scroll_len = (filename:len() - remaining_size + 1) * 2 + 1
+			scroll_time = scroll_time + deltatime * speed
+			scroll_pos = tonumber(math.floor(scroll_time)) % scroll_len
+			if scroll_pos > scroll_len // 2 then scroll_pos = scroll_len + 1 - scroll_pos end
+			row2 = row2 .. filename:sub(scroll_pos, scroll_pos + remaining_size)
+		end
+		lcd:output(row1, row2)
+
+		if not pending then cond:wait(0.1) end
 		-- Aggregate further changes before updating the screen
 		cqueues.poll(0.02)
+
+		prev_player_status = player_status
 	end
 end
 
