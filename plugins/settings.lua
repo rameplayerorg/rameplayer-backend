@@ -473,6 +473,10 @@ function SETTINGS.POST.system(ctx, reply)
 				changed = true
 			end
 		end
+
+		-- removing the DHCP server service ALWAYS when set in DHCP client mode!
+		process.run("rc-update", "del", "udhcpd", "default")
+		commit = true
 	end
 
 	if changed then
