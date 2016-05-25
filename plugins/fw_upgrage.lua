@@ -95,10 +95,11 @@ function UPGRADE.PUT(ctx, reply)
 			else
 				-- rsync output, parse just percentage
 				-- 1,238,099 100%  146.38kB/s    0:00:08  (xfr#5, to-chk=169/396)
-				local p = data:match(".* (%d)%%")
-				p = tonumber(p)
-				if p then
-					RAME.system.firmware_upgrade(p)
+				for p in data:gmatch(" (%d)%%") do
+					p = tonumber(p)
+					if p then
+						RAME.system.firmware_upgrade(p)
+					end
 				end
 			end
 		end
