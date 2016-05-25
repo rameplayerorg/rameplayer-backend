@@ -192,7 +192,11 @@ function RAME.rest.status(ctx, reply)
 			parentId = item and item.parent and item.parent.id,
 		},
 		player = next(player) and player,
-		controller = RAME.cluster.controller() or nil,
+	}
+	if RAME.cluster.controller() then
+		response.cluster = {
+			controller = RAME.cluster.controller(),
+		}
 	}
 
 	return 200, response
