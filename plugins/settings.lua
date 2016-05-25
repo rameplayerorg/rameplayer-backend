@@ -230,71 +230,21 @@ function SETTINGS.POST.system(ctx, reply)
 	})
 	if err then return err, msg end
 
-	local rpi_resolution = rpi_resolutions[args.resolution]
-	local rpi_audio_port = rpi_audio_ports[args.audioPort]
-
-	-- ramecfg.txt parsing
-	local usercfg = plutils.readlines(RAME.config.settings_path..ramecfg_txt) or {""}
-
-	-- If rameAutodetect resolution REMOVING forced resolution config
-	if args.resolution == "rameAutodetect" then
-		for i, val in ripairs(usercfg) do
-			if val:match("hdmi_mode=[^\n]+")
-			 or val:match("hdmi_group=[^\n]+") then
-				table.remove(usercfg, i)
-				changed = true
-			end
-		end
-	else
-		rpi_conf.hdmi_group = "hdmi_group=1"
-		rpi_conf.resolution = rpi_resolutions[args.resolution]
+	-- POST always writes the settings again
+	if args.resolution ~= "rameAutodetect" then
+		table.insert(rpi_conf, "hdmi_group=1")
+		table.insert(rpi_conf, rpi_resolutions[args.resolution])
 	end
-	rpi_conf.audio_port = rpi_audio_ports[args.audioPort]
-	rpi_conf.display_rotation = rpi_display_rotation[args.displayRotation]
+	table.insert(rpi_conf, rpi_audio_ports[args.audioPort])
+	table.insert(rpi_conf, rpi_display_rotation[args.displayRotation])
 
-	for i, val in ipairs(usercfg) do
-		if val:match("hdmi_group=[^\n]+") then
-			rpi_conf.hdmi_group = nil
-		elseif val:match("hdmi_mode=[^\n]+") then
-			-- updating only if change in config
-			if val ~= rpi_conf.resolution then
-				usercfg[i] = rpi_conf.resolution
-				changed = true
-			end
-			rpi_conf.resolution = nil
-		elseif val:match("display_rotate=[^\n]+") then
-			-- updating only if change in config
-			if val ~= rpi_conf.display_rotation then
-				usercfg[i] = rpi_conf.display_rotation
-				changed = true
-			end
-			rpi_conf.display_rotation = nil
-		elseif val:match("#hdmi_drive=[^\n]+") then
-			if val ~= rpi_conf.audio_port then
-				usercfg[i] = rpi_conf.audio_port
-				changed = true
-			end
-			rpi_conf.audio_port = nil
-		end
+	if not RAME.write_settings_file(ramecfg_txt, table.concat(rpi_conf, "\n")) then
+		RAME.log.error("File write error: "..ramecfg_txt)
+		return 500, { error="File write error: "..ramecfg_txt }
 	end
 
-	-- APPEND possible new config lines
-	for i, val in pairs(rpi_conf) do
-		if val then
-			table.insert(usercfg, val)
-			changed = true
-		end
-	end
-
-	if changed then
-		if not RAME.write_settings_file(ramecfg_txt, table.concat(usercfg, "\n")) then
-			RAME.log.error("File write error: "..ramecfg_txt)
-			return 500, { error="File write error: "..ramecfg_txt }
-		end
-		changed = false
-		-- Signal the user that reboot is required
-		RAME.system.reboot_required(true)
-	end
+	-- Signal the user that reboot is required
+	RAME.system.reboot_required(true)
 
 	--
 	-- HOSTNAME
