@@ -197,7 +197,7 @@ function RAME.rest.status(ctx, reply)
 		response.cluster = {
 			controller = RAME.cluster.controller(),
 		}
-	}
+	end
 
 	return 200, response
 end
