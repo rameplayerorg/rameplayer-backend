@@ -378,6 +378,15 @@ function SETTINGS.POST.system(ctx, reply)
 			end
 		end
 
+		if changed then
+			if not plfile.write("/etc/dhcpcd.conf", table.concat(dhcpcd, "\n")) then
+				RAME.log.error("File write error: ".."/etc/dhcpcd.conf")
+				return 500, { error="File write error: ".."/etc/dhcpcd.conf" }
+			end
+			changed = false
+			commit = true
+		end
+
 		if args.ipDhcpServer == true then
 			err, msg = RAME.check_fields(args, {
 				ipDhcpRangeStart = check_ip,
@@ -474,19 +483,20 @@ function SETTINGS.POST.system(ctx, reply)
 			end
 		end
 
+		if changed then
+			if not plfile.write("/etc/dhcpcd.conf", table.concat(dhcpcd, "\n")) then
+				RAME.log.error("File write error: ".."/etc/dhcpcd.conf")
+				return 500, { error="File write error: ".."/etc/dhcpcd.conf" }
+			end
+			changed = false
+			commit = true
+		end
+
 		-- removing the DHCP server service ALWAYS when set in DHCP client mode!
 		process.run("rc-update", "del", "udhcpd", "default")
 		commit = true
 	end
 
-	if changed then
-		if not plfile.write("/etc/dhcpcd.conf", table.concat(dhcpcd, "\n")) then
-			RAME.log.error("File write error: ".."/etc/dhcpcd.conf")
-			return 500, { error="File write error: ".."/etc/dhcpcd.conf" }
-		end
-		changed = false
-		commit = true
-	end
 
 	-- optional
 	if args.ntpServerAddress then
