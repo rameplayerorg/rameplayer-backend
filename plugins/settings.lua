@@ -61,10 +61,12 @@ local rpi_display_rotation = {
 }
 local rpi_display_rotation_rev = revtable(rpi_display_rotation)
 
+-- Certain HDMI devices do not work with hdmi_drive setting thus implementation
+-- of audio setting is RAME internal only
 local rpi_audio_ports = {
-	rameAnalogOnly = "hdmi_drive=1",
-	rameHdmiOnly =  "hdmi_drive=2",
-	rameHdmiAndAnalog = "hdmi_drive=2 #both",
+	rameAnalogOnly = "#hdmi_drive=1 analog",
+	rameHdmiOnly =  "#hdmi_drive=2 hdmi",
+	rameHdmiAndAnalog = "#hdmi_drive=2 both",
 }
 local rpi_audio_ports_rev = revtable(rpi_audio_ports)
 
@@ -267,7 +269,7 @@ function SETTINGS.POST.system(ctx, reply)
 				changed = true
 			end
 			rpi_conf.display_rotation = nil
-		elseif val:match("hdmi_drive=[^\n]+") then
+		elseif val:match("#hdmi_drive=[^\n]+") then
 			if val ~= rpi_conf.audio_port then
 				usercfg[i] = rpi_conf.audio_port
 				changed = true
@@ -402,7 +404,6 @@ function SETTINGS.POST.system(ctx, reply)
 				end
 				udhcpd_conf["dns"] = dnscfg
 			end
-			
 
 			for i, val in ipairs(udhcpd) do
 				if val:match("start\t\t[^\n]+") then
