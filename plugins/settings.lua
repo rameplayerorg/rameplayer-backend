@@ -486,15 +486,7 @@ function SETTINGS.PUT.reboot(ctx, reply)
 end
 
 function SETTINGS.PUT.reset(ctx, reply)
-	process.run("mount", "-o", "remount,rw", "/media/mmcblk0p1")
-	-- all the user specific configuration is erased
-	process.run("rm", "-rf", "/media/mmcblk0p1/user")
-	-- config overlay is destroed
-	process.run("rm", "-rf", "/media/mmcblk0p1/*.apkovl.tar.gz")
-	-- copying the default (factory) settings
-	process.run("cp", "factory.rst", "/media/mmcblk0p1/rame.apkovl.tar.gz")
-	process.run("mount", "-o", "remount,ro", "/media/mmcblk0p1")
-	process.run("reboot", "now")
+	process.run("sh", "-c", [[mount -o remount,rw /media/mmcblk0p1; rm -rf /media/mmcblk0p1/user /media/mmcblk0p1/*.apkovl.tar.gz; cp /media/mmcblk0p1/factory.rst /media/mmcblk0p1/rame.apkovl.tar.gz; mount -o remount,ro /media/mmcblk0p1; reboot now]])
 	return 200
 end
 
