@@ -105,7 +105,7 @@ function UPGRADE.PUT(ctx, reply)
 		end
 		out:close()
 		RAME.system.firmware_upgrade(100)
-		process.run("reboot", "now")
+		RAME.reboot_device()
 	end)
 
 	return 200

@@ -50,6 +50,7 @@ function Plugin.main()
 	RAME.system.hostname:push_to(update)
 	RAME.system.headphone_volume:push_to(update)
 	RAME.system.firmware_upgrade:push_to(update)
+	RAME.system.rebooting_flag:push_to(update)
 	RAME.version.short:push_to(update)
 	RAME.localui.menu:push_to(update)
 	RAME.localui.rotary_flag:push_to(update)
@@ -92,17 +93,29 @@ function Plugin.main()
 		pending = false
 
 		local status = RAME.player.status()
+		local reboot_required = RAME.system.reboot_required()
 		local status_id = statmap[status] or 0
 		local menu = RAME.localui.menu()
 		local video_enabled = vidmap[status] or 0
+		local turn_off_menu = false
+		local showing_volume = false
 		local item, filename
+		local fw_upgrade, hostname
+		local cluster_controller
+		local notify1, notifysep, notify2
+		local notifyinfo = ""
+
+		if RAME.system.rebooting_flag() then
+			out:write("O6:FFAA2200\nS:6\nV:0\n")
+			out:write("X1:\nX2:\nX3:\nX4:\nX5:--- REBOOTING ---\nX6:Please wait...\nX7:\n")
+			goto update_done -- skip normal update logic
+		end
 
 		if monotime >= sched_update_tznfo_time then
 			tznfo = get_localui_tz()
 			sched_update_tznfo_time = monotime + 30*60
 		end
 
-		local turn_off_menu = false
 		if menu then
 			if video_enabled == 0 then
 				-- In current placeholder implementation state, Rame menu
@@ -113,7 +126,7 @@ function Plugin.main()
 			video_enabled = 0
 		end
 
-		local fw_upgrade = RAME.system.firmware_upgrade()
+		fw_upgrade = RAME.system.firmware_upgrade()
 		if fw_upgrade ~= nil and type(fw_upgrade) == "number" then
 			if fw_upgrade < 100 then
 				status_id = 5 -- animated "buffering"
@@ -124,7 +137,7 @@ function Plugin.main()
 
 		out:write(("S:%d\nV:%d\n"):format(status_id, video_enabled))
 
-		local hostname = RAME.system.hostname() or nil
+		hostname = RAME.system.hostname() or nil
 		if hostname then
 			out:write(("X1:%s\n"):format(hostname))
 		end
@@ -134,17 +147,16 @@ function Plugin.main()
 
 		out:write(("X4:%s\n"):format(RAME.version.short()))
 
-		local cluster_controller = RAME.cluster.controller()
-		local reboot_required = RAME.system.reboot_required()
-		local notify1 = cluster_controller and "In cluster controlled by "..cluster_controller or ""
-		local notifysep = ""
-		local notify2 = reboot_required and "Restart Pending..." or ""
+		cluster_controller = RAME.cluster.controller()
+		reboot_required = RAME.system.reboot_required()
+		notify1 = cluster_controller and "In cluster controlled by "..cluster_controller or ""
+		notifysep = ""
+		notify2 = reboot_required and "Restart Pending..." or ""
 		if notify1:len() > 0 and notify2:len() > 0 then
 			notifysep = " -- "
 		elseif notify2:len() > 0 then
 			notifysep = "‼ "
 		end
-		local notifyinfo = ""
 		if notify1:len() > 0 or notify2:len() > 0 then
 			notifyinfo = ("%s%s%s"):format(notify1, notifysep, notify2)
 		end
@@ -152,8 +164,6 @@ function Plugin.main()
 			out:write(("X5:%s\n"):format(notifyinfo))
 			last_displayed_notifyinfo = notifyinfo
 		end
-
-		local showing_volume = false
 
 		-- If rotary has just been turned, show Volume info
 		if RAME.localui.rotary_flag() then

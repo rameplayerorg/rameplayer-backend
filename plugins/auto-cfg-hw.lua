@@ -47,7 +47,7 @@ function Plugin.init()
 		local newcfg = table.concat(ramehw, "\n").."\n"
 		RAME.write_settings_file(ramehw_txt, newcfg)
 		if auto_reboot then
-			process.run("reboot", "now")
+			RAME.reboot_device()
 		else
 			-- Signal the user that reboot is required
 			RAME.system.reboot_required(true)

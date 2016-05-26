@@ -35,6 +35,7 @@ local RAME = {
 		firmware_upgrade = push.property(nil, "Firmware upgrade progress"),
 		headphone_volume = push.property(100, "Headphone volume"),
 		lineout_volume = push.property(100, "Lineout volume"),
+		rebooting_flag = push.property(false, "Imminent reboot notification flag"),
 	},
 	player = {
 		status   = push.property("stopped", "Playback status"),
@@ -251,6 +252,12 @@ end
 
 function RAME.write_settings_file(file, data)
 	return RAME.remount_rw_write("/media/mmcblk0p1", RAME.config.settings_path..file, data)
+end
+
+function RAME.reboot_device()
+	RAME.system.rebooting_flag(true)
+	cqueues.poll(0.5)
+	process.run("reboot", "now")
 end
 
 function RAME.commit_overlay()

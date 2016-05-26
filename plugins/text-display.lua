@@ -27,6 +27,8 @@ function Plugin.main()
 	RAME.player.cursor:push_to(update)
 	RAME.system.ip:push_to(update)
 	RAME.system.reboot_required:push_to(update)
+	RAME.system.rebooting_flag:push_to(update)
+	RAME.system.firmware_upgrade:push_to(update)
 
 	local lcd_width = 16
 	local prev_filename = ""
@@ -44,10 +46,18 @@ function Plugin.main()
 		monotime = newtime
 
 		local player_status = RAME.player.status()
-
 		local row1, row2 = "", ""
 		local top_rotation = { RAME.system.ip() }
 		local hostname = RAME.system.hostname() or nil
+		local remaining_size
+		local item, filename
+		local fw_upgrade
+
+		if RAME.system.rebooting_flag() then
+			lcd:output("REBOOTING", "Please wait...")
+			goto update_done -- skip normal update logic
+		end
+
 		if hostname then table.insert(top_rotation, hostname) end
 		if RAME.system.reboot_required() then table.insert(top_rotation, "Reboot Required") end
 
@@ -57,17 +67,24 @@ function Plugin.main()
 			local idx = tonumber(math.floor(math.abs(monotime / delay))) % #top_rotation
 			row1 = top_rotation[idx + 1]
 		end
-		
+
+		fw_upgrade = RAME.system.firmware_upgrade()
+		if fw_upgrade ~= nil and type(fw_upgrade) == "number" then
+			row2 = ("FW UPGRADE: %d%%"):format(fw_upgrade)
+			lcd:output(row1, row2)
+			goto update_done -- skip rest of normal update logic
+		end
+
 		if player_status ~= "stopped" then
 			local pos = tonumber(math.floor(math.abs(RAME.player.position())))
 			--print(pos)
 			row2 = string.format("%02d:%02d ", pos // 60, pos % 60)
 		end
 
-		local remaining_size = lcd_width - row2:len()
+		remaining_size = lcd_width - row2:len()
 
-		local item = Item.find(RAME.player.cursor())
-		local filename = item and item.filename or ""
+		item = Item.find(RAME.player.cursor())
+		filename = item and item.filename or ""
 		if filename ~= prev_filename or prev_player_status ~= player_status then
 			scroll_time = 0
 			scroll_pos = 0
@@ -85,6 +102,8 @@ function Plugin.main()
 			row2 = row2 .. filename:sub(scroll_pos, scroll_pos + remaining_size)
 		end
 		lcd:output(row1, row2)
+
+		::update_done::
 
 		if not pending then cond:wait(0.1) end
 		-- Aggregate further changes before updating the screen
