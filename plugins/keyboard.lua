@@ -24,12 +24,43 @@ end
 
 function Plugin.main()
 	local kbd = evdev.Device(dev)
+	local factory_reset_seconds_per_step = 1
+	local factory_reset_seq_actions = { "menu", "stop", "ok" }
+	local factory_reset_seq_pos = 1
+	local factory_reset_seq_time = 0
 	kbd:grab(true)
 	while true do
 		cqueues.poll(kbd)
 		local timestamp, eventType, eventCode, value = kbd:read()
 		if value ~= 0 and actions[eventCode] then
 			RAME:action(actions[eventCode])
+		end
+
+--		print("KBD: " .. timestamp .. " - " .. eventType .. "/" .. eventCode .. ", " .. value)
+
+		-- local UI factory reset sequence hack
+		if value ~= 0 and eventCode ~= 0 then
+			if actions[eventCode] == factory_reset_seq_actions[1] then
+				factory_reset_seq_time = timestamp
+				factory_reset_seq_pos = 2
+			elseif factory_reset_seq_pos <= #factory_reset_seq_actions
+			   and actions[eventCode] == factory_reset_seq_actions[factory_reset_seq_pos]
+			   and timestamp > factory_reset_seq_time + factory_reset_seconds_per_step then
+				factory_reset_seq_pos = factory_reset_seq_pos + 1
+				factory_reset_seq_time = timestamp
+			else
+				factory_reset_seq_pos = 1
+				factory_reset_seq_time = 0
+				print("seq reset")
+			end
+			--print("seq pos: "..factory_reset_seq_pos.." time: " ..timestamp)
+		end
+
+		if factory_reset_seq_pos > #factory_reset_seq_actions then
+			RAME.system.firmware_upgrade(99)
+			print("FACTORY RESET")
+			RAME.factory_reset()
+			RAME.reboot_device()
 		end
 	end
 end
