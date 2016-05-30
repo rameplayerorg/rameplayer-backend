@@ -83,7 +83,7 @@ local function update_ip()
 					str = "(Configuring)"
 				end
 				if bit32.band(ifa.flags, unix.IFF_LOOPBACK) == 0 and
-				   ifa.family == lunix.AF_INET and
+				   ifa.family == unix.AF_INET and
 				   ifa.addr ~= nil then
 					-- First active interface
 					str = tostring(ifa.addr)
