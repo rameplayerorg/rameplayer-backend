@@ -141,7 +141,7 @@ end
 function SETTINGS.GET.system(ctx, reply)
 	local conf = {
 		-- Defaults if not found from config files
-		resolution = "rameAutodetect",
+		resolution = "rame720p50",
 		audioPort = "rameAnalogOnly",
 		displayRotation = 0,
 		ipDhcpClient = true,
