@@ -107,11 +107,13 @@ function Plugin.control.stop()
 end
 
 function Plugin.control.seek(pos)
+	if Plugin.live then return false end
 	Plugin.mpris:SetPosition("/", pos * 1000000)
 	return true
 end
 
 function Plugin.control.pause()
+	if Plugin.live then return false end
 	Plugin.mpris:PlayPause()
 	return true
 end
