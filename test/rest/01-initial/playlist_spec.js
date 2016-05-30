@@ -72,6 +72,8 @@ frisby.create('Rame list')
                                 storage: 'rame',
                                 title: renamedPlaylistTitle,
                                 type: 'playlist'
+                            }, {
+                                json: true
                             })
                             .expectStatus(200)
                             .expectHeader('content-type', 'application/json')
