@@ -72,11 +72,11 @@ end
 
 function Item:add(item)
 	if type(self.items) ~= "table" then return end
-	if self.items and item then
-		table.insert(self.items, item)
-		self:touch()
-		item.parent = self
-	end
+	if not item then return end
+	if item.parent then item.parent:del(item) end
+	table.insert(self.items, item)
+	self:touch()
+	item.parent = self
 end
 
 function Item:del(item)
@@ -143,6 +143,15 @@ function Item:add_playlist(item)
 	self.playlists[item.title] = item
 	item.container = self
 	item:touch()
+end
+
+function Item:del_playlist(item)
+	if item.type ~= "playlist" then return end
+	if not self.playlists then return end
+	if self.playlists[item.title] ~= item then return end
+	self.playlists[item.title] = nil
+	item:touch()
+	item.container = nil
 end
 
 function Item:load_playlists(lists, save_func)

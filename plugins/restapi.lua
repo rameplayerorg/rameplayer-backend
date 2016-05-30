@@ -102,9 +102,28 @@ function LISTS.PUT(ctx, reply)
 	local id = ctx.paths[ctx.path_pos]
 	local item = Item.find(id)
 	if item == nil then return 404 end
-	if not item.editable then return 405 end
+	if item.type ~= "playlist" or not item.editable then return 405 end
 
-	if #ctx.paths == ctx.path_pos+2 and ctx.paths[ctx.path_pos+1] == "items" then
+	if #ctx.paths == ctx.path_pos then
+		-- Edit list
+		local storage
+		if ctx.args.storage then
+			-- root item id to store the playlist in
+			storage = Item.find(ctx.args.storage)
+			if storage == nil then return 404 end
+			if not storage.playlists then return 405 end
+		end
+		item["repeat"] = ctx.args["repeat"]
+		item.autoPlayNext = ctx.args.autoPlayNext
+		if item.title ~= ctx.args.title or item.container ~= storage then
+			if item.container then item.container:del_playlist(item) end
+			item.title = ctx.args.title
+			if storage then storage:add_playlist(item) end
+		else
+			item:touch()
+		end
+	elseif #ctx.paths == ctx.path_pos+2 and ctx.paths[ctx.path_pos+1] == "items" then
+		-- Edit list item
 		local cid = ctx.paths[ctx.path_pos+2]
 		local child = Item.find(cid)
 		if child == nil then return 404 end
@@ -116,10 +135,10 @@ function LISTS.PUT(ctx, reply)
 			return 404
 		end
 		child:move_after(afterId)
-		return 200
+	else
+		return 404
 	end
-
-	return 404
+	return 200
 end
 
 function LISTS.DELETE(ctx, reply)
