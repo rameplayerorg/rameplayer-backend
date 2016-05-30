@@ -20,7 +20,7 @@ local cmds = {
 			Plugin.control.stop()
 		end)
 		local ip = RAME.system.ip()
-		return "rametext", ip ~= "0.0.0.0" and ip or "No Media"
+		return "rametext", ip:match("^%(") and "No Media" or ip
 	end,
 }
 

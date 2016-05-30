@@ -28,7 +28,7 @@ local RAME = {
 		autoplayUsb = false,
 	},
 	system = {
-		ip = push.property("0.0.0.0", "Current IP-address"),
+		ip = push.property("(No link)", "Current IP-address"),
 		hostname = push.property("", "hostname"),
 		reboot_required = push.property(false, "Reboot required"),
 		update_available = push.property(false, "Update available"),

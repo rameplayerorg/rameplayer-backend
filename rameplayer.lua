@@ -7,6 +7,7 @@ local posix = require 'posix'
 local socket = require 'socket'
 local plutils = require 'pl.utils'
 local cqueues = require 'cqueues'
+local unix = require 'unix'
 local httpd = require 'cqp.httpd'
 local process = require 'cqp.process'
 local posixfd = require 'cqp.posixfd'
@@ -66,6 +67,7 @@ local function update_ip()
 	posix.bind(nlfd, {family=posix.AF_NETLINK, pid=posix.getpid("pid"), groups=0x440}) --groups=RTMGRP_IPV4_ROUTE|RTMGRP_IPV6_ROUTE
 	local nlsock = posixfd.openfd(nlfd, 'r')
 	local timeout = 0.05
+	RAME.system.ip:push_to(function(val) RAME.log.info("IP "..val) end)
 	while true do
 		if cqueues.poll(nlsock, timeout) == nlsock then
 			-- Just read the netlink data. No real processing,
@@ -73,15 +75,22 @@ local function update_ip()
 			nlsock:read(16*1024)
 			timeout = 0.05
 		else
-			local s = socket.udp()
-			s:setpeername("8.8.8.8", 80)
-			local ip, port = s:getsockname()
-			s:close()
-			local ip_str = tostring(ip)
-			if ip_str ~= RAME.system.ip() then
-				RAME.log.info("IP "..ip_str)
+			local str = "(No link)"
+			for ifa in unix.getifaddrs() do
+				if bit32.band(ifa.flags, unix.IFF_LOOPBACK) == 0 and
+				   bit32.band(ifa.flags, unix.IFF_RUNNING) ~= 0 then
+					-- At least some interface is active
+					str = "(Configuring)"
+				end
+				if bit32.band(ifa.flags, unix.IFF_LOOPBACK) == 0 and
+				   ifa.family == lunix.AF_INET and
+				   ifa.addr ~= nil then
+					-- First active interface
+					str = tostring(ifa.addr)
+					break
+				end
 			end
-			RAME.system.ip(ip_str)
+			RAME.system.ip(str)
 			timeout = nil
 		end
 	end
