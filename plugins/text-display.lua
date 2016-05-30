@@ -84,7 +84,7 @@ function Plugin.main()
 		remaining_size = lcd_width - row2:len()
 
 		item = Item.find(RAME.player.cursor())
-		filename = item and item.filename or ""
+		filename = item and (item.filename or item.uri) or ""
 		if filename ~= prev_filename or prev_player_status ~= player_status then
 			scroll_time = 0
 			scroll_pos = 0

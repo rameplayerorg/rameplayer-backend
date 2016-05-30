@@ -204,7 +204,7 @@ function Plugin.main()
 		-- normal mode
 
 		item = Item.find(RAME.player.cursor())
-		filename = item and item.filename or ""
+		filename = item and (item.filename or item.uri) or ""
 
 		if filename ~= last_displayed_filename then
 			out:write(("X6:%s\n"):format(filename))
