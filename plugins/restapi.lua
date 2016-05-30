@@ -13,6 +13,7 @@ Plugin.cluster_cond = condition.new()
 local function rest_info(item)
 	return {
 		["type"] = item.type,
+		["repeat"] = item["repeat"],
 		id = item.id,
 		duration = item.duration,
 		editable = item.editable,
@@ -22,6 +23,7 @@ local function rest_info(item)
 		size = item.size,
 		title = item.title,
 		uri = item.uri,
+		autoPlayNext = item.autoPlayNext,
 		storage = item.container and item.container.id,
 	}
 end
@@ -62,6 +64,8 @@ function LISTS.POST(ctx, reply)
 			["type"]='playlist',
 			title = ctx.args.title,
 			editable = true,
+			["repeat"] = ctx.args["repeat"],
+			autoPlayNext = ctx.args.autoPlayNext,
 			items = {}
 		}
 		for _, c in pairs(ctx.args.items) do

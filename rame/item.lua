@@ -158,6 +158,8 @@ function Item:load_playlists(lists, save_func)
 			["type"]='playlist',
 			id = list.id,
 			title = list.title or "unknown",
+			["repeat"] = list["repeat"],
+			autoPlayNext = list.autoPlayNext,
 			editable = true,
 			items = {}
 		}
@@ -185,6 +187,8 @@ function Item:save_playlists()
 			table.insert(data, {
 				id = pitem.id,
 				title = pitem.title,
+				["repeat"] = pitem["repeat"],
+				autoPlayNext = pitem.autoPlayNext,
 				items = list,
 			})
 		end

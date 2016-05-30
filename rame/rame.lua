@@ -187,9 +187,11 @@ function RAME:action(command, item_id, pos)
 	if item_id then RAME.player.cursor(item_id) end
 
 	if command == "repeatplay" or command == "autoplay" or command == "play" then
+		local item = Item.find(RAME.player.cursor())
+		local parent = item and item.parent or {}
 		RAME.log.info("Player: sending " .. command .. " command, cursor " .. self.player.cursor())
 		self.player.__itemrepeat = (command == "repeatplay")
-		self.player.__autoplay = (command == "autoplay")
+		self.player.__autoplay = (command == "autoplay") or parent.autoPlayNext
 		self.player.__playing = true
 		if pos and pos < 0 then self.player.__wait = -pos end
 		-- This kills the idle player to wake up idle thread
