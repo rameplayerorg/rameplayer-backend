@@ -354,7 +354,6 @@ function SETTINGS.POST.system(ctx, reply)
 				range_start = "start\t\t" .. args.ipDhcpRangeStart,
 				range_end = "end\t\t" .. args.ipDhcpRangeEnd,
 				subnet_mask = "option\tsubnet\t" .. args.ipSubnetMask,
-				default_gw = "opt\trouter\t" .. args.ipDefaultGateway,
 			}
 			if args.ipDnsPrimary then
 				local dnscfg = "opt\tdns\t"..args.ipDnsPrimary
@@ -362,6 +361,9 @@ function SETTINGS.POST.system(ctx, reply)
 					dnscfg = dnscfg.." "..args.ipDnsSecondary
 				end
 				udhcpd_conf["dns"] = dnscfg
+			end
+			if args.ipDefaultGateway then
+				udhcpd_conf["default_gw"] = "opt\trouter\t" .. args.ipDefaultGateway
 			end
 
 			for i, val in ipairs(udhcpd) do
