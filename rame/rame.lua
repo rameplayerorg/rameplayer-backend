@@ -300,7 +300,8 @@ function RAME.main()
 
 		-- item or idle url to play?
 		local uri, control
-		if item and self.player.__playing then
+		local playing = item and self.player.__playing
+		if playing then
 			uri = item.uri
 			control = RAME.players:resolve(uri)
 			self.player.status("buffering")
@@ -343,15 +344,18 @@ function RAME.main()
 			RAME.log.info("Stopped", uri)
 		end
 
-		-- Move cursor to next item if playback stopped normally
-		if item and move_next then
-			item = item:navigate()
-			self.player.cursor(item.id)
-			if item == initial_item and self.player.__autoplay then
-				-- stop failed autoplay loop
-				self.player.__autoplay = false
+		if playing then
+			-- Move cursor to next item if playback stopped normally
+			-- or in autoplay mode and stop was not requested
+			if item and (move_next or (self.player.__playing and self.player.__autoplay)) then
+				item = item:navigate()
+				self.player.cursor(item.id)
+				-- stop autoplay if all items are non-playable
+				self.player.__autoplay = self.player.__autoplay and item ~= initial_item
 			end
-			self.player.__playing = self.player.__autoplay
+
+			-- Play next item if autoplaying
+			self.player.__playing = self.player.__playing and self.player.__autoplay
 		end
 	end
 end
