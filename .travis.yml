@@ -31,7 +31,8 @@ before_script:
 script:
   # run REST API tests with using Frisby.js
   - jasmine-node rest/01-initial/
-  # restart backend
+  # restart backend (allow writing changes to disk)
+  - sleep 3
   - sshpass -p rpi ssh -p 8022 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@localhost "pkill lua5.3; supervisorctl start rameplayer-backend"
   # run more REST API tests
   - jasmine-node rest/02-after-restart/
