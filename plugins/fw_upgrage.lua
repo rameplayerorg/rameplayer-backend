@@ -45,7 +45,7 @@ end
 
 function UPGRADE.GET(ctx, reply)
 	local base = get_rsync_base()
-	if not base then return 500, "upgrade server not configured" end
+	if not base then return 500, { error="upgrade server not configured" } end
 
 	local out = process.popen("rsync", base)
 	local str = out:read_all()
@@ -65,7 +65,7 @@ function UPGRADE.GET(ctx, reply)
 		end
 		table.insert(fws, info)
 	end
-	if #fws == 0 then return 500, "no available firmwares" end
+	if #fws == 0 then return 502, { error="no available firmwares" } end
 	if latest then latest.latest = true end
 
 	return 200, { firmwares = fws }
@@ -80,7 +80,7 @@ function UPGRADE.PUT(ctx, reply)
 	RAME.log.warn("Upgrade firmware from " .. (uri or "(default location)"))
 
 	if RAME.system.firmware_upgrade() ~= nil then
-		return 500, "Firmware upgrade already in progress"
+		return 500, { error="Firmware upgrade already in progress" }
 	end
 
 	RAME.system.firmware_upgrade(0)
