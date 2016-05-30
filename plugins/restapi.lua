@@ -135,10 +135,11 @@ function LISTS.PUT(ctx, reply)
 			return 404
 		end
 		child:move_after(afterId)
+		item = child
 	else
 		return 404
 	end
-	return 200
+	return 200, rest_info(item)
 end
 
 function LISTS.DELETE(ctx, reply)
