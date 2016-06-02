@@ -71,7 +71,7 @@ function AUDIO.PUT(ctx, reply)
 		channel.property(vol)
 	end
 
-	return 200
+	return 200, {}
 end
 
 local Plugin = {}

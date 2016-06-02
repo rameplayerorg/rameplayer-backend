@@ -173,7 +173,7 @@ function LISTS.DELETE(ctx, reply)
 		return 404
 	end
 
-	return 200
+	return 200, {}
 end
 
 -- REST API: /cursor/

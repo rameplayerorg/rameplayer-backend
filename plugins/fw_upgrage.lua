@@ -108,7 +108,7 @@ function UPGRADE.PUT(ctx, reply)
 		RAME.reboot_device()
 	end)
 
-	return 200
+	return 200, {}
 end
 
 local Plugin = {}

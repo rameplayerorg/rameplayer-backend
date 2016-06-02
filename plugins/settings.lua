@@ -135,7 +135,7 @@ function SETTINGS.POST.user(ctx, reply)
 		return 500, { error="File write error: "..settings_json }
 	end
 	RAME.settings = c
-	return 200
+	return 200, {}
 end
 
 function SETTINGS.GET.system(ctx, reply)
@@ -479,18 +479,18 @@ function SETTINGS.POST.system(ctx, reply)
 		RAME.system.reboot_required(true)
 	end
 
-	return 200
+	return 200, {}
 end
 
 function SETTINGS.PUT.reboot(ctx, reply)
 	RAME.reboot_device()
-	return 200
+	return 200, {}
 end
 
 function SETTINGS.PUT.reset(ctx, reply)
 	RAME.factory_reset()
 	RAME.reboot_device()
-	return 200
+	return 200, {}
 end
 
 -- Plugin Hooks
