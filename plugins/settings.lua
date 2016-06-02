@@ -42,7 +42,7 @@ local ipv4_masks_rev = revtable(ipv4_masks)
 
 -- supported (selection) resolutions on RPi
 local rpi_resolutions = {
-	rameAutodetect = "",
+	rameAutodetect = "#hdmi_mode=autodetect",
 	rame720p50 = "hdmi_mode=19",
 	rame720p60 = "hdmi_mode=4",
 	rame1080i50 = "hdmi_mode=20",
@@ -230,21 +230,45 @@ function SETTINGS.POST.system(ctx, reply)
 	})
 	if err then return err, msg end
 
-	-- POST always writes the settings again
-	if args.resolution ~= "rameAutodetect" then
-		table.insert(rpi_conf, "hdmi_group=1")
-		table.insert(rpi_conf, rpi_resolutions[args.resolution])
+	local ramecfg = plutils.readlines(RAME.config.settings_path..ramecfg_txt) or {}
+	if next(ramecfg) == nil then -- After 1st boot or factory reset needs this
+		changed = true
 	end
+
+	table.insert(rpi_conf, "# NOTE: This file is auto-updated")
+	table.insert(rpi_conf, "hdmi_group=1")
+	table.insert(rpi_conf, rpi_resolutions[args.resolution])
 	table.insert(rpi_conf, rpi_audio_ports[args.audioPort])
 	table.insert(rpi_conf, rpi_display_rotation[args.displayRotation])
 
-	if not RAME.write_settings_file(ramecfg_txt, table.concat(rpi_conf, "\n")) then
-		RAME.log.error("File write error: "..ramecfg_txt)
-		return 500, { error="File write error: "..ramecfg_txt }
+	for i, val in ipairs(ramecfg) do
+		if val:match("hdmi_mode=[^\n]+") then
+ 			if val ~= rpi_resolutions[args.resolution] then
+ 				changed = true
+ 			end
+		elseif val:match("#hdmi_mode=autodetect[^\n]+") then
+ 			if val ~= rpi_resolutions[args.resolution] then
+ 				changed = true
+ 			end
+ 		elseif val:match("display_rotate=[^\n]+") then
+ 			if val ~= rpi_display_rotation[args.displayRotation] then
+ 				changed = true
+ 			end
+ 		elseif val:match("#hdmi_drive=[^\n]+") then
+ 			if val ~= rpi_audio_ports[args.audioPort] then
+ 				changed = true
+ 			end
+ 		end
 	end
 
-	-- Signal the user that reboot is required
-	RAME.system.reboot_required(true)
+	if changed then
+		if not RAME.write_settings_file(ramecfg_txt, table.concat(rpi_conf, "\n")) then
+			RAME.log.error("File write error: "..ramecfg_txt)
+			return 500, { error="File write error: "..ramecfg_txt }
+		end
+		changed = false
+		RAME.system.reboot_required(true)
+	end
 
 	--
 	-- HOSTNAME
