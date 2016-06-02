@@ -503,6 +503,10 @@ function SETTINGS.POST.system(ctx, reply)
 		RAME.system.reboot_required(true)
 	end
 
+	if RAME.system.reboot_required() then
+		RAME.reboot_device()
+	end
+
 	return 200, {}
 end
 
