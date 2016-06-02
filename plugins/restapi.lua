@@ -79,17 +79,23 @@ function LISTS.POST(ctx, reply)
 		local list = Item.find(id)
 		if list == nil then return 404 end
 		if not (list.editable and list.items) then return 405 end
-		local argItems = {}
-		if ctx.args[1] == nil then
-			argItems[1] = ctx.args
-		else
-			argItems = ctx.args
-		end
+
+		local argItems = ctx.args
+		if argItems[1] == nil then argItems = { argItems } end
+
 		for _, argItem in ipairs(argItems) do
 			if argItem == nil then return 400 end
+
 			item = Item.new { title = argItem.title, uri = argItem.uri, editable = true }
 			if not item then return 400 end
 			list:add(item)
+
+			local afterId = argItem.afterId
+			if afterId == json.null then
+				child:move_after(nil)
+			elseif type(afterId) == "string" then
+				child:move_after(afterId)
+			end
 		end
 	else
 		return 404
