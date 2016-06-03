@@ -81,7 +81,10 @@ local RAME = {
 	idle_controls = {
 		cond = condition.new(),
 	},
-	wait_controls = {},
+	null_controls = {},
+	wait_controls = {
+		cond = condition.new(),
+	},
 	players = UrlMatch.new(),
 }
 
@@ -140,7 +143,9 @@ function RAME:action(command, item_id, pos)
 		if pos < 0 then
 			-- Kill player and go to waiting state
 			self.player.__wait = math.abs(pos)
-			self.player.control.stop()
+			if self.player.control and self.player.control.stop then
+				self.player.control.stop()
+			end
 			return 200
 		end
 		if self.player.control and self.player.control.seek then
@@ -194,7 +199,13 @@ function RAME:action(command, item_id, pos)
 		self.player.__itemrepeat = (command == "repeatplay")
 		self.player.__autoplay = (command == "autoplay") or parent.autoPlayNext
 		self.player.__playing = true
-		if pos and pos < 0 then self.player.__wait = -pos end
+		if pos then
+			if pos < 0 then
+				self.player.__wait = -pos
+			else
+				self.player.__initpos = pos
+			end
+		end
 		-- This kills the idle player to wake up idle thread
 		if self.player.control and self.player.control.stop then
 			self.player.control.stop()
@@ -206,15 +217,31 @@ end
 
 function RAME.idle_controls.play()
 	RAME.idle_controls.cond:wait()
+	return nil
 end
 
 function RAME.idle_controls.stop()
 	RAME.idle_controls.cond:signal()
 end
 
+function RAME.null_controls.play()
+	return nil
+end
+
+function RAME.wait_controls.seek(pos)
+	RAME.player.__wait = 0
+	RAME.player.__initpos = pos
+	RAME.idle_controls.cond:signal()
+	return true
+end
+
 function RAME.wait_controls.pause()
 	RAME.player.status((RAME.player.status() == "waiting") and "paused" or "waiting")
 	return true
+end
+
+function RAME.wait_controls.stop()
+	RAME.wait_controls.cond:signal()
 end
 
 local function on_cursor_change(item_id)
@@ -307,7 +334,7 @@ function RAME.main()
 		if playing then
 			uri = item.uri
 			control = RAME.players:resolve(uri)
-			self.player.status("buffering")
+			       or RAME.null_controls
 		else
 			uri = self.idle_uri
 			control = RAME.players:resolve(uri)
@@ -316,36 +343,42 @@ function RAME.main()
 			self.player.status("stopped")
 		end
 
-		if control and self.player.__playing and self.player.__wait then
-			self.player.status("waiting")
-			self.player.control = self.wait_controls
-			while self.player.__playing and self.player.__wait > 0 do
-				self.player.position(-self.player.__wait)
-				local d = math.min(0.1, self.player.__wait)
-				cqueues.sleep(d)
-				if self.player.status() == "waiting" then
-					self.player.__wait = self.player.__wait - d
+		-- main play loop of item
+		repeat
+			if self.player.__playing and self.player.__wait then
+				self.player.status("waiting")
+				self.player.control = self.wait_controls
+				while self.player.__playing and self.player.__wait > 0 do
+					self.player.position(-self.player.__wait)
+					local d = math.min(0.1, self.player.__wait)
+					cqueues.poll(self.wait_controls.cond, d)
+					if self.player.status() == "waiting" then
+						self.player.__wait = self.player.__wait - d
+					end
+				end
+				self.player.control = nil
+				self.player.__wait = nil
+
+				-- stopped while waiting?
+				if not self.player.__playing then
+					control = self.null_controls
+					move_next = false
 				end
 			end
-			self.player.control = nil
-			self.player.__wait = nil
-
-			-- stopped while waiting?
-			if not self.player.__playing then
-				control = nil
-				move_next = false
+			if self.player.__playing then
+				self.player.status("buffering")
 			end
-		end
 
-		if control then
 			--print("Playing", uri, control, item)
 			RAME.log.info("Playing", uri)
+			local initpos = self.player.__initpos
 			self.player.control = control
-			move_next = RAME.player.control.play(uri, self.player.__itemrepeat)
+			self.player.__initpos = nil
+			move_next = RAME.player.control.play(uri, self.player.__itemrepeat, initpos)
 			if move_next then initial_item = nil end -- play was successful
 			self.player.control = nil
 			RAME.log.info("Stopped", uri)
-		end
+		until not playing or self.player.__wait == nil
 
 		if playing then
 			-- Move cursor to next item if playback stopped normally

@@ -60,7 +60,7 @@ function Plugin.control.status_update()
 	Plugin.control.cond:signal()
 end
 
-function Plugin.control.omxplay(uri, itemrepeat)
+function Plugin.control.omxplay(uri, itemrepeat, initpos)
 	local cmd = {
 		"omxplayer",
 			"--no-osd",
@@ -68,6 +68,10 @@ function Plugin.control.omxplay(uri, itemrepeat)
 			"--nohdmiclocksync",
 			"--adev", RAME.config.omxplayer_audio_out,
 	}
+	if Plugin.use_alsa then
+		table.insert(cmd, "-A")
+		table.insert(cmd, "default")
+	end
 	if uri:match("^rtmp:") then
 		table.insert(cmd, "--live")
 		Plugin.live = true
@@ -75,9 +79,9 @@ function Plugin.control.omxplay(uri, itemrepeat)
 	if itemrepeat then
 		table.insert(cmd, "--loop")
 	end
-	if Plugin.use_alsa then
-		table.insert(cmd, "-A")
-		table.insert(cmd, "default")
+	if initpos then
+		table.insert(cmd, "--pos")
+		table.insert(cmd, ("%02d:%02d:%02d"):format(initpos//3600, initpos//60, initpos%60))
 	end
 	table.insert(cmd, RAME.resolve_uri(uri))
 	Plugin.process = process.spawn(table.unpack(cmd))
