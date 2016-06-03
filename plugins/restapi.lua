@@ -224,11 +224,15 @@ function RAME.rest.status(ctx, reply)
 		player = next(player) and player,
 	}
 	if next(RAME.cluster.controllers) then
-		response.cluster = setmetatable({}, json.array)
+		local controllers = setmetatable({}, json.array)
 		for ip, last_seen in pairs(RAME.cluster.controllers) do
-			table.insert(response.cluster, ip)
+			table.insert(controllers, ip)
 		end
-		table.sort(response.cluster)
+		table.sort(controllers)
+
+		response.cluster = {
+			controller = controllers,
+		}
 	end
 
 	return 200, response
