@@ -230,43 +230,19 @@ function SETTINGS.POST.system(ctx, reply)
 	})
 	if err then return err, msg end
 
-	local ramecfg = plutils.readlines(RAME.config.settings_path..ramecfg_txt) or {}
-	if next(ramecfg) == nil then -- After 1st boot or factory reset needs this
-		changed = true
-	end
-
 	table.insert(rpi_conf, "# NOTE: This file is auto-updated")
 	table.insert(rpi_conf, "hdmi_group=1")
 	table.insert(rpi_conf, rpi_resolutions[args.resolution])
 	table.insert(rpi_conf, rpi_audio_ports[args.audioPort])
 	table.insert(rpi_conf, rpi_display_rotation[args.displayRotation])
 
-	for i, val in ipairs(ramecfg) do
-		if val:match("hdmi_mode=[^\n]+") then
- 			if val ~= rpi_resolutions[args.resolution] then
- 				changed = true
- 			end
-		elseif val:match("#hdmi_mode=autodetect[^\n]+") then
- 			if val ~= rpi_resolutions[args.resolution] then
- 				changed = true
- 			end
- 		elseif val:match("display_rotate=[^\n]+") then
- 			if val ~= rpi_display_rotation[args.displayRotation] then
- 				changed = true
- 			end
- 		elseif val:match("#hdmi_drive=[^\n]+") then
- 			if val ~= rpi_audio_ports[args.audioPort] then
- 				changed = true
- 			end
- 		end
-	end
-
-	if changed then
-		if not RAME.write_settings_file(ramecfg_txt, table.concat(rpi_conf, "\n")) then
+	local old_config = plutils.readfile(RAME.config.settings_path..ramecfg_txt)
+	local new_config = table.concat(rpi_conf, "\n")
+	if old_config ~= new_config then
+		if not RAME.write_settings_file(ramecfg_txt, new_config) then
 			RAME.log.error("File write error: "..ramecfg_txt)
 			return 500, { error="File write error: "..ramecfg_txt }
 		end
-		changed = false
 		RAME.system.reboot_required(true)
 	end
 
