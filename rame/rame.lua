@@ -48,7 +48,8 @@ local RAME = {
 		rotary_flag = push.property(false, "Rotary notification flag"),
 	},
 	cluster = {
-		controller = push.property(false, "Cluster controller"),
+		controller = push.property(false, "Cluster controller text"),
+		controllers = {},
 	},
 	media = {},
 	root = Item.new_list{id="root", title="Root"},

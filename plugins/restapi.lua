@@ -197,8 +197,8 @@ function RAME.rest.status(ctx, reply)
 	end
 
 	if ctx.args.cluster then
-		RAME.cluster.controller(ctx.ip)
 		-- Start timer for auto clearing cluster controller status
+		RAME.cluster.controllers[ctx.ip] = cqueues.monotime()
 		Plugin.cluster_cond:signal()
 	end
 
@@ -223,10 +223,12 @@ function RAME.rest.status(ctx, reply)
 		},
 		player = next(player) and player,
 	}
-	if RAME.cluster.controller() then
-		response.cluster = {
-			controller = RAME.cluster.controller(),
-		}
+	if next(RAME.cluster.controllers) then
+		response.cluster = setmetatable({}, json.array)
+		for ip, last_seen in pairs(RAME.cluster.controllers) do
+			table.insert(response.cluster, ip)
+		end
+		table.sort(response.cluster)
 	end
 
 	return 200, response
@@ -277,14 +279,27 @@ end
 function Plugin.main()
 	local timeout = nil
 	while true do
-		local ret = cqueues.poll(Plugin.cluster_cond, timeout)
-		if ret == timeout then
-			timeout = nil
-			RAME.log.info("Clearing cluster controller status")
-			RAME.cluster.controller(false)
+		cqueues.poll(Plugin.cluster_cond, timeout)
+		timeout = nil
+		local items = {}
+		local now = cqueues.monotime()
+		for ip, last_seen in pairs(RAME.cluster.controllers) do
+			local expires = last_seen + 3
+			if now >= expires then
+				RAME.log.info("Removing controller " .. ip)
+				RAME.cluster.controllers[ip] = nil
+			else
+				table.insert(items, ip)
+				if timeout == nil or timeout > expires - now then
+					timeout = expires - now
+				end
+			end
+		end
+		if #items > 0 then
+			table.sort(items)
+			RAME.cluster.controller(table.concat(items, ","))
 		else
-			-- Trigger timeout to clear cluster controller
-			timeout = 3.0
+			RAME.cluster.controller(false)
 		end
 	end
 end
