@@ -62,7 +62,12 @@ local RAME = {
 		playlists={},
 		playlistsfile="/user/playlists.json",
 	},
-	default = Item.new_list{id="default", title="Default playlist", editable=true},
+	default = Item.new_list{
+		id="default",
+		["type"]="playlist",
+		title="Default playlist",
+		editable=true
+	},
 	rest = {},
 	plugins = {},
 	log = {
