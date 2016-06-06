@@ -41,7 +41,7 @@ frisby.create('Status with cluster')
     .expectHeaderContains('content-type', 'application/json')
     .expectJSONTypes({
         cluster: {
-            controller: String
+            controller: Array
         }
     })
     .toss();
