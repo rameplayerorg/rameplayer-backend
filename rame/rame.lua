@@ -388,15 +388,16 @@ function RAME.main()
 		if playing then
 			-- Move cursor to next item if playback stopped normally
 			-- or in autoplay mode and stop was not requested
-			if item and (move_next or (self.player.__playing and self.player.__autoplay)) then
+			if item and not self.player.__itemrepeat
+			   and (move_next or (self.player.__playing and self.player.__autoplay)) then
 				item = item:navigate()
 				self.player.cursor(item.id)
-				-- stop autoplay if all items are non-playable
-				self.player.__autoplay = self.player.__autoplay and item ~= initial_item
 			end
-
-			-- Play next item if autoplaying
+			-- stop autoplay if all items are non-playable
+			self.player.__autoplay = self.player.__autoplay and item ~= initial_item
+			-- keep playing if in autoplay mode
 			self.player.__playing = self.player.__playing and self.player.__autoplay
+			self.player.__itemrepeat = self.player.__itemrepeat and self.player.__playing
 		end
 	end
 end
