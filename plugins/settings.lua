@@ -103,7 +103,10 @@ local function pexec(...)
 end
 
 local function entries(e)
-	return type(e) == "table" and table.unpack(e) or e
+	if type(e) == "table" then
+		return table.unpack(e)
+	end
+	return e
 end
 
 -- REST API: /settings/
