@@ -92,9 +92,9 @@ function LISTS.POST(ctx, reply)
 
 			local afterId = argItem.afterId
 			if afterId == json.null then
-				child:move_after(nil)
+				item:move_after(nil)
 			elseif type(afterId) == "string" then
-				child:move_after(afterId)
+				item:move_after(afterId)
 			end
 		end
 	else
