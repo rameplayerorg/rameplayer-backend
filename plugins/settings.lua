@@ -259,6 +259,7 @@ function SETTINGS.POST.system(ctx, reply)
 			RAME.log.error("File write error: ".."/etc/hostname")
 			return 500, { error="File write error: ".."/etc/hostname" }
 		end
+		process.run("/etc/init.d/hostname", "restart")
 		commit = true
 	end
 
@@ -336,6 +337,7 @@ function SETTINGS.POST.system(ctx, reply)
 				RAME.log.error("File write error: ".."/etc/dhcpcd.conf")
 				return 500, { error="File write error: ".."/etc/dhcpcd.conf" }
 			end
+			process.run("/etc/init.d/dhcpcd", "restart")
 			changed = false
 			commit = true
 		end
@@ -421,9 +423,11 @@ function SETTINGS.POST.system(ctx, reply)
 				commit = true
 			end
 			process.run("rc-update", "add", "udhcpd", "default")
+			process.run("/etc/init.d/udhcpcd", "start", "--ifstopped")
 			commit = true
 		elseif args.ipDhcpServer == false then
 			process.run("rc-update", "del", "udhcpd", "default")
+			process.run("/etc/init.d/udhcpcd", "stop", "--ifstarted")
 			commit = true
 		end
 	elseif args.ipDhcpClient == true then
@@ -449,9 +453,9 @@ function SETTINGS.POST.system(ctx, reply)
 
 		-- removing the DHCP server service ALWAYS when set in DHCP client mode!
 		process.run("rc-update", "del", "udhcpd", "default")
+		process.run("/etc/init.d/udhcpcd", "stop", "--ifstarted")
 		commit = true
 	end
-
 
 	-- optional
 	if args.ntpServerAddress then
@@ -462,6 +466,7 @@ function SETTINGS.POST.system(ctx, reply)
 				RAME.log.error("File write error: ".."/etc/ntp.conf")
 				return 500, { error="File write error: ".."/etc/ntp.conf" }
 			end
+			process.run("/etc/init.d/ntpd", "restart")
 			commit = true
 		end
 	end
@@ -471,7 +476,7 @@ function SETTINGS.POST.system(ctx, reply)
 		RAME.log.info("New date&time: "..args.dateAndTimeInUTC)
 		process.run("date", "-u", "-s", args.dateAndTimeInUTC)
 		-- write date&time to RTC if it's available:
-		if plpath.exists("/proc/device-tree/rame/cid6") then
+		if plpath.exists("/dev/rtc") then
 			process.run("hwclock", "-u", "-w")
 		end
 	end
@@ -479,9 +484,7 @@ function SETTINGS.POST.system(ctx, reply)
 	activate_config(args)
 	if commit then
 		RAME.commit_overlay()
-		RAME.system.reboot_required(true)
 	end
-
 	if RAME.system.reboot_required() then
 		RAME.reboot_device()
 	end
