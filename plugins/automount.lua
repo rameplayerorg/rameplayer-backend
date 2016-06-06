@@ -61,7 +61,7 @@ local function media_changed(name, mounted)
 		RAME.root:add(item)
 		RAME.load_playlists(item)
 
-		if RAME.settings.autoplayUsb then
+		if RAME.user_settings.autoplayUsb then
 			item:expand()
 			if #item.items > 0 then
 				for _,i in pairs(item.items or {}) do

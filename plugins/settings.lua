@@ -8,7 +8,8 @@ local process = require 'cqp.process'
 local RAME = require 'rame.rame'
 
 local ramecfg_txt = "ramecfg.txt"
-local settings_json = "settings.json"
+local user_settings_json = "user_settings.json"
+local system_settings_json = "system_settings.json"
 
 local function revtable(tbl)
 	local rev={}
@@ -61,15 +62,6 @@ local rpi_display_rotation = {
 }
 local rpi_display_rotation_rev = revtable(rpi_display_rotation)
 
--- Certain HDMI devices do not work with hdmi_drive setting thus implementation
--- of audio setting is RAME internal only
-local rpi_audio_ports = {
-	rameAnalogOnly = "#hdmi_drive=1 analog",
-	rameHdmiOnly =  "#hdmi_drive=2 hdmi",
-	rameHdmiAndAnalog = "#hdmi_drive=2 both",
-}
-local rpi_audio_ports_rev = revtable(rpi_audio_ports)
-
 local omxplayer_audio_outs = {
 	rameAnalogOnly = "local",
 	rameHdmiOnly = "hdmi",
@@ -113,11 +105,15 @@ end
 local SETTINGS = { GET = {}, POST = {}, PUT = {} }
 
 function SETTINGS.GET.user(ctx, reply)
-	return 200, RAME.settings
+	return 200, RAME.user_settings
 end
 
-local settings_fields = {
+local user_settings_fields = {
 	autoplayUsb = "boolean"
+}
+
+local system_settings_fields = {
+	audioPort = "string"
 }
 
 function SETTINGS.POST.user(ctx, reply)
@@ -125,19 +121,23 @@ function SETTINGS.POST.user(ctx, reply)
 	local err, msg
 
 	-- Validate and deep copy the settings
-	err, msg = RAME.check_fields(args, settings_fields)
+	err, msg = RAME.check_fields(args, user_settings_fields)
 	if err then return err, msg end
 	local c = {}
-	for key, spec in pairs(settings_fields) do
+	for key, spec in pairs(user_settings_fields) do
 		c[key] = args[key]
 	end
 
-	-- Write and activate new settings
-	if not RAME.write_settings_file(settings_json, json.encode(c)) then
-		RAME.log.error("File write error: "..settings_json)
-		return 500, { error="File write error: "..settings_json }
+
+	-- Write and Activate new settings
+	if RAME.user_settings.autoplayUsb ~= c.autoplayUsb then
+		RAME.user_settings.autoplayUsb = c.autoplayUsb
+		if not RAME.write_settings_file(user_settings_json, json.encode(c)) then
+			RAME.log.error("File write error: "..user_settings_json)
+			return 500, { error="File write error: "..user_settings_json }
+		end
 	end
-	RAME.settings = c
+
 	return 200, {}
 end
 
@@ -145,7 +145,6 @@ function SETTINGS.GET.system(ctx, reply)
 	local conf = {
 		-- Defaults if not found from config files
 		resolution = "rameAutodetect",
-		audioPort = "rameAnalogOnly",
 		displayRotation = 0,
 		ipDhcpClient = true,
 		ipDhcpServer = false,
@@ -159,13 +158,12 @@ function SETTINGS.GET.system(ctx, reply)
 		if val ~= "" and rpi_resolutions_rev[val] then
 			conf.resolution = rpi_resolutions_rev[val]
 		end
-		if rpi_audio_ports_rev[val] then
-			conf.audioPort = rpi_audio_ports_rev[val]
-		end
 		if rpi_display_rotation_rev[val] then
 			conf.displayRotation = rpi_display_rotation_rev[val]
 		end
 	end
+
+	conf.audioPort = RAME.system_settings.audioPort
 
 	local dhcpcd = plconfig.read("/etc/dhcpcd.conf", {list_delim=' '}) or {}
 	if dhcpcd.static_ip_address then
@@ -224,7 +222,7 @@ function SETTINGS.POST.system(ctx, reply)
 
 	err, msg = RAME.check_fields(args, {
 		resolution = {typeof="string",choices=rpi_resolutions},
-		audioPort = {typeof="string",choices=rpi_audio_ports},
+		audioPort = {typeof="string",choices=omxplayer_audio_outs},
 		ipDhcpClient = "boolean",
 		displayRotation = {validate=check_display_rotation},
 		hostname = {validate=check_hostname, optional=true},
@@ -233,10 +231,12 @@ function SETTINGS.POST.system(ctx, reply)
 	})
 	if err then return err, msg end
 
+	--
+	-- RPi PARAMS RESOLUTION AND DISPLAY-ROTATION
+	--
 	table.insert(rpi_conf, "# NOTE: This file is auto-updated")
 	table.insert(rpi_conf, "hdmi_group=1")
 	table.insert(rpi_conf, rpi_resolutions[args.resolution])
-	table.insert(rpi_conf, rpi_audio_ports[args.audioPort])
 	table.insert(rpi_conf, rpi_display_rotation[args.displayRotation])
 
 	local old_config = plutils.readfile(RAME.config.settings_path..ramecfg_txt)
@@ -247,6 +247,20 @@ function SETTINGS.POST.system(ctx, reply)
 			return 500, { error="File write error: "..ramecfg_txt }
 		end
 		RAME.system.reboot_required(true)
+	end
+
+	--
+	-- AUDIO-PORT
+	--
+	if RAME.system_settings.audioPort ~= args.audioPort then
+		RAME.system_settings.audioPort = args.audioPort
+
+		-- AudioPort is saved on system_settings_json
+		if not RAME.write_settings_file(system_settings_json,
+			   							json.encode(RAME.system_settings)) then
+			RAME.log.error("File write error: "..system_settings_json)
+			return 500, { error="File write error: "..system_settings_json }
+		end
 	end
 
 	--
@@ -507,13 +521,19 @@ end
 local Plugin = {}
 
 function Plugin.init()
-	local ok, conf = SETTINGS.GET.system()
-	if ok == 200 then activate_config(conf) end
-
-	local conf = json.decode(RAME.read_settings_file(settings_json) or "")
-	if RAME.check_fields(conf, settings_fields) == nil then
-		RAME.settings = conf
+	local ok, conf
+	conf = json.decode(RAME.read_settings_file(user_settings_json) or "")
+	if RAME.check_fields(conf, user_settings_fields) == nil then
+		RAME.user_settings = conf
 	end
+
+	conf = json.decode(RAME.read_settings_file(system_settings_json) or "")
+	if RAME.check_fields(conf, system_settings_fields) == nil then
+		RAME.system_settings = conf
+	end
+
+	ok, conf = SETTINGS.GET.system()
+	if ok == 200 then activate_config(conf) end
 
 	RAME.rest.settings = function(ctx, reply) return ctx:route(reply, SETTINGS) end
 end

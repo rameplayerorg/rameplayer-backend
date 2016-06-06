@@ -24,8 +24,11 @@ local RAME = {
 		settings_path = "/media/mmcblk0p1/user/",
 		omxplayer_audio_out = "hdmi",
 	},
-	settings = {
+	user_settings = {
 		autoplayUsb = false,
+	},
+	system_settings = {
+		audioPort = "rameAnalogOnly",
 	},
 	system = {
 		ip = push.property("(No link)", "Current IP-address"),
