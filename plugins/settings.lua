@@ -499,9 +499,6 @@ function SETTINGS.POST.system(ctx, reply)
 	if commit then
 		RAME.commit_overlay()
 	end
-	if RAME.system.reboot_required() then
-		RAME.reboot_device()
-	end
 
 	return 200, {}
 end
