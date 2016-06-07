@@ -500,7 +500,7 @@ function SETTINGS.POST.system(ctx, reply)
 		RAME.commit_overlay()
 	end
 
-	return 200, {}
+	return 200, args
 end
 
 function SETTINGS.PUT.reboot(ctx, reply)
