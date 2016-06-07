@@ -81,7 +81,7 @@ function Plugin.control.omxplay(uri, itemrepeat, initpos)
 	end
 	if initpos then
 		table.insert(cmd, "--pos")
-		table.insert(cmd, ("%02d:%02d:%02d"):format(initpos//3600, initpos//60, initpos%60))
+		table.insert(cmd, tostring(initpos))
 	end
 	table.insert(cmd, RAME.resolve_uri(uri))
 	Plugin.process = process.spawn(table.unpack(cmd))
