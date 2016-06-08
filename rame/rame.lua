@@ -315,7 +315,7 @@ function RAME.load_playlists(item, bootmedia)
 	for name, pitem in pairs(item.playlists) do
 		RAME.root:add(pitem)
 		if name == "autoplay" and #pitem.items > 0
-		   and (bootmedia or RAME.settings.autoplayUsb) then
+		   and (bootmedia or RAME.user_settings.autoplayUsb) then
 			RAME:action("autoplay", pitem.items[1].id)
 		end
 	end
