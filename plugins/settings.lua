@@ -437,11 +437,11 @@ function SETTINGS.POST.system(ctx, reply)
 				commit = true
 			end
 			process.run("rc-update", "add", "udhcpd", "default")
-			process.run("/etc/init.d/udhcpcd", "start", "--ifstopped")
+			process.run("/etc/init.d/udhcpd", "start", "--ifstopped")
 			commit = true
 		elseif args.ipDhcpServer == false then
 			process.run("rc-update", "del", "udhcpd", "default")
-			process.run("/etc/init.d/udhcpcd", "stop", "--ifstarted")
+			process.run("/etc/init.d/udhcpd", "stop", "--ifstarted")
 			commit = true
 		end
 	elseif args.ipDhcpClient == true then
@@ -467,7 +467,7 @@ function SETTINGS.POST.system(ctx, reply)
 
 		-- removing the DHCP server service ALWAYS when set in DHCP client mode!
 		process.run("rc-update", "del", "udhcpd", "default")
-		process.run("/etc/init.d/udhcpcd", "stop", "--ifstarted")
+		process.run("/etc/init.d/udhcpd", "stop", "--ifstarted")
 		commit = true
 	end
 
