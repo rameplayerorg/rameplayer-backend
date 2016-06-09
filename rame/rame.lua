@@ -396,8 +396,12 @@ function RAME.main()
 				item = item:navigate()
 				self.player.cursor(item.id)
 			end
-			-- stop autoplay if all items are non-playable
-			self.player.__autoplay = self.player.__autoplay and item ~= initial_item
+			if item == initial_item and self.player.__autoplay then
+				-- all items failed to play. add a brief wait to restart loop
+				-- so we don't busy loop, but playback of e.g. streams is properly
+				-- started when network connection returns
+				self.player.__wait = 2.0
+			end
 			-- keep playing if in autoplay mode
 			self.player.__playing = self.player.__playing and self.player.__autoplay
 			self.player.__itemrepeat = self.player.__itemrepeat and self.player.__playing
