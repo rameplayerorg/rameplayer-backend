@@ -332,7 +332,6 @@ function RAME.main()
 		-- Start process matching current state
 		local move_next = true
 		local item = Item.find(self.player.cursor())
-		local initial_item = item
 		self.player.position(0)
 		self.player.duration(0)
 
@@ -383,28 +382,29 @@ function RAME.main()
 			self.player.control = control
 			self.player.__initpos = nil
 			move_next = RAME.player.control.play(uri, self.player.__itemrepeat, initpos)
-			if move_next then initial_item = nil end -- play was successful
 			self.player.control = nil
 			RAME.log.info("Stopped", uri)
 		until not playing or self.player.__wait == nil
 
 		if playing then
-			-- Move cursor to next item if playback stopped normally
-			-- or in autoplay mode and stop was not requested
+			local wrapped = true
 			if item and not self.player.__itemrepeat
 			   and (move_next or (self.player.__playing and self.player.__autoplay)) then
-				item = item:navigate()
+				-- Move cursor to next item if playback stopped normally
+				-- or in autoplay mode and stop was not requested
+				item, wrapped = item:navigate()
 				self.player.cursor(item.id)
 			end
-			if item == initial_item and self.player.__autoplay then
-				-- all items failed to play. add a brief wait to restart loop
-				-- so we don't busy loop, but playback of e.g. streams is properly
-				-- started when network connection returns
+			if not self.player.__autoplay then
+				-- stop if not in autoplay mode
+				self.player.__playing = false
+				self.player.__itemrepeat = false
+			elseif wrapped and not move_next then
+				-- the last item of playlist failed to
+				-- play, add a brief wait to restart loop
+				-- so we don't busy loop
 				self.player.__wait = 2.0
 			end
-			-- keep playing if in autoplay mode
-			self.player.__playing = self.player.__playing and self.player.__autoplay
-			self.player.__itemrepeat = self.player.__itemrepeat and self.player.__playing
 		end
 	end
 end
