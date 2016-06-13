@@ -15,10 +15,10 @@ local function is_mount_point(path)
 end
 
 local data_devices = {
-	"sda1",
-	"sdb1",
-	"sdc1",
-	"sdd1",
+	"sda", "sda1",
+	"sdb", "sdb1",
+	"sdc", "sdc1",
+	"sdd", "sdd1",
 	"mmcblk0p2"
 }
 
@@ -37,8 +37,14 @@ local function media_changed(name, mounted)
 
 	if mounted then
 		local blkid = process.popen("blkid", devname):read_all() or ""
-		local label = blkid and blkid:match('LABEL="(%S+)"') or "NONAME"
-		local uuid  = blkid and blkid:match('UUID="(%S+)"') or stamp.uuid()
+		local label = blkid and blkid:match(' LABEL="(%S+)"') or "NONAME"
+		local uuid  = blkid and blkid:match(' UUID="(%S+)"') or stamp.uuid()
+		local ptype = blkid and blkid:match(' TYPE="(%S+)"')
+
+		if not ptype then
+			RAME.log.info(("Device %s: not a valid filesystem"):format(devname))
+			return
+		end
 
 		RAME.log.info(("Device %s: mounting label=%s, uuid=%s"):format(devname, label, uuid))
 		if not is_mount_point(mountpoint) then
