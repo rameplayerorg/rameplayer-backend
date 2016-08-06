@@ -62,6 +62,13 @@ local rpi_display_rotation = {
 }
 local rpi_display_rotation_rev = revtable(rpi_display_rotation)
 
+-- supported composite video standards on RPi
+local rpi_composite_video_std = {
+	PAL = "sdtv_mode=2 #Normal PAL",
+	NTSC = "sdtv_mode=0 #Normal NTSC",
+}
+local rpi_composite_video_std_rev = revtable(rpi_composite_video_std)
+
 local omxplayer_audio_outs = {
 	rameAnalogOnly = "local",
 	rameHdmiOnly = "hdmi",
@@ -161,6 +168,9 @@ function SETTINGS.GET.system(ctx, reply)
 		if rpi_display_rotation_rev[val] then
 			conf.displayRotation = rpi_display_rotation_rev[val]
 		end
+		if rpi_composite_video_std_rev[val] then
+			conf.compositeVideo = rpi_composite_video_std_rev[val]
+		end
 	end
 
 	conf.audioPort = RAME.system_settings.audioPort
@@ -223,6 +233,8 @@ function SETTINGS.POST.system(ctx, reply)
 	err, msg = RAME.check_fields(args, {
 		resolution = {typeof="string",choices=rpi_resolutions},
 		audioPort = {typeof="string",choices=omxplayer_audio_outs},
+		compositeVideo = {typeof="string",choices=rpi_composite_video_std,
+						 optional=true},
 		ipDhcpClient = "boolean",
 		displayRotation = {validate=check_display_rotation},
 		hostname = {validate=check_hostname, optional=true},
@@ -238,6 +250,10 @@ function SETTINGS.POST.system(ctx, reply)
 	table.insert(rpi_conf, "hdmi_group=1")
 	table.insert(rpi_conf, rpi_resolutions[args.resolution])
 	table.insert(rpi_conf, rpi_display_rotation[args.displayRotation])
+	-- optional
+	if args.compositeVideo then
+		table.insert(rpi_conf, rpi_composite_video_std[args.compositeVideo])
+	end
 
 	local old_config = plutils.readfile(RAME.config.settings_path..ramecfg_txt)
 	local new_config = table.concat(rpi_conf, "\n")
