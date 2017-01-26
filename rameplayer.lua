@@ -76,6 +76,7 @@ local function update_ip()
 			timeout = 0.05
 		else
 			local str = "(No link)"
+			local connected = false
 			for ifa in unix.getifaddrs() do
 				if bit32.band(ifa.flags, unix.IFF_LOOPBACK) == 0 and
 				   bit32.band(ifa.flags, unix.IFF_RUNNING) ~= 0 then
@@ -87,10 +88,12 @@ local function update_ip()
 				   ifa.addr ~= nil then
 					-- First active interface
 					str = tostring(ifa.addr)
+					connected = true
 					break
 				end
 			end
 			RAME.system.ip(str)
+			RAME.system.net_connection(connected)
 			timeout = nil
 		end
 	end

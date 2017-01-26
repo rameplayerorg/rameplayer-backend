@@ -24,13 +24,23 @@ local dropbox_conf = {
 -- conf filename located in mounted medias, containing keys
 local ext_fn = ".ramedropbox.json"
 
-local data_devices = {
-	"sda", "sda1",
-	"sdb", "sdb1",
-	"sdc", "sdc1",
-	"sdd", "sdd1",
-	"mmcblk0p2"
-}
+-- all used mountpoints as table keys
+local mountpoints = {}
+
+-- returns true if string starts with given value
+local function str_starts(str, start)
+	return string.sub(str, 1, string.len(start)) == start
+end
+
+-- returns mountpoint used in path or nil if not any
+local function find_mountpoint(path)
+	for mountpoint, _ in pairs(mountpoints) do
+		if str_starts(path, mountpoint .. "/") then
+			return mountpoint
+		end
+	end
+	return nil
+end
 
 -- Dropbox sessions
 local sessions = {}
@@ -47,6 +57,8 @@ local Session = {
 Session.__index = Session
 
 function Session:start()
+	RAME.log.debug(("Dropbox: start session %s"):format(self.conf.uri))
+
 	-- sync in background
 	local client = self.client
 	cqueues.running():wrap(function()
@@ -58,6 +70,7 @@ function Session:start()
 end
 
 function Session:stop()
+	RAME.log.debug(("Dropbox: stop session %s"):format(self.conf.uri))
 	self.client:stop_sync()
 	self.running = false
 	return self
@@ -93,11 +106,10 @@ function Session.add(mount_id, mountpoint, conf)
 	local session = Session.new {
 		mount_id = mount_id,
 		mountpoint = mountpoint,
-		--path = path,
 		conf = conf,
 	}
 	sessions[conf.uri] = session
-	return session:start()
+	return session
 end
 
 -- stops session and removes it
@@ -111,27 +123,12 @@ end
 
 -- removes sessions by mountpoint
 function Session.remove_mountpoints(mountpoint)
+	RAME.log.info(("Dropbox: stop sessions with mountpoint: %s"):format(mountpoint))
 	for uri, session in pairs(sessions) do
 		if session.mountpoint == mountpoint then
 			Session.remove(uri)
 		end
 	end
-end
-
--- returns true if string starts with given value
-local function str_starts(str, start)
-	return string.sub(str, 1, string.len(start)) == start
-end
-
--- returns mountpoint used in path or nil if not any
-local function find_mountpoint(path)
-	for _, name in ipairs(data_devices) do
-		local mountpoint = "/media/" .. name
-		if str_starts(path, mountpoint .. "/") then
-			return mountpoint
-		end
-	end
-	return nil
 end
 
 -- adds given mount id to external conf in mount point
@@ -223,17 +220,12 @@ function DROPBOX.POST.auth(ctx, reply)
 	-- write mount id to external conf
 	rewrite_ext(mountpoint, mount_id, true)
 
-	--local rel_path = string.sub(path, string.len(mountpoint) + 1)
-	-- strip trailing slash
-	--rel_path = string.sub(rel_path, 1, rel_path:len() - 1)
-
 	local conf = {
 		accessToken = ctx.args.accessToken,
 		accountId = ctx.args.accountId,
 		-- in dropbox the root folder is specified as an empty string rather than as "/"
 		dropboxPath = "",
 		uri = item.uri,
-		--mountPath = rel_path
 	}
 
 	-- add to internal conf and write it to disk
@@ -293,7 +285,11 @@ local function read_ext(mountpoint)
 				local conf = find_conf(device_id, mount_id)
 				if conf ~= nil then
 					-- matching conf found, create new session
-					Session.add(mount_id, mountpoint, conf)
+					local session = Session.add(mount_id, mountpoint, conf)
+					if RAME.system.net_connection() then
+						-- network connected, start session
+						session:start()
+					end
 				else
 					RAME.log.debug(("Dropbox: config not found for key %s:%s"):format(device_id, mount_id))
 				end
@@ -302,26 +298,12 @@ local function read_ext(mountpoint)
 	else
 		RAME.log.error(("Error when reading external keyfile %s: %s"):format(e_file, err))
 	end
-end
 
-local function media_changed(name, mounted)
-	local mountpoint = "/media/"..name
-
-	if mounted then
-		-- sleep a little so fs is ready
-		-- TODO: refactor to listen event from automount.lua
-		cqueues.poll(0.3)
-		read_ext(mountpoint)
-	else
-		-- device unmounted, stop session with this mountpoint
-		RAME.log.info(("Dropbox: stop sessions with mountpoint: %s"):format(mountpoint))
-		Session.remove_mountpoints(mountpoint)
-	end
+	-- store all possible mountpoints
+	mountpoints[mountpoint] = {}
 end
 
 local Plugin = {}
-
-Plugin.settings_changed = condition.new()
 
 function Plugin.init()
 	-- Read the stored values (or in case of 1st boot "")
@@ -334,25 +316,30 @@ function Plugin.init()
 end
 
 function Plugin.main()
-	-- Setup notifications on mount points
-	local n = notify.opendir("/media/", 0)
-	for _, name in ipairs(data_devices) do
-		n:add(name)
-		if posix.stat("/media/"..name) then
-			media_changed(name, true)
+	-- create sessions on mounted medias
+	RAME.system.media_mounted:push_to(function(mountpoint)
+		if mountpoint ~= nil then
+			read_ext(mountpoint)
 		end
-	end
+	end)
 
-	-- Act on changes
-	for changes, name in n:changes() do
-		if name ~= "." then
-			if bit32.band(notify.CREATE, changes) == notify.CREATE then
-				media_changed(name, true)
-			elseif bit32.band(notify.DELETE, changes) == notify.DELETE then
-				media_changed(name, false)
+	-- remove sessions on unmounted medias
+	RAME.system.media_unmounted:push_to(function(mountpoint)
+		if mountpoint ~= nil then
+			Session.remove_mountpoints(mountpoint)
+		end
+	end)
+
+	-- start/stop sessions on network connection events
+	RAME.system.net_connection:push_to(function(connected)
+		for _, session in pairs(sessions) do
+			if connected then
+				session:start()
+			else
+				session:stop()
 			end
 		end
-	end
+	end)
 end
 
 return Plugin

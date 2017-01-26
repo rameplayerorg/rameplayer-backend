@@ -32,6 +32,7 @@ local RAME = {
 	},
 	system = {
 		ip = push.property("(No link)", "Current IP-address"),
+		net_connection = push.property(false, "Network connection"),
 		hostname = push.property("", "hostname"),
 		reboot_required = push.property(false, "Reboot required"),
 		update_available = push.property(false, "Update available"),
@@ -39,6 +40,8 @@ local RAME = {
 		headphone_volume = push.property(100, "Headphone volume"),
 		lineout_volume = push.property(100, "Lineout volume"),
 		rebooting_flag = push.property(false, "Imminent reboot notification flag"),
+		media_mounted = push.property(nil, "Media mounted"),
+		media_unmounted = push.property(nil, "Media unmounted"),
 	},
 	player = {
 		status   = push.property("stopped", "Playback status"),

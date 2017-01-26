@@ -87,10 +87,12 @@ local function media_changed(name, mounted)
 				end
 			end
 		end
+		RAME.system.media_mounted(mountpoint)
 	else
 		RAME.log.info(("Device '%s': umounting"):format(devname))
 		process.run("umount", "-l", mountpoint)
 		posix.rmdir(mountpoint)
+		RAME.system.media_unmounted(mountpoint)
 	end
 end
 
