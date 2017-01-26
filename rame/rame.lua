@@ -285,7 +285,7 @@ function RAME.remount_rw_write(mountpoint, file, data)
 	if dirname ~= mountpoint then pldir.makepath(dirname) end
 	local ok, err = plfile.write(file, data)
 	if err ~= nil then
-		RAME.log.error(("File write error: %s"):format(file, err))
+		RAME.log.error(("File write error %s: %s"):format(file, err))
 	end
 	process.run("mount", "-o", "remount,ro", mountpoint)
 	return ok
