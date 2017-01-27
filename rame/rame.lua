@@ -40,8 +40,7 @@ local RAME = {
 		headphone_volume = push.property(100, "Headphone volume"),
 		lineout_volume = push.property(100, "Lineout volume"),
 		rebooting_flag = push.property(false, "Imminent reboot notification flag"),
-		media_mounted = push.property(nil, "Media mounted"),
-		media_unmounted = push.property(nil, "Media unmounted"),
+		media_mount = push.property(nil, "Media mount event"),
 	},
 	player = {
 		status   = push.property("stopped", "Playback status"),

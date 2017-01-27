@@ -316,17 +316,14 @@ function Plugin.init()
 end
 
 function Plugin.main()
-	-- create sessions on mounted medias
-	RAME.system.media_mounted:push_to(function(mountpoint)
-		if mountpoint ~= nil then
-			read_ext(mountpoint)
-		end
-	end)
-
-	-- remove sessions on unmounted medias
-	RAME.system.media_unmounted:push_to(function(mountpoint)
-		if mountpoint ~= nil then
-			Session.remove_mountpoints(mountpoint)
+	-- create/remove sessions on mount events
+	RAME.system.media_mount:push_to(function(val)
+		if val ~= nil then
+			if val.mounted then
+				read_ext(val.mountpoint)
+			else
+				Session.remove_mountpoints(val.mountpoint)
+			end
 		end
 	end)
 
