@@ -61,20 +61,18 @@ function Plugin.control.status_update()
 end
 
 function Plugin.control.omxplay(uri, itemrepeat, initpos)
+	local adev = RAME.config.omxplayer_audio_out
+
+	-- FIXME: omxplayer does not support 'both' with alsa at the moment
+	if adev == "local" and Plugin.use_alsa then adev = "alsa:default" end
+
 	local cmd = {
 		"omxplayer",
 			"--no-osd",
 			"--no-keys",
 			"--nohdmiclocksync",
+			"--adev", adev,
 	}
-
-	table.insert(cmd, "--adev")
-	if Plugin.use_alsa then
-		-- FIXME: omxplayer does not support 'both' with alsa at the moment
-		table.insert(cmd, "alsa:default")
-	else
-		table.insert(cmd, RAME.config.omxplayer_audio_out)
-	end
 
 	if uri:match("^rtmp:") then
 		table.insert(cmd, "--live")
