@@ -66,12 +66,16 @@ function Plugin.control.omxplay(uri, itemrepeat, initpos)
 			"--no-osd",
 			"--no-keys",
 			"--nohdmiclocksync",
-			"--adev", RAME.config.omxplayer_audio_out,
 	}
+
+	table.insert(cmd, "--adev")
 	if Plugin.use_alsa then
-		table.insert(cmd, "-A")
-		table.insert(cmd, "default")
+		-- FIXME: omxplayer does not support 'both' with alsa at the moment
+		table.insert(cmd, "alsa:default")
+	else
+		table.insert(cmd, RAME.config.omxplayer_audio_out)
 	end
+
 	if uri:match("^rtmp:") then
 		table.insert(cmd, "--live")
 		Plugin.live = true
