@@ -14,6 +14,7 @@ local MprisPlayerDBusAPI_OMX = {
 	Seek = { interface = "org.mpris.MediaPlayer2.Player", args = "x" },
 	PlayPause = { interface = "org.mpris.MediaPlayer2.Player" },
 	-- Properties interface
+	Property = { interface = "org.freedesktop.DBus.Properties", method="Set", args = "ssd", returns = "d" },
 	PlaybackStatus = { interface = "org.freedesktop.DBus.Properties", returns = "s" },
 	Duration = { interface = "org.freedesktop.DBus.Properties", returns = "t" },
 	Position = { interface = "org.freedesktop.DBus.Properties", returns = "t" },
@@ -85,6 +86,12 @@ function Plugin.control.omxplay(uri, itemrepeat, initpos)
 		table.insert(cmd, "--pos")
 		table.insert(cmd, tostring(initpos))
 	end
+	if not Plugin.use_alsa then
+		table.insert(cmd, "--vol")
+		-- convert volume percentage to millibels
+		local vol = math.log10(RAME.system.headphone_volume() / 100) * 2000
+		table.insert(cmd, ("%d"):format(math.floor(vol)))
+	end
 	table.insert(cmd, RAME.resolve_uri(uri))
 	Plugin.process = process.spawn(table.unpack(cmd))
 	cqueues.running():wrap(Plugin.control.status_update)
@@ -147,8 +154,6 @@ function Plugin.early_init()
 			RAME.system.lineout_volume:push_to(function(val)
 				process.run("amixer", "-Dhw:sndrpiwsp", "--", "sset", "HPOUT2 Digital", ("%.2fdB"):format(64.0*val/100 - 64.0))
 			end)
-		else
-			RAME.log.warn("ALSA not available - no volume change implementation")
 		end
 		Plugin.control.play = Plugin.control.omxplay
 		mprissvc = "org.mpris.MediaPlayer2.omxplayer"
@@ -159,6 +164,14 @@ function Plugin.early_init()
 		mprisapi = MprisPlayerDBusAPI_VLC
 	end
 	Plugin.mpris = Plugin.dbus:get_object(mprissvc, "/org/mpris/MediaPlayer2", mprisapi)
+
+	if Plugin.omxplayer and not Plugin.use_alsa then
+		-- ALSA not available: use omxplayer interface for volume control
+		RAME.log.info("Controlling headphone volume by omxplayer")
+		RAME.system.headphone_volume:push_to(function(val)
+			Plugin.mpris:Property("org.mpris.MediaPlayer2.Player", "Volume", val/100)
+		end)
+	end
 
 	RAME.players:register("file",  exts, 10, Plugin.control)
 	RAME.players:register(schemes, exts, 10, Plugin.control)
