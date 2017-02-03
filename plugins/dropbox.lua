@@ -214,17 +214,23 @@ function DROPBOX.POST.auth(ctx, reply)
 	local mountpoint = find_mountpoint(path)
 	if mountpoint == nil then
 		-- not a mountpoint
-		return 500, {}
+		local msg = ("Could not find mountpoint for Dropbox path: %s"):format(path)
+		RAME.log.warn(msg)
+		return 500, { error = msg }
 	end
 
 	-- write mount id to external conf
 	rewrite_ext(mountpoint, mount_id, true)
 
+	local dropbox_path = ctx.args.dropboxPath or ""
+	-- dropbox wants root path as empty string
+	if dropbox_path == "/" then dropbox_path = "" end
+
 	local conf = {
 		accessToken = ctx.args.accessToken,
 		accountId = ctx.args.accountId,
 		-- in dropbox the root folder is specified as an empty string rather than as "/"
-		dropboxPath = "",
+		dropboxPath = dropbox_path,
 		uri = item.uri,
 	}
 
@@ -298,9 +304,6 @@ local function read_ext(mountpoint)
 	else
 		RAME.log.error(("Error when reading external keyfile %s: %s"):format(e_file, err))
 	end
-
-	-- store all possible mountpoints
-	mountpoints[mountpoint] = {}
 end
 
 local Plugin = {}
@@ -312,14 +315,15 @@ function Plugin.init()
 		dropbox_conf = conf
 	else RAME.log.info("Dropbox: no config stored") end
 
-	RAME.rest.dropbox = function(ctx, reply) return ctx:route(reply, DROPBOX) end
-end
+	-- bind to mount events in here init(), before automount:main()
 
-function Plugin.main()
 	-- create/remove sessions on mount events
 	RAME.system.media_mount:push_to(function(val)
 		if val ~= nil then
 			if val.mounted then
+				-- store all possible mountpoints
+				mountpoints[val.mountpoint] = {}
+				-- read external cfg from mounted media
 				read_ext(val.mountpoint)
 			else
 				Session.remove_mountpoints(val.mountpoint)
@@ -337,6 +341,11 @@ function Plugin.main()
 			end
 		end
 	end)
+
+	RAME.rest.dropbox = function(ctx, reply) return ctx:route(reply, DROPBOX) end
+end
+
+function Plugin.main()
 end
 
 return Plugin
