@@ -2,6 +2,7 @@
 -- https://dropbox.github.io/dropbox-api-v2-explorer/
 --
 -- Synchronizes only one-way: Dropbox -> client
+-- Does not change any files in Dropbox
 
 local posix = require 'posix'
 local lfs = require 'lfs'
@@ -253,7 +254,7 @@ end
 function Dropbox:remove_missing(path, entries)
 	for file in lfs.dir(path) do
 		-- ignore directories and files starting with dot
-		if file ~= '.' and file ~= '..' and file:sub(1,1) ~= '.' then
+		if file:sub(1,1) ~= '.' then
 			local f = path .. '/' .. file
 			local attr = lfs.attributes(f)
 			if attr.mode == 'directory' then
@@ -463,7 +464,7 @@ function Dropbox:sync_folder(path)
 		for k, v in ipairs(more_entries) do table.insert(entries, v) end
 	end
 
-	self:remove_missing(self.local_path .. path, entries)
+	self:remove_missing(self.local_path, entries)
 	self:sync_entries(path, entries)
 	return cursor
 end
