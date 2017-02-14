@@ -30,7 +30,7 @@ local function start_player()
 				local methods = "GET,OPTIONS,POST,PUT,DELETE"
 				reply.headers["Allow"] = methods
 				reply.headers["Access-Control-Allow-Methods"] = methods
-				reply.headers["Access-Control-Allow-Headers"] = "Content-Type"
+				reply.headers["Access-Control-Allow-Headers"] = "Content-Type,Upload-Filename"
 				reply.headers["Cache-Control"] = "public,max-age=600"
 				return 200
 			end

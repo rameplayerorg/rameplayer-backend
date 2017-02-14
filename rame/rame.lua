@@ -94,6 +94,11 @@ local RAME = {
 		cond = condition.new(),
 	},
 	players = UrlMatch.new(),
+	remounter = {
+		remounting = false,
+		cond = condition.new(),
+		c = {},
+	},
 }
 
 syslog.openlog("RAME")
@@ -279,13 +284,63 @@ function RAME.read_settings_file(file)
 	return plfile.read(RAME.config.settings_path..file)
 end
 
+-- Extracts mountpoint from given path or nil
+function RAME.get_mountpoint(path)
+	-- simply take two first directories
+	return path:match('/[^/]*/[^/]*')
+end
+
+-- Remounts given mountpoint readwrite,
+-- calls given function and
+-- remounts mountpoint back to readonly
+function RAME.remounter:wrap(mountpoint, func)
+	if self.remounting then
+		self.cond:wait() -- wait remount to end
+	end
+
+	self.c[mountpoint] = (self.c[mountpoint] or 0) + 1
+	if self.c[mountpoint] == 1 then
+		-- remount to rw
+		self.remounting = true
+		RAME.log.debug(("remounting rw %s"):format(mountpoint))
+		local rc = process.run("mount", "-o", "remount,rw", mountpoint)
+		if rc ~= 0 then
+			RAME.log.error(("remounting rw %s failed: %d"):format(mountpoint, rc))
+		end
+		self.remounting = false
+		self.cond:signal()
+	end
+
+	-- run user given function
+	local ret = func()
+
+	if self.remounting then
+		self.cond:wait() -- wait remount to end
+	end
+
+	-- remount to readonly if this is last reference
+	self.c[mountpoint] = self.c[mountpoint] - 1
+	if self.c[mountpoint] == 0 then
+		self.remounting = true
+		RAME.log.debug(("remounting ro %s"):format(mountpoint))
+		local rc = process.run("mount", "-o", "remount,ro", mountpoint)
+		if rc ~= 0 then
+			RAME.log.error(("remounting ro %s failed: %d"):format(mountpoint, rc))
+		end
+		self.remounting = false
+		self.cond:signal()
+	end
+
+	return ret
+end
+
 function RAME.remount_rw_write(mountpoint, file, data)
-	process.run("mount", "-o", "remount,rw", mountpoint)
-	local dirname = plpath.dirname(file)
-	if dirname ~= mountpoint then pldir.makepath(dirname) end
-	local ok = plfile.write(file, data)
-	process.run("mount", "-o", "remount,ro", mountpoint)
-	return ok
+	return RAME.remounter:wrap(mountpoint, function()
+		local dirname = plpath.dirname(file)
+		if dirname ~= mountpoint then pldir.makepath(dirname) end
+		local ok = plfile.write(file, data)
+		return ok
+	end)
 end
 
 function RAME.write_settings_file(file, data)
