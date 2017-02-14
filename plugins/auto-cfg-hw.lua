@@ -24,7 +24,7 @@ function Plugin.init()
 		for cid in str:gmatch("%d+") do cids[cid] = true end
 
 		-- find matches between eeprom cids and available rame dtb overlays
-		for _, file in ipairs(pldir.getfiles("/media/mmcblk0p1/overlays", "rame-cid*.dtb")) do
+		for _, file in ipairs(pldir.getfiles("/media/mmcblk0p1/overlays", "rame-cid*.dtbo")) do
 			if cids[file:match("rame%-cid(%d)")] then
 				-- found overlay for cid, check if its dtb is already in ramehw
 				local dtoverlay_entry = "dtoverlay=" ..

@@ -132,6 +132,7 @@ function Item:unlink(forced)
 	end
 	Item.__all_items[self.id] = nil
 	if self.on_delete then self.on_delete() end
+	if self.watcher then self.watcher:destroy() end
 end
 
 function Item:add_playlist(item)
