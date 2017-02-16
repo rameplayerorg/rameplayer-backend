@@ -198,8 +198,8 @@ function Dropbox:poll_folder(path, cursor)
 	self.running = true
 	local url = 'https://notify.dropboxapi.com/2/files/list_folder/longpoll'
 	local response = {}
+	LOG.debug('polling changes on ' .. path)
 	repeat
-		LOG.debug('polling changes on ' .. path)
 		response = http_client.POST(url,
 			{ cursor = cursor },
 			{ 'Content-Type: application/json' }
@@ -244,8 +244,8 @@ function Dropbox:get_metadata(path)
 end
 
 function Dropbox:handle_error(resp)
-	local msg = "HTTP error " .. resp.status
-	if resp.data then
+	local msg = ("HTTP error %d"):format(resp.status)
+	if resp.data and resp.data.error_summary and resp.data.error then
 		msg = msg .. ' ' .. resp.data.error_summary .. ' - ' .. json.encode(resp.data.error)
 	end
 	LOG.err(msg)
@@ -444,7 +444,6 @@ function Dropbox:sync_folder(path)
 	--self.running = true
 	local resp = self:list_folder(path, true)
 	if resp.status ~= 200 then
-		LOG.debug(json.encode(resp))
 		self:handle_error(resp)
 		return nil
 	end
@@ -469,12 +468,18 @@ function Dropbox:sync_folder(path)
 	return cursor
 end
 
+-- Note: if device clock is not in time, SSL connections might not work to
+-- Dropbox servers. Following error might occur:
+--
+-- [CURL-EASY][SSL_CACERT] Peer certificate cannot be authenticated with given CA certificates (60)
 function Dropbox:start_sync()
 	self.running = true
 	LOG.debug("start sync")
-	local dropbox_cursor = self:sync_folder(self.dropbox_path)
-	LOG.debug(("cursor: %s"):format(dropbox_cursor))
-	self:poll_folder(self.dropbox_path, dropbox_cursor)
+	local cursor = self:sync_folder(self.dropbox_path)
+	if cursor ~= nil then
+		LOG.debug(("cursor: %s"):format(cursor))
+		self:poll_folder(self.dropbox_path, cursor)
+	end
 end
 
 function Dropbox:stop_sync()

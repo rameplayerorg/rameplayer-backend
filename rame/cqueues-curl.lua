@@ -20,9 +20,9 @@ local function curl_check_multi_info()
 		if easy == 0 then break end
 
 		if not ok then
-			RAME.log.error(("cURL error: %s"):format(err))
-		else
-			RAME.log.debug(("cURL response %d from %s"):format(easy:getinfo_response_code(), easy:getinfo_effective_url()))
+			RAME.log.error(("cURL error on '%s': %s"):format(easy:getinfo_effective_url(), err))
+		--else
+			--RAME.log.debug(("cURL response %d from %s"):format(easy:getinfo_response_code(), easy:getinfo_effective_url()))
 		end
 
 		easy.data.effective_url = easy:getinfo_effective_url()
@@ -119,7 +119,7 @@ cqcurl.multi = curl.multi {
 }
 
 function cqcurl.perform(opt)
-	RAME.log.debug(("cURL request to %s"):format(opt.url))
+	--RAME.log.debug(("cURL request to %s"):format(opt.url))
 
 	local handle = curl.easy()
 	handle:setopt(opt)

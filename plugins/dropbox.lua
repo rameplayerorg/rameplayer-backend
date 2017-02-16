@@ -11,6 +11,9 @@ local Item = require 'rame.item'
 local Stamp = require 'rame.stamp'
 local DropboxClient = require 'rame.dropbox'
 
+-- interval for retrying Dropbox connection
+local RETRY_INTERVAL = 10*60
+
 -- persistant storage for dropbox settings
 local dropbox_json = "dropbox.json"
 -- default conf
@@ -59,20 +62,27 @@ Session.__index = Session
 function Session:start()
 	RAME.log.debug(("Dropbox: start session %s"):format(self.conf.uri))
 
+	self.running = true
+
 	-- sync in background
 	local client = self.client
 	cqueues.running():wrap(function()
-		client:start_sync()
+		while self.running do
+			client:start_sync()
+			if self.running then
+				-- retry after 10 mins
+				cqueues.poll(RETRY_INTERVAL)
+			end
+		end
 	end)
 
-	self.running = true
 	return self
 end
 
 function Session:stop()
 	RAME.log.debug(("Dropbox: stop session %s"):format(self.conf.uri))
-	self.client:stop_sync()
 	self.running = false
+	self.client:stop_sync()
 	return self
 end
 
@@ -309,6 +319,8 @@ end
 local Plugin = {}
 
 function Plugin.init()
+	RAME.log.info(("Dropbox connection retry interval: %d sec"):format(RETRY_INTERVAL))
+
 	-- Read the stored values (or in case of 1st boot "")
 	local conf = json.decode(RAME.read_settings_file(dropbox_json) or "")
 	if conf ~= nil then
