@@ -250,7 +250,8 @@ function DROPBOX.POST.auth(ctx, reply)
 
 	RAME.log.debug(('Added authentication, device id: %s, mount id: %s'):format(dropbox_conf.device, mount_id))
 
-	Session.add(mount_id, mountpoint, conf)
+	local session = Session.add(mount_id, mountpoint, conf)
+	session:start()
 
 	return 200, { status = "ready" }
 end
