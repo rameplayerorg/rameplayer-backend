@@ -95,17 +95,7 @@ function Session.new(obj)
 		dropbox_path = self.conf.dropboxPath,
 		-- Dropbox client uses local path without trailing slash
 		local_path   = path:sub(1, path:len() - 1),
-
-		-- callbacks
-		writing_start_callback = function()
-			process.run("mount", "-o", "remount,rw", self.mountpoint)
-			return true
-		end;
-		writing_end_callback = function()
-			process.run("mount", "-o", "remount,ro", self.mountpoint)
-			-- TODO: reload items
-			return true
-		end;
+		mountpoint   = self.mountpoint,
 	}
 	return self
 end

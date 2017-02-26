@@ -17,14 +17,9 @@ local CONTENT_URL = 'https://content.dropboxapi.com'
 local Dropbox = {
 	running = false,
 	access_token = "",
+	dropbox_path = "",
 	local_path = "",
-	writing_start_callback = function()
-		return true
-	end,
-	writing_end_callback = function()
-		return true
-	end,
-	writing = false,
+	mountpoint = "",
 }
 Dropbox.__index = Dropbox
 
@@ -141,14 +136,6 @@ function http_client.download(url, headers, target)
 	}
 end
 
-function Dropbox:writing_start_event()
-	return self.writing_start_callback()
-end
-
-function Dropbox:writing_end_event()
-	return self.writing_end_callback()
-end
-
 function Dropbox:get_default_headers()
 	return {
 		'Authorization: Bearer ' .. self.access_token,
@@ -213,7 +200,9 @@ function Dropbox:poll_folder(path, cursor)
 				LOG.debug('change detected on folder ' .. path)
 				local entries = {}
 				cursor, entries = self:get_entries_by_cursor(cursor)
-				self:sync_entries(path, entries)
+				RAME.remounter:wrap(self.mountpoint, function()
+					self:sync_entries(path, entries)
+				end)
 			end
 			if response.data.backoff then
 				-- wait until start polling again
@@ -262,10 +251,6 @@ function Dropbox:remove_missing(path, entries)
 			elseif attr.mode == 'file' then
 				if not self:file_in_entries(f, entries) then
 					LOG.debug('removing file ' .. f)
-					if not self.writing then
-						self:writing_start_event()
-						self.writing = true
-					end
 					local success, err = os.remove(f)
 					if not success then
 						LOG.err('Removing file ' .. f .. ' failed: ' .. err)
@@ -276,10 +261,6 @@ function Dropbox:remove_missing(path, entries)
 	end
 	if not self:folder_in_entries(path, entries) and path ~= self.local_path then
 		LOG.debug('removing folder ' .. path)
-		if not self.writing then
-			self:writing_start_event()
-			self.writing = true
-		end
 		lfs.rmdir(path)
 	end
 end
@@ -372,10 +353,6 @@ function Dropbox:sync_entries(path, entries)
 			if not path_exists(real_path) then
 				LOG.debug('creating directory ' .. real_path)
 				-- create directory
-				if not self.writing then
-					self:writing_start_event()
-					self.writing = true
-				end
 				local success, err = lfs.mkdir(real_path)
 				if success then
 					table.insert(local_subdirs, real_path)
@@ -390,21 +367,12 @@ function Dropbox:sync_entries(path, entries)
 			if not file_entry_exists(entry, real_path) then
 				-- download new/changed file
 				LOG.debug('download to ' .. real_path)
-				if not self.writing then
-					-- callback
-					self:writing_start_event()
-					self.writing = true
-				end
 				self:download(entry.id, real_path)
 			else
 				LOG.debug('matching file exists already: ' .. real_path)
 			end
 		elseif tag == 'deleted' then
 			if path_exists(real_path) then
-				if not self.writing then
-					self:writing_start_event()
-					self.writing = true
-				end
 				local success, err = os.remove(real_path)
 				if success then
 					LOG.debug('removed ' .. real_path)
@@ -413,11 +381,6 @@ function Dropbox:sync_entries(path, entries)
 				end
 			end
 		end
-	end
-	if self.writing then
-		-- callback
-		self:writing_end_event()
-		self.writing = false
 	end
 end
 
@@ -463,8 +426,11 @@ function Dropbox:sync_folder(path)
 		for k, v in ipairs(more_entries) do table.insert(entries, v) end
 	end
 
-	self:remove_missing(self.local_path, entries)
-	self:sync_entries(path, entries)
+	RAME.remounter:wrap(self.mountpoint, function()
+		self:remove_missing(self.local_path, entries)
+		self:sync_entries(path, entries)
+	end)
+
 	return cursor
 end
 
