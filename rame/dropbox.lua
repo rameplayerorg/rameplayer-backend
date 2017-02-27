@@ -191,10 +191,18 @@ function Dropbox:poll_folder(path, cursor)
 			{ cursor = cursor },
 			{ 'Content-Type: application/json' }
 		)
-		if self.running and response.data then
+
+		if response.status ~= 200 then
+			LOG.debug(("longpoll error response (%d): %s"):format(response.status, response.data))
+
+		elseif self.running and response.data then
+			if response.data.error_summary then
+				LOG.err('Error from Dropbox server: ' .. response.data.error_summary)
+			end
 			if response.data.error and response.data.error['.tag'] == 'reset' then
 				-- cursor has been invalidated, get a new cursor
-				cursor = callback()
+				LOG.debug('cursor invalidated, new cursor needed, restart polling')
+				break
 			elseif response.data.changes then
 				-- change detected
 				LOG.debug('change detected on folder ' .. path)
@@ -206,7 +214,7 @@ function Dropbox:poll_folder(path, cursor)
 			end
 			if response.data.backoff then
 				-- wait until start polling again
-				LOG.info('server asked to back off for ' .. response.data.backoff .. ' seconds')
+				LOG.debug('server asked to back off for ' .. response.data.backoff .. ' seconds')
 				cqueues.poll(response.data.backoff)
 			end
 		end

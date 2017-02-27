@@ -12,7 +12,7 @@ local Stamp = require 'rame.stamp'
 local DropboxClient = require 'rame.dropbox'
 
 -- interval for retrying Dropbox connection
-local RETRY_INTERVAL = 10*60
+local RETRY_INTERVAL = 5*60
 
 -- persistant storage for dropbox settings
 local dropbox_json = "dropbox.json"
@@ -70,7 +70,7 @@ function Session:start()
 		while self.running do
 			client:start_sync()
 			if self.running then
-				-- retry after 10 mins
+				-- retry after timeout
 				cqueues.poll(RETRY_INTERVAL)
 			end
 		end

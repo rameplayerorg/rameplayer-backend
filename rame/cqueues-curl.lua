@@ -15,6 +15,7 @@ local function curl_check_multi_info()
 		local easy, ok, err = cqcurl.multi:info_read(true)
 		if not easy then
 			cqcurl.multi:close()
+			RAME.log.error(("cURL multi info could not read: %s"):format(err))
 			error(err)
 		end
 		if easy == 0 then break end
@@ -79,6 +80,7 @@ local function curl_socketfunction_act(easy, fd, action)
 		fdobj.events = nil
 		fdobj.flags = nil
 	else
+		RAME.log.debug(("cURL socket function, empty action: %s"):format(ACTION_NAMES[action] or action))
 		return
 	end
 
