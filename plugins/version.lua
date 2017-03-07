@@ -44,7 +44,7 @@ function Plugin.init()
 
 	local firmware = "?"
 	if plpath.exists(fw_ver_path) then
-		firmware = plfile.read(fw_ver_path):match("[^\n]+") or "?"
+		firmware = plfile.read(fw_ver_path):match("[^\n\0]+") or "?"
 	end
 	RAME.version.firmware(firmware)
 	RAME.log.info("firmware: "..firmware)
@@ -81,7 +81,7 @@ function Plugin.init()
 	if plpath.exists(rame_cfg_path) then
 		local cids = {}
 		-- find loaded rame device tree overlays
-		for _, file in ipairs(pldir.getfiles(rame_cfg_path, "cid*")) do
+		for _, file in ipairs(pldir.getfiles(rame_cfg_path, "*/cid*")) do
 			for cid in file:gmatch("cid(%d+)") do
 				table.insert(cids, cid)
 				rame_cfg_cids_id = rame_cfg_cids_id + (1 << (cid - 1))
@@ -93,7 +93,7 @@ function Plugin.init()
 		--print("rame_cfg_cids_id", rame_cfg_cids_id)
 
 		if plpath.exists(rame_cfg_path.."eeprom-cids") then
-			rame_cfg_eeprom_cids = plfile.read(rame_cfg_path.."eeprom-cids"):match("[^\n]+") or ""
+			rame_cfg_eeprom_cids = plfile.read(rame_cfg_path.."eeprom-cids"):match("[^\n\0]+") or ""
 		end
 		--print("rame_cfg_eeprom_cids", rame_cfg_eeprom_cids)
 		local eeprom_cids = {}
@@ -104,7 +104,7 @@ function Plugin.init()
 		--print("rame_cfg_eeprom_cids_id", rame_cfg_eeprom_cids_id)
 
 		if plpath.exists(rame_cfg_path.."hardware") then
-			rame_cfg_hardware = plfile.read(rame_cfg_path.."hardware"):match("[^\n]+") or ""
+			rame_cfg_hardware = plfile.read(rame_cfg_path.."hardware"):match("[^\n\0]+") or ""
 		end
 		--print("rame_cfg_hardware", rame_cfg_hardware)
 
