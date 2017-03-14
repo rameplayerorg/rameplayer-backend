@@ -51,7 +51,7 @@ function Plugin.main()
 			else
 				factory_reset_seq_pos = 1
 				factory_reset_seq_time = 0
-				print("seq reset")
+				--print("seq reset")
 			end
 			--print("seq pos: "..factory_reset_seq_pos.." time: " ..timestamp)
 		end
