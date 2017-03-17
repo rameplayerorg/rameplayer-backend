@@ -129,9 +129,9 @@ function Plugin.main()
 		fw_upgrade = RAME.system.firmware_upgrade()
 		if fw_upgrade ~= nil and type(fw_upgrade) == "number" then
 			if fw_upgrade < 100 then
-				status_id = 5 -- animated "buffering"
+				status_id = statmap.buffering -- animated
 			else
-				status_id = 4 -- stopped
+				status_id = statmap.stopped
 			end
 		end
 
@@ -211,13 +211,19 @@ function Plugin.main()
 			last_displayed_filename = filename
 		end
 
-		-- Default status for 2 last rows: filename, status icon and play time info
-		if status_id > 0 then
-			local position = math.abs(RAME.player.position())
+		if status_id == statmap.buffering then
+			out:write("P:0\n")
+			if not showing_volume then
+				-- don't show time when we're still buffering
+				out:write("X7:\n") -- empty last row
+			end
+		elseif status_id > 0 then
+			-- Default status for 2 last rows: filename, status icon and play time info
+			local position = RAME.player.position()
 			local duration = RAME.player.duration()
 			-- progress:
 			if duration > 0 then
-				out:write(("P:%.0f\n"):format(position / duration * 1000))
+				out:write(("P:%.0f\n"):format(math.max(position, 0) / duration * 1000))
 			else
 				out:write("P:0\n")
 			end
