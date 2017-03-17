@@ -19,6 +19,7 @@ local function rest_info(item)
 		editable = item.editable,
 		modified = item.modified,
 		name = item.filename or item.uri,
+		chapterId = item.chapter_id,
 		refreshed = item.refreshed,
 		size = item.size,
 		title = item.title,

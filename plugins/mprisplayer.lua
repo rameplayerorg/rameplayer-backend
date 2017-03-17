@@ -54,14 +54,25 @@ function Plugin.control.status_update()
 			end
 		end
 		RAME.player.status(status)
-		RAME.player.duration(duration / 1000000)
-		RAME.player.position(position / 1000000)
-		cqueues.poll(.2)
+		local display_pos, display_dur = position / 1000000, duration / 1000000
+		if Plugin.startpos and Plugin.endpos then
+			-- normalize displayed position and duration to chapter
+			display_pos = display_pos - Plugin.startpos
+			display_dur = Plugin.endpos - Plugin.startpos
+		end
+		RAME.player.duration(display_dur)
+		RAME.player.position(display_pos)
+		if Plugin.endpos and position / 1000000 >= Plugin.endpos then
+			-- simulate internally ending of normal playback when chapter ends
+			Plugin.chapter_ended = true
+			Plugin.control.stop()
+		end
+		cqueues.poll(.1)
 	end
 	Plugin.control.cond:signal()
 end
 
-function Plugin.control.omxplay(uri, itemrepeat, initpos)
+function Plugin.control.omxplay(uri, itemrepeat, initpos, chstartpos, chendpos)
 	local adev = RAME.config.omxplayer_audio_out
 
 	-- FIXME: omxplayer does not support 'both' with alsa at the moment
@@ -86,20 +97,26 @@ function Plugin.control.omxplay(uri, itemrepeat, initpos)
 		table.insert(cmd, "--pos")
 		table.insert(cmd, tostring(initpos))
 	end
+	Plugin.chapter_ended = nil
+	Plugin.startpos = chstartpos
+	Plugin.endpos = chendpos
 	if not Plugin.use_alsa then
 		table.insert(cmd, "--vol")
 		-- convert volume percentage to millibels
 		local vol = math.log10(RAME.system.headphone_volume() / 100) * 2000
 		table.insert(cmd, ("%d"):format(math.floor(vol)))
 	end
-	table.insert(cmd, RAME.resolve_uri(uri))
+	local filename, chapter_id = RAME.resolve_uri(uri)
+	table.insert(cmd, filename)
 	Plugin.process = process.spawn(table.unpack(cmd))
 	cqueues.running():wrap(Plugin.control.status_update)
 	local status = Plugin.process:wait()
 	Plugin.process = nil
 	Plugin.control.cond:wait()
 	Plugin.live = nil
-	return status == 0
+	local chapter_done = Plugin.chapter_ended
+	Plugin.chapter_ended = nil
+	return status == 0 or chapter_done
 end
 
 function Plugin.control.vlcplay(uri)

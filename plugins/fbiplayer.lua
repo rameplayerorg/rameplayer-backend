@@ -11,7 +11,8 @@ local Plugin = {
 }
 
 function Plugin.control.play(uri, itemrepeat, initpos)
-	process.run("fbi", "-noverbose", "-autozoom", "-1", "-t", "1", RAME.resolve_uri(uri))
+	local filename, chapter_id = RAME.resolve_uri(uri)
+	process.run("fbi", "-noverbose", "-autozoom", "-1", "-t", "1", filename)
 	RAME.player.status("playing")
 	Plugin.control.cond:wait()
 	process.run("sh", "-c", "cat /dev/zero > /dev/fb0")

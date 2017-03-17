@@ -275,11 +275,12 @@ end
 
 function RAME.resolve_uri(uri)
 	if uri:match("^file:") == nil then return uri end
-	local host, path = uri:match("^file://([^/]+)(.*)")
+	local host, path, fragment = uri:match("^file://([^/]+)([^#]*)#?(.*)")
+	local chapter_id = fragment and fragment:match("^id=(.+)") or nil
 	if host == nil or RAME.media[host] == nil then return nil end
 	local file = RAME.media[host]..path
-	RAME.log.debug(("Mapped %s -> %s"):format(uri, file))
-	return file
+	RAME.log.debug(("Mapped %s -> %s (%s)"):format(uri, file, chapter_id or "-"))
+	return file, chapter_id
 end
 
 function RAME.read_settings_file(file)
@@ -439,9 +440,18 @@ function RAME.main()
 			--print("Playing", uri, control, item)
 			RAME.log.info("Playing", uri)
 			local initpos = self.player.__initpos
+			local chstartpos, chendpos = nil, nil
+			if item.chapter_id and item.starttime then
+				-- omxplayer seems to assume seek positions in whole seconds
+				-- (and no support for seeking to previous keyframe and finding exact pos frame-by-frame)
+				initpos = math.floor(item.starttime)
+				-- also give exact chapter start and end times
+				chstartpos = item.starttime
+				chendpos = item.endtime
+			end
 			self.player.control = control
 			self.player.__initpos = nil
-			move_next = RAME.player.control.play(uri, self.player.__itemrepeat, initpos)
+			move_next = RAME.player.control.play(uri, self.player.__itemrepeat, initpos, chstartpos, chendpos)
 			self.player.control = nil
 			RAME.log.info("Stopped", uri)
 		until not playing or self.player.__wait == nil

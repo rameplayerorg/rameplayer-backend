@@ -27,6 +27,7 @@ end
 -- creates new item to given parent
 local function create_item(parent, file)
 	local i = Item.new { uri = parent.uri .. file }
+	--RAME.log.debug("New file Item: "..i.uri)
 	if i.type == "directory" or RAME.players:resolve(i.uri) then
 		i.parent = parent
 		table.insert(parent.items, i)
@@ -150,7 +151,7 @@ function Plugin.expand(self)
 end
 
 function Plugin.uri_helper(self)
-	local path = RAME.resolve_uri(self.uri)
+	local path, chapter_id = RAME.resolve_uri(self.uri)
 	if not path then return end
 	local st = posix.stat(path)
 	if not st then return end
@@ -159,6 +160,10 @@ function Plugin.uri_helper(self)
 	self.modified = st.mtime and st.mtime * 1000
 	self.filename = plpath.basename(strip_slash(path))
 	self.size = st.size
+	if chapter_id then
+		self.chapter_id = chapter_id
+		self.filename = self.filename.." #"..chapter_id
+	end
 	if st.type == "directory" and not self.items then
 		-- make sure uri is trailed by slash
 		if self.uri:sub(-1) ~= "/" then
