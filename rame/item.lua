@@ -276,4 +276,14 @@ function Item.find(id)
 	return item
 end
 
+function Item.search_all(fieldname, value)
+	local result = {}
+	for k,v in pairs(Item.__all_items) do
+		if v and v[fieldname] and v[fieldname] == value then
+			table.insert(result, v.id)
+		end
+	end
+	return result
+end
+
 return Item
