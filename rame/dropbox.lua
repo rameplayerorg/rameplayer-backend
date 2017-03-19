@@ -14,6 +14,10 @@ local RAME = require 'rame.rame'
 local BASE_URL = 'https://api.dropboxapi.com'
 local CONTENT_URL = 'https://content.dropboxapi.com'
 
+-- low speed limit variables for curl timeout
+local LOW_SPEED_LIMIT = 1024 -- if avg transfer speed < 1 Kbps
+local LOW_SPEED_TIME = 5*60  -- for 5 mins
+
 local Dropbox = {
 	running = false,
 	access_token = "",
@@ -63,6 +67,8 @@ function http_client.POST(url, data, headers)
 			table.insert(hdr_buf, buf)
 			return #buf
 		end;
+		low_speed_limit = LOW_SPEED_LIMIT;
+		low_speed_time = LOW_SPEED_TIME;
 	}
 	if headers then
 		opt.httpheader = headers
@@ -116,6 +122,8 @@ function http_client.download(url, headers, target)
 			table.insert(hdr_buf, buf)
 			return #buf
 		end;
+		low_speed_limit = LOW_SPEED_LIMIT;
+		low_speed_time = LOW_SPEED_TIME;
 	}
 	if headers then
 		opt.httpheader = headers
