@@ -70,6 +70,7 @@ function Plugin.uri_scanner(self)
 
 	self.duration = tonumber(ff_fmt.duration)
 	self.title = ff_tags.title
+	if ff.chapters and #ff.chapters > 0 then self.chapter_count = #ff.chapters end	
 
 	local ch_item_pos_id = self.id
 
