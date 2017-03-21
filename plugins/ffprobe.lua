@@ -86,6 +86,7 @@ function Plugin.uri_scanner(self)
 				type = "chapter",
 				title = "#"..chid..": "..chff.tags.title, -- prefix chapter title with chapter index
 				parent = self.parent,
+				chapter_parent_id = self.id,
 				filename = self.filename.." #"..chid, -- postfix filename with chapter index info
 				uri = self.uri.."#id="..chid, -- add fragment id to uri containing chapter index
 				starttime = start_t,

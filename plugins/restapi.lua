@@ -21,6 +21,7 @@ local function rest_info(item)
 		name = item.filename or item.uri,
 		chapterId = item.chapter_id,
 		chapterCount = item.chapter_count,
+		chapterParentId = item.chapter_parent_id,
 		refreshed = item.refreshed,
 		size = item.size,
 		title = item.title,
