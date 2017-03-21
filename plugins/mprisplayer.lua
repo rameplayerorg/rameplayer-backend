@@ -138,6 +138,10 @@ end
 
 function Plugin.control.seek(pos)
 	if Plugin.live then return false end
+	if Plugin.startpos and Plugin.endpos then
+		-- normalize position to chapter
+		pos = pos + Plugin.startpos
+	end
 	Plugin.mpris:SetPosition("/", pos * 1000000)
 	return true
 end
