@@ -46,6 +46,7 @@ function Plugin.uri_scanner(self)
 			if i and i.parent and not i.parent.editable and i.starttime and i.endtime then
 				-- found "original" chapter entry, pick the already extracted metadata
 				-- (no need to re-ffprobe it)
+				self.type = "chapter"
 				self.title = i.title
 				self.starttime = i.starttime
 				self.endtime = i.endtime
@@ -81,6 +82,7 @@ function Plugin.uri_scanner(self)
 		if extract_chapters then
 			-- extract chapter as a new list item
 			local i = Item.new {
+				type = "chapter",
 				title = "#"..chid..": "..chff.tags.title, -- prefix chapter title with chapter index
 				parent = self.parent,
 				filename = self.filename.." #"..chid, -- postfix filename with chapter index info
@@ -98,6 +100,7 @@ function Plugin.uri_scanner(self)
 		end
 
 		if only_chapter_id ~= nil and chid == only_chapter_id then
+			self.type = "chapter"
 			self.title = "#"..chid..": "..chff.tags.title -- prefix chapter title with chapter index
 			self.starttime = start_t
 			self.endtime = end_t

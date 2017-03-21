@@ -50,7 +50,7 @@ function Item:expand()
 end
 
 function Item:refresh_meta()
-	if self.scanned or self.type ~= "regular" then return end
+	if self.scanned or (self.type ~= "regular" and self.type ~= "chapter") then return end
 	self.scanned = true
 	self.scan = Item.uri_scanners:resolve(self.uri)
 	if self.scan then
@@ -234,7 +234,7 @@ function Item:navigate(backwards)
 		if ndx < 1 then ndx, wrapped = #parent.items, true
 		elseif ndx > #parent.items then ndx, wrapped = 1, true end
 		item = parent.items[ndx]
-		if item.uri and item.type == "regular" then
+		if item.uri and (item.type == "regular" or item.type == "chapter") then
 			return item, wrapped
 		end
 	end
