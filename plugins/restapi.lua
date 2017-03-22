@@ -22,6 +22,7 @@ local function rest_info(item)
 		chapterId = item.chapter_id,
 		chapterCount = item.chapter_count,
 		chapterParentId = item.chapter_parent_id,
+		chapters = item.chapters,
 		refreshed = item.refreshed,
 		size = item.size,
 		title = item.title,

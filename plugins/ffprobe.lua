@@ -84,7 +84,7 @@ function Plugin.uri_scanner(self)
 			-- extract chapter as a new list item
 			local i = Item.new {
 				type = "chapter",
-				title = "#"..chid..": "..chff.tags.title, -- prefix chapter title with chapter index
+				title = chff.tags.title,
 				parent = self.parent,
 				chapter_parent_id = self.id,
 				filename = self.filename.." #"..chid, -- postfix filename with chapter index info
@@ -99,11 +99,14 @@ function Plugin.uri_scanner(self)
 			i:move_after(ch_item_pos_id)
 			ch_item_pos_id = i.id
 			i:touch()
+			-- also list chapter positions to video file itself
+			self.chapters = self.chapters or {}
+			table.insert(self.chapters, { id = i.id, chapterId = chid, pos = start_t, title = chff.tags.title })
 		end
 
 		if only_chapter_id ~= nil and chid == only_chapter_id then
 			self.type = "chapter"
-			self.title = "#"..chid..": "..chff.tags.title -- prefix chapter title with chapter index
+			self.title = chff.tags.title
 			self.starttime = start_t
 			self.endtime = end_t
 			self.duration = end_t - start_t
