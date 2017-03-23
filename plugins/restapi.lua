@@ -20,7 +20,6 @@ local function rest_info(item)
 		modified = item.modified,
 		name = item.filename or item.uri,
 		chapterId = item.chapter_id,
-		chapterCount = item.chapter_count,
 		chapterParentId = item.chapter_parent_id,
 		chapters = item.chapters,
 		refreshed = item.refreshed,
