@@ -188,7 +188,7 @@ function SETTINGS.GET.system(ctx, reply)
 		local cidr = routes:match("[0-9.]+/(%d+) dev")
 		local dns = {}
 		for l in io.lines("/etc/resolv.conf") do
-			local srv = l:match("nameserver ([^ ]+)")
+			local srv = l:match("nameserver (%d+.%d+.%d+.%d+)")
 			if srv then table.insert(dns, srv) end
 		end
 		conf.ipAddress = RAME.system.ip()
