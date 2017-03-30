@@ -64,8 +64,12 @@ function Plugin.control.status_update()
 		RAME.player.position(display_pos)
 		if Plugin.endpos and position / 1000000 >= Plugin.endpos then
 			-- simulate internally ending of normal playback when chapter ends
-			Plugin.chapter_ended = true
-			Plugin.control.stop()
+			if Plugin.itemrepeat then
+				Plugin.control.seek(0)
+			else
+				Plugin.chapter_ended = true
+				Plugin.control.stop()
+			end
 		end
 		cqueues.poll(.1)
 	end
@@ -90,6 +94,7 @@ function Plugin.control.omxplay(uri, itemrepeat, initpos, chstartpos, chendpos)
 		table.insert(cmd, "--live")
 		Plugin.live = true
 	end
+	Plugin.itemrepeat = itemrepeat
 	if itemrepeat then
 		table.insert(cmd, "--loop")
 	end
