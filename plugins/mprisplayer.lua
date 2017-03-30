@@ -50,7 +50,6 @@ function Plugin.control.status_update()
 				end
 			else
 				status = "buffering"
-				position = 0
 			end
 		end
 		RAME.player.status(status)
@@ -60,6 +59,7 @@ function Plugin.control.status_update()
 			display_pos = display_pos - Plugin.startpos
 			display_dur = Plugin.endpos - Plugin.startpos
 		end
+		if display_pos < 0 then display_pos = 0	end
 		RAME.player.duration(display_dur)
 		RAME.player.position(display_pos)
 		if Plugin.endpos and position / 1000000 >= Plugin.endpos then
