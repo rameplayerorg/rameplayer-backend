@@ -1,5 +1,6 @@
 -- Must be safe version of cjson-lib for errohandling
 local json = require 'cjson.safe'
+local lfs = require 'lfs'
 local plfile = require 'pl.file'
 local plutils = require 'pl.utils'
 local plconfig = require "pl.config"
@@ -10,6 +11,8 @@ local RAME = require 'rame.rame'
 local ramecfg_txt = "ramecfg.txt"
 local user_settings_json = "user_settings.json"
 local system_settings_json = "system_settings.json"
+local timezone_path = "/usr/share/zoneinfo/"
+local timezones = nil
 
 local function revtable(tbl)
 	local rev={}
@@ -106,6 +109,36 @@ local function entries(e)
 		return table.unpack(e)
 	end
 	return e
+end
+
+-- returns true if given name is valid timezone
+function is_valid_tz(name)
+	return name:sub(1,1) ~= '.' and
+		name ~= 'right' and
+		name ~= 'posixrules' and
+		name:match('%.tab$') == nil
+end
+
+-- returns table of timezones
+function read_timezones(path, prefix)
+	prefix = prefix or ''
+	local l = {}
+	for file in lfs.dir(path) do
+		if is_valid_tz(file) then
+			local f = path .. '/' .. file
+			local attr = lfs.attributes(f)
+			if attr.mode == 'directory' then
+				local sub = read_timezones(f, file .. '/')
+				for _, v in ipairs(sub) do
+					table.insert(l, v)
+				end
+			else
+				table.insert(l, prefix .. file)
+			end
+		end
+	end
+	table.sort(l)
+	return l
 end
 
 -- REST API: /settings/
@@ -218,6 +251,16 @@ function SETTINGS.GET.system(ctx, reply)
 	if ntp_server then conf.ntpServerAddress = ntp_server:match("server ([^\n]+)") end
 
 	conf.dateAndTimeInUTC = os.date("!%Y-%m-%d %T")
+
+	-- read current timezone, stripping newline
+	conf.timezone = plutils.readfile("/etc/timezone"):sub(1, -2)
+
+	-- cache timezones
+	if timezones == nil then
+		timezones = read_timezones(timezone_path)
+	end
+	conf.timezones = timezones
+
 	return 200, conf
 end
 
@@ -509,6 +552,20 @@ function SETTINGS.POST.system(ctx, reply)
 		if plpath.exists("/dev/rtc") then
 			process.run("hwclock", "-u", "-w")
 		end
+	end
+
+	--
+	-- TIMEZONE
+	--
+	if args.timezone then
+		RAME.log.info("Setting timezone: " .. args.timezone)
+		if not plfile.write("/etc/timezone", args.timezone .. "\n") then
+			RAME.log.error("File write error: ".."/etc/timezone")
+			return 500, { error="File write error: ".."/etc/timezone" }
+		end
+		local tz_path = "/usr/share/zoneinfo/" .. args.timezone
+		process.run("ln", "-sf", tz_path, "/etc/localtime")
+		commit = true
 	end
 
 	activate_config(args)
