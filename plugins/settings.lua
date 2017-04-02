@@ -253,7 +253,8 @@ function SETTINGS.GET.system(ctx, reply)
 	conf.dateAndTimeInUTC = os.date("!%Y-%m-%d %T")
 
 	-- read current timezone, stripping newline
-	conf.timezone = plutils.readfile("/etc/timezone"):sub(1, -2)
+	local tz = plutils.readfile("/etc/timezone") or ''
+	conf.timezone = tz:sub(1, -2)
 
 	-- cache timezones
 	if timezones == nil then
