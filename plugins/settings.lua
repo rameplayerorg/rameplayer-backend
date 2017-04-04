@@ -123,6 +123,10 @@ end
 function read_timezones(path, prefix)
 	prefix = prefix or ''
 	local l = {}
+	if plpath.exists(path) == false then
+		RAME.log.error(("Timezone path not found: %s"):format(path))
+		return l
+	end
 	for file in lfs.dir(path) do
 		if is_valid_tz(file) then
 			local f = path .. '/' .. file
