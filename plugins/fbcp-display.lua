@@ -204,6 +204,15 @@ function Plugin.main()
 		-- normal mode
 
 		item = Item.find(RAME.player.cursor())
+		if item and not item.scanned then
+			-- meta is missing for item; scan items of current dir now
+			local scanitem = item
+			repeat
+				-- loop&refresh through all until we come back to cursor item
+				scanitem:refresh_meta()
+				scanitem = scanitem:navigate(false)
+			until scanitem == item
+		end
 		filename = item and (item.filename or item.uri) or ""
 
 		if filename ~= last_displayed_filename then
