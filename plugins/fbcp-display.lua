@@ -78,6 +78,8 @@ function Plugin.main()
 	local last_displayed_notifyinfo = ""
 	local tznfo = 0
 	local sched_update_tznfo_time = cqueues.monotime()
+	local max_cond_wait = 60
+	local tz_update_check_interval = 30*60
 
 	-- using only one default color for each row, for now
 	out:write("O1:FFFFFFFF\n") -- hostname
@@ -113,7 +115,7 @@ function Plugin.main()
 
 		if monotime >= sched_update_tznfo_time then
 			tznfo = get_localui_tz()
-			sched_update_tznfo_time = monotime + 30*60
+			sched_update_tznfo_time = monotime + tz_update_check_interval
 		end
 
 		if menu then
@@ -260,7 +262,7 @@ function Plugin.main()
 			RAME.localui.menu(false)
 		end
 
-		if not pending then cond:wait() end
+		if not pending then cond:wait(max_cond_wait) end
 		-- Aggregate further changes before updating the screen
 		cqueues.poll(0.02)
 	end

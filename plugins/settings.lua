@@ -11,6 +11,7 @@ local RAME = require 'rame.rame'
 local ramecfg_txt = "ramecfg.txt"
 local user_settings_json = "user_settings.json"
 local system_settings_json = "system_settings.json"
+local timezone = ''
 local timezone_path = "/usr/share/zoneinfo/"
 local timezones = nil
 
@@ -258,7 +259,8 @@ function SETTINGS.GET.system(ctx, reply)
 
 	-- read current timezone, stripping newline
 	local tz = plutils.readfile("/etc/timezone") or ''
-	conf.timezone = tz:sub(1, -2)
+	timezone = tz:sub(1, -2)
+	conf.timezone = timezone
 
 	-- cache timezones
 	if timezones == nil then
@@ -562,7 +564,8 @@ function SETTINGS.POST.system(ctx, reply)
 	--
 	-- TIMEZONE
 	--
-	if args.timezone then
+	if args.timezone and timezone ~= args.timezone then
+		RAME.log.info("prev. timezone: " .. timezone)
 		RAME.log.info("Setting timezone: " .. args.timezone)
 		if not plfile.write("/etc/timezone", args.timezone .. "\n") then
 			RAME.log.error("File write error: ".."/etc/timezone")
@@ -570,6 +573,10 @@ function SETTINGS.POST.system(ctx, reply)
 		end
 		local tz_path = "/usr/share/zoneinfo/" .. args.timezone
 		process.run("ln", "-sf", tz_path, "/etc/localtime")
+		if RAME.config.second_display then
+			RAME.system.reboot_required(true)
+		end
+		timezone = args.timezone
 		commit = true
 	end
 
