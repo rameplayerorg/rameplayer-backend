@@ -156,6 +156,7 @@ function Plugin.uri_helper(self)
 	local st = posix.stat(path)
 	if not st then return end
 
+	self.refresh_time = cqueues.monotime()
 	self.type = self.type or st.type
 	self.modified = st.mtime and st.mtime * 1000
 	self.filename = plpath.basename(strip_slash(path))

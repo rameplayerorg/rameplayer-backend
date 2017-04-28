@@ -279,7 +279,7 @@ function RAME.resolve_uri(uri)
 	local chapter_id = fragment and fragment:match("^id=(.+)") or nil
 	if host == nil or RAME.media[host] == nil then return nil end
 	local file = RAME.media[host]..path
-	RAME.log.debug(("Mapped %s -> %s (%s)"):format(uri, file, chapter_id or "-"))
+	--RAME.log.debug(("Mapped %s -> %s (%s)"):format(uri, file, chapter_id or "-"))
 	return file, chapter_id
 end
 
@@ -441,7 +441,7 @@ function RAME.main()
 			RAME.log.info("Playing", uri)
 			local initpos = self.player.__initpos
 			local chstartpos, chendpos = nil, nil
-			if item.chapter_id and item.starttime then
+			if item and item.chapter_id and item.starttime then
 				-- omxplayer seems to assume seek positions in whole seconds
 				-- (and no support for seeking to previous keyframe and finding exact pos frame-by-frame)
 				initpos = math.floor(item.starttime)

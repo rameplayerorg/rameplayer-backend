@@ -3,8 +3,15 @@ local process = require 'cqp.process'
 local RAME = require 'rame.rame'
 local Item = require 'rame.item'
 local url = require 'socket.url'
+local cqueues = require 'cqueues'
+local condition = require 'cqueues.condition'
 
 local Plugin = {}
+
+local wait_time_until_scan = 4.0
+
+Plugin.scheduled_scans = {}
+Plugin.notify_new_scan = condition.new()
 
 -- Media scanning
 local function ffprobe_file(fn)
@@ -23,6 +30,13 @@ local function ffprobe_file(fn)
 end
 
 function Plugin.uri_scanner(self)
+	local now = cqueues.monotime()
+	Plugin.scheduled_scans[self] = now
+	--RAME.log.debug("Scheduled scan "..now.." "..self.uri)
+	Plugin.notify_new_scan:signal()
+end
+
+local function scan_item(self)
 	RAME.log.info("Scanning", self.uri)
 	local extract_chapters = true
 	local only_chapter_id = nil
@@ -123,6 +137,27 @@ function Plugin.early_init()
 		"flv","avi","m4v","mkv","mov","mpg","mpeg","mpe","mp4",
 	}
 	Item.uri_scanners:register(schemes, exts, 10, Plugin.uri_scanner)
+end
+
+function Plugin.main()
+	local timeout = nil
+	while true do
+		local ret = cqueues.poll(Plugin.notify_new_scan, timeout)
+		timeout = nil
+		local now = cqueues.monotime()
+		for item,sched_time in pairs(Plugin.scheduled_scans) do
+			if now >= sched_time + wait_time_until_scan and
+				now >= item.refresh_time + wait_time_until_scan
+			then
+				Plugin.scheduled_scans[item] = nil
+				scan_item(item)
+			else
+				Plugin.scheduled_scans[item] = item.refresh_time
+				timeout = 1.0
+			end
+		end
+		--if timeout ~= nil then RAME.log.debug("Scan timeout set (pending scans)") end
+	end
 end
 
 return Plugin
