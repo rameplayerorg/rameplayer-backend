@@ -138,7 +138,10 @@ function Plugin.main()
 			end
 		end
 
-		out:write(("S:%d\nV:%d\n"):format(status_id, video_enabled))
+		if status_id > 0 then
+			out:write(("S:%d\n"):format(status_id))
+		end
+		out:write(("V:%d\n"):format(video_enabled))
 
 		hostname = RAME.system.hostname() or nil
 		if hostname then
