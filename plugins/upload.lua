@@ -39,7 +39,12 @@ local accepted_mimetypes = {
 
 -- returns true if upload file is valid
 local function is_valid(filename, mimetype)
-	return accepted_mimetypes[mimetype]
+	local validname = (filename:len() > 0) and (filename:len() <= 255)
+		and (filename:find("/") == nil) and (filename:find("|") == nil)
+		and (filename:find("?") == nil) and (filename:find("*") == nil)
+		and (filename:find("<") == nil) and (filename:find(">") == nil)
+		and (filename ~= ".") and (filename ~= "..")
+	return validname and accepted_mimetypes[mimetype]
 end
 
 local UPLOAD = {}
@@ -50,13 +55,13 @@ function UPLOAD.POST(ctx, reply)
 	local item = Item.find(id, true, true)
 	if item == nil then return 404 end
 	local path = RAME.resolve_uri(item.uri)
-	local filename = ctx.headers["upload-filename"]
+	local filename = ctx.headers["upload-filename"] or ""
 	local file = path .. filename
 	RAME.log.debug(("user uploading file to %s (%d bytes)"):format(file, ctx.headers["content-length"]))
-	local mimetype = ctx.headers["content-type"]
+	local mimetype = ctx.headers["content-type"] or ""
 	local valid = is_valid(filename, mimetype)
-	RAME.log.debug(("MIME type: %s (%s)"):format(mimetype, valid and "accepted" or "NOT ACCEPTED"))
-	
+	RAME.log.debug(("file name&type %s (MIME: %s)"):format(valid and "accepted" or "NOT ACCEPTED", mimetype))
+
 	if valid then
 		local mountpoint = RAME.get_mountpoint(file)
 		RAME.remounter:wrap(mountpoint, function()
