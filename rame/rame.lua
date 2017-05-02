@@ -100,6 +100,7 @@ local RAME = {
 		remounting = false,
 		cond = condition.new(),
 		c = {},
+		rw_mount_count = push.property(0, "Count of active RW mount points"),
 	},
 }
 
@@ -311,6 +312,8 @@ function RAME.remounter:wrap(mountpoint, func)
 			RAME.log.error(("remounting rw %s failed: %d"):format(mountpoint, rc))
 		end
 		self.remounting = false
+		RAME.remounter.rw_mount_count(RAME.remounter.rw_mount_count() + 1)
+		RAME.log.debug("rw_mount_count "..RAME.remounter.rw_mount_count())
 		self.cond:signal()
 	end
 
@@ -331,6 +334,8 @@ function RAME.remounter:wrap(mountpoint, func)
 			RAME.log.error(("remounting ro %s failed: %d"):format(mountpoint, rc))
 		end
 		self.remounting = false
+		RAME.remounter.rw_mount_count(RAME.remounter.rw_mount_count() - 1)
+		RAME.log.debug("rw_mount_count "..RAME.remounter.rw_mount_count())
 		self.cond:signal()
 	end
 

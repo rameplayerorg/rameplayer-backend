@@ -54,6 +54,7 @@ function Plugin.main()
 	RAME.version.short:push_to(update)
 	RAME.localui.menu:push_to(update)
 	RAME.localui.rotary_flag:push_to(update)
+	RAME.remounter.rw_mount_count:push_to(update)
 
 	--S:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering/waiting)
 	--T:a,b
@@ -151,9 +152,13 @@ function Plugin.main()
 
 		cluster_controller = RAME.cluster.controller()
 		reboot_required = RAME.system.reboot_required()
+		rw_mount_count = RAME.remounter.rw_mount_count()
 		notify1 = cluster_controller and "In cluster controlled by "..cluster_controller or ""
 		notifysep = ""
-		notify2 = reboot_required and "Restart Pending..." or ""
+		notify2 = (rw_mount_count > 0) and "Writing files, do not turn off!" or ""
+		if notify2:len() == 0 then
+			notify2 = reboot_required and "Restart Pending..." or ""
+		end
 		if notify1:len() > 0 and notify2:len() > 0 then
 			notifysep = " -- "
 		elseif notify2:len() > 0 then
