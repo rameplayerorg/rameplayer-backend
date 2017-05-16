@@ -33,7 +33,20 @@ function Plugin.main()
 		cqueues.poll(kbd)
 		local timestamp, eventType, eventCode, value = kbd:read()
 		if value ~= 0 and actions[eventCode] then
-			RAME:action(actions[eventCode])
+			local rerouted_key = false
+
+			-- todo: refactor keyboard&rotary handling modes, maybe similar to
+			--       how different controls are made for RAME.player.control
+			if RAME.config.second_display and actions[eventCode] == "play" then
+				if RAME.localui.state() == RAME.localui.states.FILE_BROWSER then
+					RAME.localui.button_play(true)
+					rerouted_key = true
+				end
+			end
+
+			if not rerouted_key then
+				RAME:action(actions[eventCode])
+			end
 		end
 
 --		print("KBD: " .. timestamp .. " - " .. eventType .. "/" .. eventCode .. ", " .. value)
@@ -54,6 +67,11 @@ function Plugin.main()
 				--print("seq reset")
 			end
 			--print("seq pos: "..factory_reset_seq_pos.." time: " ..timestamp)
+		elseif value == 0 and eventCode ~= 0 then
+			-- require simultaneous presses of reset sequence
+			factory_reset_seq_pos = 1
+			factory_reset_seq_time = 0
+			--print("seq reset")
 		end
 
 		if factory_reset_seq_pos > #factory_reset_seq_actions then

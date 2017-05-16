@@ -49,8 +49,17 @@ local RAME = {
 		duration = push.property(0, "Active media duration"),
 	},
 	localui = {
-		menu = push.property(false, "Local UI menu toggle"),
+		states = {
+			DEFAULT = 0,
+			INFO_WHILE_PLAYING = 1,
+			FILE_BROWSER = 2,
+			_COUNT = 3
+		},
+		state = push.property(0, "Local UI state"),
 		rotary_flag = push.property(false, "Rotary notification flag"),
+		rotary_delta = push.property(0, "Rotary delta"), -- when not directly to headphone volume
+		button_ok = push.property(false, "OK button"),
+		button_play = push.property(false, "Rerouted Play button"),
 	},
 	cluster = {
 		controller = push.property(false, "Cluster controller text"),
@@ -187,12 +196,33 @@ function RAME:action(command, item_id, pos)
 	end
 
 	if command == "menu" then
-		self.localui.menu(not self.localui.menu())
+		if self.player.__playing then
+			self.localui.state((self.localui.state() + 1) % self.localui.states._COUNT)
+		else -- not playing:
+			local state, new_state = self.localui.state()
+			if state == self.localui.states.DEFAULT then
+				new_state = self.localui.states.FILE_BROWSER
+			elseif state == self.localui.states.INFO_WHILE_PLAYING then
+				new_state = self.localui.states.DEFAULT -- shouldn't happen
+			elseif state == self.localui.states.FILE_BROWSER then
+				new_state = self.localui.states.DEFAULT
+			end
+			if new_state then self.localui.state(new_state) end
+		end
+		--self.localui.menu(not self.localui.menu())
 	end
 
 	if command == "ok" then
-		-- placeholder test functionality for pressing rotary button
-		self.localui.rotary_flag(true)
+		-- todo: refactor keyboard&rotary handling modes, maybe similar to
+		--       how different controls are made for RAME.player.control
+		if self.config.second_display then
+			if self.localui.state() == self.localui.states.FILE_BROWSER then
+				self.localui.button_ok(true)
+			else
+				-- placeholder test functionality for pressing rotary button
+				self.localui.rotary_flag(true)
+			end
+		end
 	end
 
 	if status ~= "stopped" then return 400 end

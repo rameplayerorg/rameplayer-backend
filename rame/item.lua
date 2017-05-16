@@ -220,7 +220,7 @@ function Item:queue_save()
 	end)
 end
 
-function Item:navigate(backwards)
+function Item:navigate(backwards, with_dirs)
 	local wrapped = false
 	local parent = self.parent
 	if not parent then return self, true end
@@ -234,7 +234,7 @@ function Item:navigate(backwards)
 		if ndx < 1 then ndx, wrapped = #parent.items, true
 		elseif ndx > #parent.items then ndx, wrapped = 1, true end
 		item = parent.items[ndx]
-		if item.uri and (item.type == "regular" or item.type == "chapter") then
+		if with_dirs or (item.uri and (item.type == "regular" or item.type == "chapter")) then
 			return item, wrapped
 		end
 	end
