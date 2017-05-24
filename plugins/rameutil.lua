@@ -72,6 +72,7 @@ function Plugin.early_init()
 	RAME.rame:add(Item.new{title="Clock (Analog)", uri="rameutil://clock/?display=analog"})
 	RAME.rame:add(Item.new{title="Clock (Combined)", uri="rameutil://clock/?display=combined"})
 	RAME.rame:add(Item.new{title="Clock (Digital)", uri="rameutil://clock/?display=digital"})
+	RAME.rame:add(Item.new{title="Clock (Stopwatch)", uri="rameutil://clock/?mode=stopwatch&display=digital"})
 	RAME.rame:add(Item.new{title="Status", uri="rameutil://status"})
 	RAME.rame:add(Item.new{title="Hello world", uri="rameutil://text/Hello world!"})
 end
