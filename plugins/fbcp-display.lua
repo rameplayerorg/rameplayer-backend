@@ -144,8 +144,9 @@ end
 
 local file_browser_iconmap = {
 	none = 0, -- regular files
-	memcard = 7, -- item.type "device"
-	folder = 8,  -- item.type "directory"
+	memcard = 7,  -- item.type "device"
+	folder = 8,   -- item.type "directory"
+	playlist = 9, -- item.type "playlist"
 }
 
 local file_browser_playing_status_row_color = {
@@ -229,6 +230,8 @@ local function update_local_ui_file_browser(out)
 				elseif row_item.filename and row_item.title then
 					row_text = row_item.filename .. " (" .. row_item.title .. ")"
 				end
+			elseif row_item.type == "playlist" then
+				row_icon = file_browser_iconmap.playlist
 			else row_icon = file_browser_iconmap.none end
 
 			if rame_player_cursor_item == row_item then
@@ -385,7 +388,9 @@ local function update_local_ui_file_browser(out)
 			-- entering special ".." item => go up a level and force display state refresh
 			file_browser_set_parent_folder(ctx, ctx.parent_item.parent, ctx.parent_item)
 			local_ui_state_change(out, RAME.localui.states.FILE_BROWSER, RAME.localui.states.FILE_BROWSER)
-		elseif ctx.cursor_item and (ctx.cursor_item.type == "device" or ctx.cursor_item.type == "directory") then
+		elseif ctx.cursor_item and (ctx.cursor_item.type == "device" or
+		                            ctx.cursor_item.type == "directory" or
+		                            ctx.cursor_item.type == "playlist") then
 			-- enter folder and force display state refresh
 			file_browser_set_parent_folder(ctx, ctx.cursor_item)
 			local_ui_state_change(out, RAME.localui.states.FILE_BROWSER, RAME.localui.states.FILE_BROWSER)
