@@ -370,6 +370,11 @@ function SETTINGS.POST.system(ctx, reply)
 		ip_conf = {
 			ip_address = "static ip_address="..args.ipAddress.."/"..cidr_prefix,
 		}
+		if args.ipDnsSecondary and not args.ipDnsPrimary then
+			-- only secondary given, swap it as primary
+			args.ipDnsPrimary = args.ipDnsSecondary
+			args.ipDnsSecondary = nil
+		end
 		if args.ipDnsPrimary then
 			ip_conf["dns"] = "static domain_name_servers="..args.ipDnsPrimary
 			if args.ipDnsSecondary then
