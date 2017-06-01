@@ -108,7 +108,10 @@ function Plugin.control.omxplay(uri, itemrepeat, initpos, chstartpos, chendpos)
 	if not Plugin.use_alsa then
 		table.insert(cmd, "--vol")
 		-- convert volume percentage to millibels
-		local vol = math.log10(RAME.system.headphone_volume() / 100) * 2000
+		local vol = -6000
+		if RAME.system.headphone_volume() > 0 then
+			vol = math.log10(RAME.system.headphone_volume() / 100) * 2000
+		end
 		table.insert(cmd, ("%d"):format(math.floor(vol)))
 	end
 	local filename, chapter_id = RAME.resolve_uri(uri)
