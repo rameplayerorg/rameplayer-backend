@@ -29,6 +29,7 @@ local RAME = {
 	},
 	system_settings = {
 		audioPort = "rameAnalogOnly",
+		audioMono = false,
 	},
 	system = {
 		ip = push.property("(No link)", "Current IP-address"),

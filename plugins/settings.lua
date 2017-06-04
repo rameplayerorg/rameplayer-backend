@@ -94,6 +94,12 @@ end
 local function activate_config(conf)
 	RAME.system.hostname(conf.hostname)
 	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[conf.audioPort]
+	if plpath.exists("/proc/asound/sndrpiwsp") then
+		RAME.log.info("Configuring audio board to " ..
+		              (conf.audioMono and 'mono' or 'stereo'))
+		process.run('/usr/libexec/wolfson/wolfson.sh',
+		            conf.audioMono and 'mono' or '')
+	end
 end
 
 local function pexec(...)
@@ -153,7 +159,8 @@ local user_settings_fields = {
 }
 
 local system_settings_fields = {
-	audioPort = "string"
+	audioPort = "string",
+	audioMono = "boolean",
 }
 
 function SETTINGS.POST.user(ctx, reply)
@@ -204,6 +211,7 @@ function SETTINGS.GET.system(ctx, reply)
 	end
 
 	conf.audioPort = RAME.system_settings.audioPort
+	conf.audioMono = RAME.system_settings.audioMono
 
 	local dhcpcd = plconfig.read("/etc/dhcpcd.conf", {list_delim=' '}) or {}
 	if dhcpcd.static_ip_address then
@@ -304,8 +312,10 @@ function SETTINGS.POST.system(ctx, reply)
 	--
 	-- AUDIO-PORT
 	--
-	if RAME.system_settings.audioPort ~= args.audioPort then
+	if RAME.system_settings.audioPort ~= args.audioPort or
+	   RAME.system_settings.audioMono ~= args.audioMono then
 		RAME.system_settings.audioPort = args.audioPort
+		RAME.system_settings.audioMono = args.audioMono
 
 		-- AudioPort is saved on system_settings_json
 		if not RAME.write_settings_file(system_settings_json,
