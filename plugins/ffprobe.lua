@@ -25,7 +25,6 @@ local function ffprobe_file(fn)
 end
 
 function Plugin.uri_scanner(self)
-	if self.nuked then return end
 	RAME.log.info("Scanning", self.uri)
 	local extract_chapters = true
 	local only_chapter_id = nil

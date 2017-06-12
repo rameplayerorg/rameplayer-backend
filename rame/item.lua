@@ -17,7 +17,7 @@ Item.__index = Item
 function Item.scanner()
 	while true do
 		local item = Item.__scanner:dequeue()
-		item:scan()
+		if not item.nuked then item:scan() end
 	end
 end
 
@@ -76,8 +76,9 @@ function Item:touch(rescan)
 			repeat
 				ref = self.refreshed
 				cqueues.poll(4.0)
+				if self.nuked then return end
 			until ref == self.refreshed
-			self.scan = nil
+			self.scanned = nil
 			self:touch()
 		end)
 	end
