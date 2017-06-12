@@ -16,6 +16,8 @@ local function ffprobe_file(fn)
 			"-print_format", "json",
 			"-show_entries", "format",
 			"-show_chapters",
+			"-select_streams", "v:0",
+			"-show_streams",
 			fn)
 	local res = out:read_all()
 	out:close()
@@ -23,6 +25,7 @@ local function ffprobe_file(fn)
 end
 
 function Plugin.uri_scanner(self)
+	if self.nuked then return end
 	RAME.log.info("Scanning", self.uri)
 	local extract_chapters = true
 	local only_chapter_id = nil
@@ -70,6 +73,11 @@ function Plugin.uri_scanner(self)
 
 	self.duration = tonumber(ff_fmt.duration)
 	self.title = ff_tags.title
+
+	if type(ff.streams) == "table" and type(ff.streams[1]) == "table" then
+		self.width = ff.streams[1].width
+		self.height = ff.streams[1].height
+	end
 
 	local ch_item_pos_id = self.id
 
@@ -121,7 +129,7 @@ function Plugin.early_init()
 	local exts = {
 		"wav","mp3","flac","aac","m4a","ogg",
 		"flv","avi","m4v","mkv","mov","mpg","mpeg","mpe","mp4",
-		"png", "jpg", "jpeg",
+		"gif", "jpg", "jpeg", "png", "tif", "tiff",
 	}
 	Item.uri_scanners:register(schemes, exts, 10, Plugin.uri_scanner)
 end

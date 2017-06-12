@@ -25,6 +25,8 @@ local function rest_info(item)
 		refreshed = item.refreshed,
 		size = item.size,
 		title = item.title,
+		width = item.width,
+		height = item.height,
 		uri = item.uri,
 		autoPlayNext = item.autoPlayNext,
 		storage = item.container and item.container.id,
