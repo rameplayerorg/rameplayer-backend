@@ -67,10 +67,10 @@ function Item:touch(rescan)
 			self.parent.container:queue_save()
 		end
 	end
-	if rescan and item.scanned == true then
+	if rescan and self.scanned == true then
 		-- Wait for modifications to settle until
 		-- re-scanning the file
-		item.scanned = "Pending"
+		self.scanned = "Pending"
 		cqueues.running():wrap(function()
 			local ref
 			repeat
