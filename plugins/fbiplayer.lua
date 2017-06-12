@@ -16,7 +16,7 @@ function Plugin.control.play(uri, itemrepeat, initpos)
 	RAME.player.status("playing")
 	Plugin.control.cond:wait()
 	process.run("sh", "-c", "cat /dev/zero > /dev/fb0")
-	return false
+	return true
 end
 
 function Plugin.control.stop()

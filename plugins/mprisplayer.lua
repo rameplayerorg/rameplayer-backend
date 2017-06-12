@@ -124,7 +124,7 @@ function Plugin.control.omxplay(uri, itemrepeat, initpos, chstartpos, chendpos)
 	Plugin.live = nil
 	local chapter_done = Plugin.chapter_ended
 	Plugin.chapter_ended = nil
-	return status == 0 or chapter_done
+	return status == 0 or chapter_done or itemrepeat
 end
 
 function Plugin.control.vlcplay(uri)
