@@ -76,7 +76,7 @@ function Watcher:refresh_file(file)
 		local helper = Item.uri_helpers:resolve(item.uri)
 		if helper then helper(item) end
 		-- refresh item, it's parent and rescan metadata
-		self.item:touch(true)
+		item:touch(true)
 	end
 end
 

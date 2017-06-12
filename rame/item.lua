@@ -79,7 +79,7 @@ function Item:touch(rescan)
 				if self.nuked then return end
 			until ref == self.refreshed
 			self.scanned = nil
-			self:touch()
+			self:refresh_meta()
 		end)
 	end
 	return self
