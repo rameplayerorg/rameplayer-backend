@@ -75,8 +75,8 @@ function Watcher:refresh_file(file)
 	if item ~= nil then
 		local helper = Item.uri_helpers:resolve(item.uri)
 		if helper then helper(item) end
-		-- refresh also parent
-		self.item:touch()
+		-- refresh item, it's parent and rescan metadata
+		self.item:touch(true)
 	end
 end
 
@@ -156,7 +156,6 @@ function Plugin.uri_helper(self)
 	local st = posix.stat(path)
 	if not st then return end
 
-	self.refresh_time = cqueues.monotime()
 	self.type = self.type or st.type
 	self.modified = st.mtime and st.mtime * 1000
 	self.filename = plpath.basename(strip_slash(path))

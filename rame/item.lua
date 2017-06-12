@@ -58,7 +58,7 @@ function Item:refresh_meta()
 	end
 end
 
-function Item:touch()
+function Item:touch(rescan)
 	self.refreshed = stamp.next()
 	if self.container then self.container:queue_save() end
 	if self.parent then
@@ -66,6 +66,20 @@ function Item:touch()
 		if self.parent.container then
 			self.parent.container:queue_save()
 		end
+	end
+	if rescan and item.scanned == true then
+		-- Wait for modifications to settle until
+		-- re-scanning the file
+		item.scanned = "Pending"
+		cqueues.running():wrap(function()
+			local ref
+			repeat
+				ref = self.refreshed
+				cqueues.poll(4.0)
+			until ref == self.refreshed
+			self.scan = nil
+			self:touch()
+		end)
 	end
 	return self
 end
