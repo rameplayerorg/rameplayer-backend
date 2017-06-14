@@ -494,8 +494,7 @@ function RAME.main()
 
 		if playing then
 			local wrapped = true
-			if item and not self.player.__itemrepeat
-			   and (move_next or (self.player.__playing and self.player.__autoplay)) then
+			if item and (move_next or (self.player.__playing and self.player.__autoplay)) then
 				-- Move cursor to next item if playback stopped normally
 				-- or in autoplay mode and stop was not requested
 				item, wrapped = item:navigate()

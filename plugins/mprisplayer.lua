@@ -94,6 +94,7 @@ function Plugin.control.omxplay(uri, itemrepeat, initpos, chstartpos, chendpos)
 		table.insert(cmd, "--live")
 		Plugin.live = true
 	end
+	Plugin.stopped = nil
 	Plugin.itemrepeat = itemrepeat
 	if itemrepeat then
 		table.insert(cmd, "--loop")
@@ -124,7 +125,7 @@ function Plugin.control.omxplay(uri, itemrepeat, initpos, chstartpos, chendpos)
 	Plugin.live = nil
 	local chapter_done = Plugin.chapter_ended
 	Plugin.chapter_ended = nil
-	return status == 0 or chapter_done or itemrepeat
+	return status == 0 or chapter_done or (itemrepeat and Plugin.stopped)
 end
 
 function Plugin.control.vlcplay(uri)
@@ -140,6 +141,7 @@ end
 
 function Plugin.control.stop()
 	if Plugin.process then
+		Plugin.stopped = true
 		Plugin.process:kill(9)
 	end
 end
