@@ -216,9 +216,11 @@ function Dropbox:poll_folder(path, cursor)
 				LOG.debug('change detected on folder ' .. path)
 				local entries = {}
 				cursor, entries = self:get_entries_by_cursor(cursor)
-				RAME.remounter:wrap(self.mountpoint, function()
-					self:sync_entries(path, entries)
-				end)
+				if cursor ~= nil then
+					RAME.remounter:wrap(self.mountpoint, function()
+						self:sync_entries(path, entries)
+					end)
+				end
 			end
 			if response.data.backoff then
 				-- wait until start polling again
