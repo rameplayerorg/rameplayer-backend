@@ -80,7 +80,7 @@ function http_client.POST(url, data, headers)
 	end
 
 	-- perform http request
-	local code = cqcurl.perform(opt)
+	local code, err = cqcurl.perform(opt)
 	local body = table.concat(body_buf)
 
 	-- handle headers
@@ -100,6 +100,7 @@ function http_client.POST(url, data, headers)
 		status = code,
 		headers = hdrs,
 		data = body,
+		err = err
 	}
 end
 
@@ -130,10 +131,14 @@ function http_client.download(url, headers, target)
 	end
 
 	-- perform http request
-	local code = cqcurl.perform(opt)
+	local code, err = cqcurl.perform(opt)
 	file:close()
 
-	LOG.debug('Download finished to file ' .. target)
+	if err == nil then
+		LOG.debug('Download finished to file ' .. target)
+	else
+		LOG.err(("Dropbox: Download failed to file %s: %s"):format(target, err))
+	end
 
 	-- handle headers
 	local hdrs = split_lines(table.concat(hdr_buf))
@@ -141,6 +146,7 @@ function http_client.download(url, headers, target)
 	return {
 		status = code,
 		headers = hdrs,
+		err = err
 	}
 end
 
@@ -218,7 +224,12 @@ function Dropbox:poll_folder(path, cursor)
 				cursor, entries = self:get_entries_by_cursor(cursor)
 				if cursor ~= nil then
 					RAME.remounter:wrap(self.mountpoint, function()
-						self:sync_entries(path, entries)
+						local err = self:sync_entries(path, entries)
+
+						if err ~= nil then
+							-- error occurred in syncing, get a new cursor
+							cursor = nil
+						end
 					end)
 				end
 			end
@@ -385,7 +396,10 @@ function Dropbox:sync_entries(path, entries)
 			if not file_entry_exists(entry, real_path) then
 				-- download new/changed file
 				LOG.debug('download to ' .. real_path)
-				self:download(entry.id, real_path)
+				local resp = self:download(entry.id, real_path)
+				if resp.err ~= nil then
+					return resp.err
+				end
 			else
 				LOG.debug('matching file exists already: ' .. real_path)
 			end
@@ -400,6 +414,7 @@ function Dropbox:sync_entries(path, entries)
 			end
 		end
 	end
+	return nil
 end
 
 function Dropbox:get_entries_by_cursor(cursor)
@@ -446,7 +461,10 @@ function Dropbox:sync_folder(path)
 
 	RAME.remounter:wrap(self.mountpoint, function()
 		self:remove_missing(self.local_path, entries)
-		self:sync_entries(path, entries)
+		local err = self:sync_entries(path, entries)
+		if err ~= nil then
+			cursor = nil
+		end
 	end)
 
 	return cursor

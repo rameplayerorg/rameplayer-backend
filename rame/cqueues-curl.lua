@@ -28,6 +28,7 @@ local function curl_check_multi_info()
 
 		easy.data.effective_url = easy:getinfo_effective_url()
 		easy.data.response_code = easy:getinfo_response_code()
+		easy.data.error = err
 		easy.data.finishedcond:signal()
 	end
 end
@@ -132,8 +133,9 @@ function cqcurl.perform(opt)
 	handle.data.finishedcond:wait()
 
 	local response_code = handle.data.response_code
+	local err = handle.data.error
 	handle:close()
-	return response_code
+	return response_code, err
 end
 
 return cqcurl
