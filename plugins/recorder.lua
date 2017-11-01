@@ -19,8 +19,8 @@ local Plugin = {}
 Plugin.streaming = false
 Plugin.recording = false
 
--- REST API: /streaming/
-local STREAMING = { GET = {}, PUT = {} }
+-- REST API: /recorder/
+local RECORDER = { GET = {}, PUT = {} }
 
 -- Generates ffmpeg script to be launched by bmd-stream
 local function gen_script(cfg)
@@ -50,13 +50,14 @@ end
 
 -- Starts bmd-streamer
 local function start_process(cfg)
-	local running = true
-
+	RAME.recorder.running(true)
 	if cfg.recorderEnabled then
 		Plugin.recording = true
+		RAME.recorder.recording(true)
 	end
 	if cfg.streamingEnabled then
 		Plugin.streaming = true
+		RAME.recorder.streaming(true)
 	end
 
 	write_script(gen_script(cfg))
@@ -78,23 +79,25 @@ local function start_process(cfg)
 		-- wait until process is terminated
 		local status = Plugin.process:wait()
 		RAME.log.info(('bmd-streamer terminated: %d'):format(status))
+		RAME.recorder.running(false)
+		RAME.recorder.recording(false)
+		RAME.recorder.streaming(false)
 		Plugin.recording = false
 		Plugin.streaming = false
 		Plugin.process = nil
-		running = false
 	end)
 
 	-- wait to see if running flag has changed
 	cqueues.poll(WAIT_PROCESS)
 	RAME.log.info('bmd-streamer is running')
-	return running
+	return RAME.recorder.running()
 end
 
-function STREAMING.GET.config()
+function RECORDER.GET.config()
 	return 200, {}
 end
 
-function STREAMING.PUT.start(ctx, reply)
+function RECORDER.PUT.start(ctx, reply)
 	local cfg = ctx.args
 
 	-- validate request
@@ -119,7 +122,7 @@ function STREAMING.PUT.start(ctx, reply)
 	end
 end
 
-function STREAMING.GET.stop(ctx, reply)
+function RECORDER.GET.stop(ctx, reply)
 	if Plugin.process then
 		RAME.log.debug('stop streaming/recording')
 		Plugin.process:kill(9)
@@ -129,7 +132,8 @@ function STREAMING.GET.stop(ctx, reply)
 end
 
 function Plugin.init()
-	RAME.rest.streaming = function(ctx, reply) return ctx:route(reply, STREAMING) end
+	RAME.recorder.enabled(true)
+	RAME.rest.recorder = function(ctx, reply) return ctx:route(reply, RECORDER) end
 end
 
 return Plugin

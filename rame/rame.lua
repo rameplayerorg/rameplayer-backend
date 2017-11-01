@@ -49,6 +49,12 @@ local RAME = {
 		position = push.property(0, "Active media play position"),
 		duration = push.property(0, "Active media duration"),
 	},
+	recorder = {
+		enabled = push.property(false, "Streaming enabled"),
+		running = push.property(false, "Streaming / recording in progress"),
+		streaming = push.property(false, "Streaming in progress"),
+		recording = push.property(false, "Recording in progress"),
+	},
 	localui = {
 		states = {
 			DEFAULT = 0,

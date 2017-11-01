@@ -215,6 +215,13 @@ function RAME.rest.status(ctx, reply)
 		upgradeProgress = RAME.system.firmware_upgrade(),
 	}
 
+	local recorder = {
+		enabled = RAME.recorder.enabled() and true or nil,
+		running = RAME.recorder.running() and true or nil,
+		streaming = RAME.recorder.streaming() and true or nil,
+		recording = RAME.recorder.recording() and true or nil,
+	}
+
 	local response = {
 		listsRefreshed = lists,
 		state = RAME.player.status(),
@@ -227,6 +234,7 @@ function RAME.rest.status(ctx, reply)
 			parentId = item and item.parent and item.parent.id,
 		},
 		player = next(player) and player,
+		recorder = next(recorder) and recorder,
 	}
 	if next(RAME.cluster.controllers) then
 		local controllers = setmetatable({}, json.array)
