@@ -116,6 +116,20 @@ local function start_process(cfg)
 	return RAME.recorder.running()
 end
 
+-- udev script calls GET /recorder/enable when device is plugged in
+function RECORDER.GET.enable()
+	RAME.recorder.enabled(true)
+	RAME.log.info('Recorder device connected')
+	return 200, {}
+end
+
+-- udev script calls GET /recorder/disable when device is removed
+function RECORDER.GET.disable()
+	RAME.recorder.enabled(false)
+	RAME.log.info('Recorder device disconnected')
+	return 200, {}
+end
+
 function RECORDER.GET.config()
 	return 200, Plugin.settings or {}
 end
@@ -153,7 +167,15 @@ function RECORDER.GET.stop(ctx, reply)
 end
 
 function Plugin.init()
-	RAME.recorder.enabled(true)
+	-- check if flag file exists, created by udev script
+	local exists = posix.stat("/var/run/ramerecorder")
+	RAME.recorder.enabled(exists ~= nil)
+
+	if RAME.recorder.enabled() then
+		RAME.log.info('Recorder device detected')
+	else
+		RAME.log.info('Recorder device not detected')
+	end
 
 	local cfg = json.decode(RAME.read_settings_file(SETTINGS_FILE) or "")
 	if RAME.check_fields(cfg, recorder_fields) == nil then
