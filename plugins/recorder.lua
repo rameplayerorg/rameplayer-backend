@@ -1,3 +1,5 @@
+-- Must be safe version of cjson-lib for error handling
+local json = require 'cjson.safe'
 local plutils = require 'pl.utils'
 local cqueues = require 'cqueues'
 local posix = require 'posix'
@@ -8,14 +10,21 @@ local RAME = require 'rame.rame'
 local WAIT_PROCESS = 1
 local BMD_STREAMER = "/usr/bin/bmd-streamer"
 local SCRIPT_PATH = "/etc/bmd-streamer/ffmpeg.sh"
+local SETTINGS_FILE = "recorder.json"
 
-local function pexec(...)
-	return process.popen(...):read_all()
-end
+local recorder_fields = {
+	bitrate          = { typeof="number"  },
+	input            = { typeof="string"  },
+	recorderEnabled  = { typeof="boolean" },
+	recordingPath    = { typeof="string"  },
+	streamingEnabled = { typeof="boolean" },
+	streamNum        = { typeof="string"  },
+}
 
 -- Plugin Hooks
 local Plugin = {}
 
+Plugin.settings = nil
 Plugin.streaming = false
 Plugin.recording = false
 
@@ -108,21 +117,14 @@ local function start_process(cfg)
 end
 
 function RECORDER.GET.config()
-	return 200, {}
+	return 200, Plugin.settings or {}
 end
 
 function RECORDER.PUT.start(ctx, reply)
 	local cfg = ctx.args
 
 	-- validate request
-	err, msg = RAME.check_fields(cfg, {
-		bitrate          = {typeof="number"},
-		input            = {typeof="string"},
-		recorderEnabled  = {typeof="boolean"},
-		recordingPath    = {typeof="string"},
-		streamingEnabled = {typeof="boolean"},
-		streamNum        = {typeof="string"}
-	})
+	err, msg = RAME.check_fields(cfg, recorder_fields)
 	if err then return err, msg end
 
 	if Plugin.streaming or Plugin.recording then
@@ -130,6 +132,11 @@ function RECORDER.PUT.start(ctx, reply)
 	end
 
 	if start_process(cfg) then
+		Plugin.settings = cfg
+		if not RAME.write_settings_file(SETTINGS_FILE, json.encode(cfg)) then
+			RAME.log.error("File write error: "..SETTINGS_FILE)
+			return 500, { error="File write error: "..SETTINGS_FILE }
+		end
 		return 200, {}
 	else
 		return 500, { error = "bmd-streamer not started" }
@@ -147,6 +154,12 @@ end
 
 function Plugin.init()
 	RAME.recorder.enabled(true)
+
+	local cfg = json.decode(RAME.read_settings_file(SETTINGS_FILE) or "")
+	if RAME.check_fields(cfg, recorder_fields) == nil then
+		Plugin.settings = cfg
+	end
+
 	RAME.rest.recorder = function(ctx, reply) return ctx:route(reply, RECORDER) end
 end
 
