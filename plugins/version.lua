@@ -81,7 +81,7 @@ function Plugin.init()
 	if plpath.exists(rame_cfg_path) then
 		local cids = {}
 		-- find loaded rame device tree overlays
-		for _, file in ipairs(pldir.getfiles(rame_cfg_path, "*/cid*")) do
+		for _, file in ipairs(pldir.getfiles(rame_cfg_path, "cid*")) do
 			for cid in file:gmatch("cid(%d+)") do
 				table.insert(cids, cid)
 				rame_cfg_cids_id = rame_cfg_cids_id + (1 << (cid - 1))
