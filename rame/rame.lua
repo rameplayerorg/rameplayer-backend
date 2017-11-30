@@ -40,6 +40,7 @@ local RAME = {
 		firmware_upgrade = push.property(nil, "Firmware upgrade progress"),
 		headphone_volume = push.property(100, "Headphone volume"),
 		lineout_volume = push.property(100, "Lineout volume"),
+		audio_mono_out = push.property(false, "Downmix audio to mono"),
 		rebooting_flag = push.property(false, "Imminent reboot notification flag"),
 		media_mount = push.property(nil, "Media mount event"),
 	},

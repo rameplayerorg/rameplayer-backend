@@ -177,13 +177,23 @@ function Plugin.early_init()
 
 	Plugin.dbus = dbus.get_bus()
 	if Plugin.omxplayer then
-		Plugin.use_alsa = plpath.exists("/proc/asound/RPiCirrus")
+		Plugin.alsa_device = "RPiCirrus"
+		Plugin.use_alsa = plpath.exists("/proc/asound/"..Plugin.alsa_device)
 		if Plugin.use_alsa then
 			RAME.system.headphone_volume:push_to(function(val)
-				process.run("amixer", "-Dhw:RPiCirrus", "--", "sset", "HPOUT1 Digital", ("%.2fdB"):format(64.0*val/100 - 64.0))
+				process.run("amixer", "-Dhw:"..Plugin.alsa_device,
+					"--", "sset", "HPOUT1 Digital",
+						("%.2fdB"):format(64.0*val/100 - 64.0))
 			end)
 			RAME.system.lineout_volume:push_to(function(val)
-				process.run("amixer", "-Dhw:RPiCirrus", "--", "sset", "HPOUT2 Digital", ("%.2fdB"):format(64.0*val/100 - 64.0))
+				process.run("amixer", "-Dhw:"..Plugin.alsa_device,
+					"--", "sset", "HPOUT2 Digital",
+						("%.2fdB"):format(64.0*val/100 - 64.0))
+			end)
+			RAME.system.audio_mono_out:push_to(function(val)
+				local audiomode = val and 'mono' or 'stereo'
+				RAME.log.info("Configuring audio board to "..audiomode)
+				process.run('/usr/libexec/wolfson/wolfson.sh', audiomode)
 			end)
 		end
 		Plugin.control.play = Plugin.control.omxplay

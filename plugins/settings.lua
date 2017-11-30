@@ -93,12 +93,8 @@ end
 
 local function activate_config(conf)
 	RAME.system.hostname(conf.hostname)
+	RAME.system.audio_mono_out(conf.audioMono)
 	RAME.config.omxplayer_audio_out = omxplayer_audio_outs[conf.audioPort]
-	if plpath.exists("/proc/asound/RPiCirrus") then
-		local audiomode = conf.audioMono and 'mono' or 'stereo'
-		RAME.log.info("Configuring audio board to "..audiomode)
-		process.run('/usr/libexec/wolfson/wolfson.sh', audiomode)
-	end
 end
 
 local function pexec(...)
