@@ -9,7 +9,8 @@ local RAME = require 'rame.rame'
 -- wait time in secs to check bmd-streamer is still running
 local WAIT_PROCESS = 1
 local BMD_STREAMER = "/usr/bin/bmd-streamer"
-local SCRIPT_PATH = "/etc/bmd-streamer/ffmpeg.sh"
+local SCRIPT_PATH = "/var/run/ramerecorder-ffmpeg.sh"
+local FIRMWARE_PATH = "/media/mmcblk0p1/user"
 local SETTINGS_FILE = "recorder.json"
 
 local recorder_fields = {
@@ -85,7 +86,7 @@ local function start_process(cfg)
 				"/usr/bin/bmd-streamer",
 				"-S", cfg.input,
 				"--syslog",
-				"--firmware-dir", "/etc/bmd-streamer",
+				"--firmware-dir", FIRMWARE_PATH,
 				"--exec", SCRIPT_PATH,
 			}
 
