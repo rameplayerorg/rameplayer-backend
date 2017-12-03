@@ -203,6 +203,17 @@ local function update_local_ui_file_browser(out)
 		ctx.scroll_top_item = ctx.cursor_item
 	end
 
+	-- check if folder/playlist contents are changed so that first item needs to be updated
+	local verify_first_item = nil
+	for _,i in pairs((ctx.parent_item and ctx.parent_item.items) or {}) do
+		verify_first_item = i
+		break
+	end
+	if verify_first_item and verify_first_item ~= ctx.first_item then
+		ctx.first_item = verify_first_item
+		scan_folder_items(verify_first_item)
+	end
+
 	for row = 1,INFODISPLAY_ROW_COUNT do
 		local row_fg,row_bg = "FF999999", "FF000000"
 
