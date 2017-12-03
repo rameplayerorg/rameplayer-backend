@@ -10,7 +10,7 @@ local RAME = require 'rame.rame'
 local WAIT_PROCESS = 1
 local BMD_STREAMER = "/usr/bin/bmd-streamer"
 local SCRIPT_PATH = "/var/run/ramerecorder-ffmpeg.sh"
-local FIRMWARE_PATH = "/media/mmcblk0p1/user"
+local FIRMWARE_PATH = "/media/mmcblk0p1/bmd-streamer"
 local SETTINGS_FILE = "recorder.json"
 
 local recorder_fields = {
