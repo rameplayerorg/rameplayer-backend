@@ -345,9 +345,9 @@ function RAME.remounter:wrap(mountpoint, func)
 		-- remount to rw
 		self.remounting = true
 		RAME.log.debug(("remounting rw %s"):format(mountpoint))
-		local rc = process.run("mount", "-o", "remount,rw", mountpoint)
-		if rc ~= 0 then
-			RAME.log.error(("remounting rw %s failed: %d"):format(mountpoint, rc))
+		local err = process.popen_err("mount", "-o", "remount,rw", mountpoint):read_all() or ""
+		if err ~= "" then
+			RAME.log.error(("remounting rw %s failed: %s"):format(mountpoint, err))
 		end
 		self.remounting = false
 		RAME.remounter.rw_mount_count(RAME.remounter.rw_mount_count() + 1)
@@ -367,9 +367,9 @@ function RAME.remounter:wrap(mountpoint, func)
 	if self.c[mountpoint] == 0 then
 		self.remounting = true
 		RAME.log.debug(("remounting ro %s"):format(mountpoint))
-		local rc = process.run("mount", "-o", "remount,ro", mountpoint)
-		if rc ~= 0 then
-			RAME.log.error(("remounting ro %s failed: %d"):format(mountpoint, rc))
+		local err = process.popen_err("mount", "-o", "remount,ro", mountpoint):read_all() or ""
+		if err ~= "" then
+			RAME.log.error(("remounting ro %s failed: %s"):format(mountpoint, err))
 		end
 		self.remounting = false
 		RAME.remounter.rw_mount_count(RAME.remounter.rw_mount_count() - 1)
