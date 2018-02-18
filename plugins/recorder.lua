@@ -206,7 +206,7 @@ end
 function RECORDER.GET.stop(ctx, reply)
 	if Plugin.process then
 		RAME.log.debug('stop streaming/recording')
-		Plugin.process:kill(9)
+		Plugin.process:kill(15)
 		return 200, {}
 	end
 	return 500, { error = "bmd-streamer was not running" }
