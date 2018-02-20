@@ -26,7 +26,7 @@ local recorder_fields = {
 	recorderEnabled  = { typeof="boolean" },
 	recordingPath    = { typeof="string"  },
 	streamingEnabled = { typeof="boolean" },
-	streamNum        = { typeof="string"  },
+	streamMode       = { typeof="string"  },
 }
 
 -- Plugin Hooks
@@ -50,9 +50,9 @@ exec /usr/bin/ffmpeg -y -fflags +genpts -i - -bsf:a aac_adtstoasc]]
 	end
 
 	if cfg.streamingEnabled then
-		if cfg.streamNum == "1" then
+		if cfg.streamMode == "1" then
 			c = c .. " \\\n\t-f flv -codec:a copy -codec:v copy rtmp://localhost/rame/program"
-		elseif cfg.streamNum == "2" then
+		elseif cfg.streamMode == "2" then
 			c = c .. " \\\n\t-f flv -codec:v copy -strict experimental -codec:a aac -b:a 256k -af \"pan=1c|c0=c0\" rtmp://localhost/rame/audio1"
 			c = c .. " \\\n\t-f flv -codec:v copy -strict experimental -codec:a aac -b:a 256k -af \"pan=1c|c0=c1\" rtmp://localhost/rame/audio2"
 		end
@@ -238,7 +238,7 @@ function Plugin.init()
 		cfg.h264Cabac = "default"
 		cfg.fpsDivider = ""
 		cfg.audioBitrate = ""
-		cfg.streamNum = "1"
+		cfg.streamMode = "1"
 		cfg.recordingPath = "/media/sda1/recording.mp4"
 	end
 	if RAME.check_fields(cfg, recorder_fields) == nil then
