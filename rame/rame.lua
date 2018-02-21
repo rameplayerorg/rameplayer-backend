@@ -332,6 +332,26 @@ function RAME.get_mountpoint(path)
 	return path:match('/[^/]*/[^/]*')
 end
 
+-- returns parsed output from 'df' command
+-- df output example:
+-- Filesystem           1K-blocks      Used Available Use% Mounted on
+-- /dev/sda1              7553608    628612   6924996   8% /media/sda1
+function RAME.get_disk_space(path)
+	local out = process.popen("df", path):read_all() or ""
+	local fs, blocks, used, available = out:match("\n([/a-z0-9]+)%s+(%d+)%s+(%d+)%s+(%d+)")
+	if fs == nil then
+		-- error when parsing
+		RAME.log.error(("Invalid output from command df %s: %s"):format(path, out))
+		return nil
+	end
+	return {
+		filesystem=fs,
+		blocks=tonumber(blocks),
+		used=tonumber(used),
+		available=tonumber(available),
+	}
+end
+
 -- Remounts given mountpoint readwrite,
 -- calls given function and
 -- remounts mountpoint back to readonly

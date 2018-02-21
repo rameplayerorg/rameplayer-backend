@@ -1,6 +1,8 @@
 local tablex = require 'pl.tablex'
 local cqueues = require 'cqueues'
 local condition = require 'cqueues.condition'
+local plpath = require 'pl.path'
+local posix = require 'posix'
 local json = require 'cjson.safe'
 local RAME = require 'rame.rame'
 local Item = require 'rame.item'
@@ -188,6 +190,22 @@ function CURSOR.PUT(ctx, reply)
 	return RAME:action("set_cursor", ctx.args.id)
 end
 
+-- REST API: /disk/
+local DISK = { PUT = {} }
+
+-- REST API: /disk/status/
+function DISK.PUT.status(ctx, reply)
+	local dirname = plpath.dirname(ctx.args.path)
+	local fstat = posix.stat(ctx.args.path)
+	local dstat = posix.stat(dirname)
+	local space = RAME.get_disk_space(dirname)
+	return 200, {
+		space=space,
+		file=fstat,
+		dir=dstat,
+	}
+end
+
 -- REST API: /status/
 function RAME.rest.status(ctx, reply)
 	if ctx.method ~= "GET" and ctx.method ~= "POST" then return 405 end
@@ -291,6 +309,7 @@ function Plugin.early_init()
 	RAME.rest.player = function(ctx, reply) return ctx:route(reply, PLAYER) end
 	RAME.rest.cursor = function(ctx, reply) return ctx:route(reply, CURSOR) end
 	RAME.rest.lists = function(ctx, reply) return ctx:route(reply, LISTS) end
+	RAME.rest.disk = function(ctx, reply) return ctx:route(reply, DISK) end
 end
 
 function Plugin.main()
