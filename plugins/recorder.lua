@@ -231,7 +231,7 @@ end
 
 function Plugin.init()
 	-- check if flag file exists, created by udev script
-	RAME.recorder.enabled(plpath.exists(FLAG_FILE) ~= nil)
+	RAME.recorder.enabled(plpath.exists(FLAG_FILE))
 
 	if RAME.recorder.enabled() then
 		RAME.log.info('Recorder device detected')
