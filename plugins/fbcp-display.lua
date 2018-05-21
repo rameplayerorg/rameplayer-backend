@@ -443,9 +443,11 @@ function Plugin.main()
 	RAME.localui.rotary_delta:push_to(update)
 	RAME.localui.button_ok:push_to(update)
 	RAME.localui.button_play:push_to(update)
+	RAME.recorder.recording:push_to(update)
+	RAME.recorder.streaming:push_to(update)
 	RAME.remounter.rw_mount_count:push_to(update)
 
-	--S[1..7]:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering), 6(waiting), 7(memcard), 8(folder)
+	--S[1..7]:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering), 6(waiting), 7(memcard), 8(folder), 9(playlist), A(recording), B(streaming)
 	--T:a,b
 	--X[1..7]:text
 	--P[1..8]:0-1000[,AARRGGBB] -- above which row:progress,color
@@ -489,6 +491,8 @@ function Plugin.main()
 		local cluster_controller
 		local notify1, notifysep, notify2
 		local notifyinfo = ""
+		local recording = RAME.recorder.recording()
+		local streaming = RAME.recorder.streaming()
 
 		if RAME.system.rebooting_flag() then
 			out:write("O6:FFAA2200\nS:6\nV:0\n")
@@ -539,6 +543,17 @@ function Plugin.main()
 			out:write(("S:%d\n"):format(play_status_id))
 		end
 
+		if recording or streaming then
+			local i1 = not recording and "S1:B" or "S1:A"
+			local i2 = not streaming and "S1:A" or "S1:B"
+			local s = "S1:1"
+			local n = tonumber(math.floor(monotime * 3)) % 4
+			if n == 0 then s = i1 elseif n == 2 then s = i2 end
+			out:write(s.."\n")
+			pending = true
+		else
+			out:write("S1:0\n")
+		end
 		hostname = RAME.system.hostname() or nil
 		if hostname then
 			out:write(("X1:%s\n"):format(hostname))
