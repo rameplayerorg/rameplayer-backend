@@ -47,7 +47,7 @@ local function gen_script(cfg)
 exec /usr/bin/ffmpeg -fflags +genpts -i - ]]
 
 	if cfg.recorderEnabled then
-		c = c .. " \\\n\t-codec:a copy -codec:v copy \"" .. cfg.recordingPath .. "\""
+		c = c .. " \\\n\t-bsf:a aac_adtstoasc -codec:a copy -codec:v copy \"" .. cfg.recordingPath .. "\""
 	end
 
 	if cfg.streamingEnabled then
@@ -56,10 +56,10 @@ exec /usr/bin/ffmpeg -fflags +genpts -i - ]]
 			if cfg.streamMode == "extServer" then
 				server = cfg.streamServer
 			end
-			c = c .. "-bsf:a aac_adtstoasc"
+			c = c .. " -bsf:a aac_adtstoasc"
 			c = c .. " \\\n\t-f flv -codec:a copy -codec:v copy " .. server
 		elseif cfg.streamMode == "2" then
-			c = c .. "-bsf:a aac_adtstoasc"
+			c = c .. " -bsf:a aac_adtstoasc"
 			c = c .. " \\\n\t-f flv -codec:v copy -strict experimental -codec:a aac -b:a 256k -af \"pan=1c|c0=c0\" rtmp://localhost/rame/audio1"
 			c = c .. " \\\n\t-f flv -codec:v copy -strict experimental -codec:a aac -b:a 256k -af \"pan=1c|c0=c1\" rtmp://localhost/rame/audio2"
 		elseif cfg.streamMode == "custom" then
