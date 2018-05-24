@@ -198,7 +198,10 @@ function DISK.PUT.status(ctx, reply)
 	local dirname = plpath.dirname(ctx.args.path)
 	local fstat = posix.stat(ctx.args.path)
 	local dstat = posix.stat(dirname)
-	local space = RAME.get_disk_space(dirname)
+	local space = 0
+	if RAME.recorder.enabled() then
+		space = RAME.get_disk_space(dirname)
+	end
 	return 200, {
 		space=space,
 		file=fstat,
