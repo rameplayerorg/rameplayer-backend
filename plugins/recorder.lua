@@ -47,8 +47,12 @@ local function gen_script(cfg)
 exec /usr/bin/ffmpeg -fflags +genpts -i - ]]
 
 	if cfg.recorderEnabled then
-		c = c .. " \\\n\t-bsf:a aac_adtstoasc"
+		-- might be required for mp4 (if we go back to it):
+		-- c = c .. " \\\n\t-bsf:a aac_adtstoasc"
+		-- probably required for flv (if we add support for it):
+		-- c = c .. " \\\n\t-flvflags aac_seq_header_detect"
 		c = c .. " \\\n\t-codec:a copy -codec:v copy"
+		c = c .. " \\\n\t-f mpegts"
 		c = c .. " \\\n\t\"" .. cfg.recordingPath .. "\""
 	end
 
@@ -63,8 +67,14 @@ exec /usr/bin/ffmpeg -fflags +genpts -i - ]]
 			c = c .. " \\\n\t" .. server
 		elseif cfg.streamMode == "2" then
 			c = c .. " \\\n\t-bsf:a aac_adtstoasc"
-			c = c .. " \\\n\t-f flv -codec:v copy -strict experimental -codec:a aac -b:a 256k -af \"pan=1c|c0=c0\" rtmp://localhost/rame/audio1"
-			c = c .. " \\\n\t-f flv -codec:v copy -strict experimental -codec:a aac -b:a 256k -af \"pan=1c|c0=c1\" rtmp://localhost/rame/audio2"
+			local bvrate = 1700
+			if cfg.avgVideoBitrate ~= "" then
+				bvrate = cfg.avgVideoBitrate / 2
+			end
+--			c = c .. " \\\n\t-f flv -codec:v copy -strict experimental -codec:a aac -b:a 256k -af \"pan=1c|c0=c0\" rtmp://localhost/rame/audio1"
+--			c = c .. " \\\n\t-f flv -codec:v copy -strict experimental -codec:a aac -b:a 256k -af \"pan=1c|c0=c1\" rtmp://localhost/rame/audio2"
+			c = c .. " \\\n\t-f flv -codec:v copy -b:v "..bvrate.."k -ar 44100 -codec:a aac -b:a 128k -af \"pan=1c|c0=c0\" rtmp://localhost/rame/audio1"
+			c = c .. " \\\n\t-f flv -codec:v copy -b:v "..bvrate.."k -ar 44100 -codec:a aac -b:a 128k -af \"pan=1c|c0=c1\" rtmp://localhost/rame/audio2"
 		elseif cfg.streamMode == "custom" then
 			c = c .. " \\\n\t" .. cfg.customParams
 		end
@@ -101,6 +111,15 @@ local function start_process(cfg)
 				"--firmware-dir", FIRMWARE_PATH,
 				"--exec", SCRIPT_PATH,
 			}
+
+			if cfg.recorderEnabled then
+				table.insert(cmd, "-z")
+				if tonumber(cfg.avgVideoBitrate) > 3500 then
+					table.insert(cmd, "1024")
+				else
+					table.insert(cmd, "512")
+				end
+			end
 
 			if cfg.avgVideoBitrate ~= "" then
 				table.insert(cmd, "--video-kbps")
@@ -258,7 +277,7 @@ function Plugin.init()
 		cfg.fpsDivider = ""
 		cfg.audioBitrate = ""
 		cfg.streamMode = "1"
-		cfg.recordingPath = "/media/sda1/recording.mp4"
+		cfg.recordingPath = "/media/sda1/recording.ts"
 		cfg.streamServer = ""
 		cfg.customParams = ""
 	end
