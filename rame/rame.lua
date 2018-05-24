@@ -387,6 +387,7 @@ function RAME.remounter:wrap(mountpoint, func)
 	if self.c[mountpoint] == 0 then
 		self.remounting = true
 		RAME.log.debug(("remounting ro %s"):format(mountpoint))
+		process.run("sync")
 		local err = process.popen_err("mount", "-o", "remount,ro", mountpoint):read_all() or ""
 		if err ~= "" then
 			RAME.log.error(("remounting ro %s failed: %s"):format(mountpoint, err))
