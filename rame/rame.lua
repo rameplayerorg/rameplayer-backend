@@ -341,7 +341,8 @@ function RAME.get_disk_space(path)
 	local fs, blocks, used, available = out:match("\n([/a-z0-9]+)%s+(%d+)%s+(%d+)%s+(%d+)")
 	if fs == nil then
 		-- error when parsing
-		RAME.log.error(("Invalid output from command df %s: %s"):format(path, out))
+		-- it's okay, since user may have mistyped, or there's no media
+		--RAME.log.error(("Invalid output from command df %s: %s"):format(path, out))
 		return nil
 	end
 	return {
