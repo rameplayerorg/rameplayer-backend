@@ -37,7 +37,7 @@ local function media_changed(name, mounted)
 
 	if mounted then
 		local blkid = process.popen("blkid", devname):read_all() or ""
-		local label = blkid and blkid:match(' LABEL="(%S+)"') or "NONAME"
+		local label = blkid and blkid:match(' LABEL="([^"]+)"') or "NONAME"
 		local uuid  = blkid and blkid:match(' UUID="(%S+)"') or stamp.uuid()
 		local ptype = blkid and blkid:match(' TYPE="(%S+)"')
 
@@ -49,7 +49,11 @@ local function media_changed(name, mounted)
 		RAME.log.info(("Device %s: mounting label=%s, uuid=%s"):format(devname, label, uuid))
 		if not is_mount_point(mountpoint) then
 			posix.mkdir(mountpoint)
-			process.run("mount", "-o", "iocharset=utf8,ro", devname, mountpoint)
+			-- hack: exfat lacks proper low-level support for remount,
+			--       so until it's fixed we have to always mount as rw
+			--       first and then remount ro.
+			process.run("mount", "-o", "iocharset=utf8,rw", devname, mountpoint)
+			process.run("mount", "-o", "remount,ro", mountpoint)
 		end
 
 		RAME.media[uuid] = mountpoint
