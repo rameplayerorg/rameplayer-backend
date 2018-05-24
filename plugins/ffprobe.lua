@@ -127,7 +127,7 @@ function Plugin.early_init()
 	local schemes = {"http","https","file"}
 	local exts = {
 		"wav","mp3","flac","aac","m4a","ogg",
-		"flv","avi","m4v","mkv","mov","mpg","mpeg","mpe","mp4",
+		"flv","avi","m4v","mkv","mov","mpg","mpeg","mpe","mp4", "ts",
 		"gif", "jpg", "jpeg", "png", "tif", "tiff",
 	}
 	Item.uri_scanners:register(schemes, exts, 10, Plugin.uri_scanner)

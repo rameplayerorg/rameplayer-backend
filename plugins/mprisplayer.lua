@@ -171,7 +171,7 @@ function Plugin.early_init()
 	local schemes = {"http","https","rtmp"}
 	local exts = {
 		"wav","mp3","flac","aac","m4a","ogg",
-		"flv","avi","m4v","mkv","mov","mpg","mpeg","mpe","mp4",
+		"flv","avi","m4v","mkv","mov","mpg","mpeg","mpe","mp4", "ts",
 	}
 	local mprissvc, mprisapi
 

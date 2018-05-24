@@ -4,6 +4,9 @@ local Item = require 'rame.item'
 local BUFFER_SIZE = 64*1024
 
 local accepted_mimetypes = {
+	["text/plain"] = 1, -- .ts
+	["video/mp2t"] = 1,
+	["video/MP2T"] = 1,
 	["video/mp4"] = 1,
 	["video/mpeg"] = 1,
 	["video/x-mpeg"] = 1,
