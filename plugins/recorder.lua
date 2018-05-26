@@ -105,7 +105,7 @@ local function start_process(cfg)
 
 		local function run()
 			local cmd = {
-				"/usr/bin/bmd-streamer",
+				BMD_STREAMER,
 				"-S", cfg.input,
 				"--syslog",
 				"--firmware-dir", FIRMWARE_PATH,
