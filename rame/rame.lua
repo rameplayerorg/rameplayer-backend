@@ -74,6 +74,7 @@ local RAME = {
 		controllers = {},
 	},
 	media = {},
+	mountpoint_fstype = {},
 	root = Item.new_list{id="root", title="Root"},
 	rame = Item.new_list{
 		id="rame",
@@ -338,15 +339,16 @@ end
 -- /dev/sda1              7553608    628612   6924996   8% /media/sda1
 function RAME.get_disk_space(path)
 	local out = process.popen("df", path):read_all() or ""
-	local fs, blocks, used, available = out:match("\n([/a-z0-9]+)%s+(%d+)%s+(%d+)%s+(%d+)")
-	if fs == nil then
+	local devname, blocks, used, available, mountpoint = out:match("\n([/a-z0-9]+)%s+(%d+)%s+(%d+)%s+(%d+)%s+%S+%s+(%S+)")
+	if devname == nil then
 		-- error when parsing
 		-- it's okay, since user may have mistyped, or there's no media
 		--RAME.log.error(("Invalid output from command df %s: %s"):format(path, out))
 		return nil
 	end
 	return {
-		filesystem=fs,
+		mountpoint=mountpoint,
+		type=RAME.mountpoint_fstype[mountpoint] or "?",
 		blocks=tonumber(blocks),
 		used=tonumber(used),
 		available=tonumber(available),

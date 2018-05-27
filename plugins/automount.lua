@@ -58,6 +58,8 @@ local function media_changed(name, mounted)
 
 		RAME.media[uuid] = mountpoint
 
+		RAME.mountpoint_fstype[mountpoint] = ptype
+
 		local item = Item.new{
 			["type"]="device",
 			title=label or name,
@@ -94,6 +96,7 @@ local function media_changed(name, mounted)
 		RAME.system.media_mount({ mounted = true, mountpoint = mountpoint })
 	else
 		RAME.log.info(("Device '%s': umounting"):format(devname))
+		RAME.mountpoint_fstype[mountpoint] = nil
 		process.run("umount", "-l", mountpoint)
 		posix.rmdir(mountpoint)
 		RAME.system.media_mount({ mounted = false, mountpoint = mountpoint })
