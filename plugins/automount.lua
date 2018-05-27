@@ -119,6 +119,11 @@ function Plugin.init()
 	end
 end
 
+function Plugin.umount(dev)
+	RAME.log.info(("Manual umount: %s"):format(dev))
+	media_changed(dev, false)
+end
+
 function Plugin.main()
 	-- Mount existing nodes and setup notifications on them
 	local n = notify.opendir("/dev/", 0)

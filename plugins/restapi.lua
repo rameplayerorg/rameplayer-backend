@@ -209,6 +209,13 @@ function DISK.PUT.status(ctx, reply)
 	}
 end
 
+-- REST API: /disk/umount/
+function DISK.PUT.umount(ctx, reply)
+	--local devname = "/dev/"..ctx.args.dev
+	print("/disk/umount", ctx.args.dev)
+	RAME.plugins["automount.lua"].umount(ctx.args.dev)
+end
+
 -- REST API: /status/
 function RAME.rest.status(ctx, reply)
 	if ctx.method ~= "GET" and ctx.method ~= "POST" then return 405 end
