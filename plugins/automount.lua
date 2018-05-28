@@ -22,20 +22,33 @@ local data_devices = {
 	"mmcblk0p2"
 }
 
+local mount_statuses = {
+	mounted = 1,
+	removed = 2,
+	manual_umount = 3,
+}
+
 local items = {}
 
-local function media_changed(name, mounted)
-	local devname = "/dev/"..name
-	local mountpoint = "/media/"..name
-
+local function unlink_items(name)
 	local item = items[name]
 	if item then
 		RAME.media[item.id] = nil
 		item:unlink(true)
 		items[name] = nil
 	end
+end
 
-	if mounted then
+local function media_changed(name, mount_status)
+	local devname = "/dev/"..name
+	local mountpoint = "/media/"..name
+
+	if mount_status ~= mount_statuses.manual_umount then
+		-- in case of manual umount, we do this only when it was successful
+		unlink_items(name)
+	end
+
+	if mount_status == mount_statuses.mounted then
 		local blkid = process.popen("blkid", devname):read_all() or ""
 		local label = blkid and blkid:match(' LABEL="([^"]+)"') or "NONAME"
 		local uuid  = blkid and blkid:match(' UUID="(%S+)"') or stamp.uuid()
@@ -94,12 +107,26 @@ local function media_changed(name, mounted)
 			end
 		end
 		RAME.system.media_mount({ mounted = true, mountpoint = mountpoint })
-	else
-		RAME.log.info(("Device '%s': umounting"):format(devname))
+	elseif mount_status == mount_statuses.removed then
+		RAME.log.info(("Device '%s': removed, umounting"):format(devname))
 		RAME.mountpoint_fstype[mountpoint] = nil
 		process.run("umount", "-l", mountpoint)
 		posix.rmdir(mountpoint)
 		RAME.system.media_mount({ mounted = false, mountpoint = mountpoint })
+	elseif mount_status == mount_statuses.manual_umount then
+		RAME.log.info(("Device '%s': manual umount"):format(devname))
+		process.run("sync")
+		local err = process.popen_err("umount", mountpoint):read_all() or ""
+		if err ~= "" then
+			RAME.log.error(("umounting %s failed: %s"):format(mountpoint, err))
+			return err
+		else
+			unlink_items(name)
+			RAME.mountpoint_fstype[mountpoint] = nil
+			posix.rmdir(mountpoint)
+			RAME.system.media_mount({ mounted = false, mountpoint = mountpoint })
+			return nil
+		end
 	end
 end
 
@@ -120,8 +147,7 @@ function Plugin.init()
 end
 
 function Plugin.umount(dev)
-	RAME.log.info(("Manual umount: %s"):format(dev))
-	media_changed(dev, false)
+	return media_changed(dev, mount_statuses.manual_umount)
 end
 
 function Plugin.main()
@@ -130,7 +156,7 @@ function Plugin.main()
 	for _, name in ipairs(data_devices) do
 		n:add(name)
 		if posix.stat("/dev/"..name) then
-			media_changed(name, true)
+			media_changed(name, mount_statuses.mounted)
 		end
 	end
 
@@ -138,9 +164,9 @@ function Plugin.main()
 	for changes, name in n:changes() do
 		if name ~= "." then
 			if bit32.band(notify.CREATE, changes) == notify.CREATE then
-				media_changed(name, true)
+				media_changed(name, mount_statuses.mounted)
 			elseif bit32.band(notify.DELETE, changes) == notify.DELETE then
-				media_changed(name, false)
+				media_changed(name, mount_statuses.removed)
 			end
 		end
 	end

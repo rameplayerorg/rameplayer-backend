@@ -213,7 +213,12 @@ end
 function DISK.PUT.umount(ctx, reply)
 	--local devname = "/dev/"..ctx.args.dev
 	print("/disk/umount", ctx.args.dev)
-	RAME.plugins["automount.lua"].umount(ctx.args.dev)
+	local res = RAME.plugins["automount.lua"].umount(ctx.args.dev)
+	if res == nil then
+		return 200, {}
+	else
+		return 500, { error = res }
+	end
 end
 
 -- REST API: /status/
