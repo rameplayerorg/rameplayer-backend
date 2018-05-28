@@ -73,6 +73,8 @@ local function media_changed(name, mount_status)
 
 		RAME.mountpoint_fstype[mountpoint] = ptype
 
+		local saferemove = (ptype == 'exfat' or ptype == 'ntfs')
+
 		local item = Item.new{
 			["type"]="device",
 			title=label or name,
@@ -81,6 +83,7 @@ local function media_changed(name, mount_status)
 			playlistsfile="/.rameplaylists.json",
 			id=uuid,
 			uri="file://"..uuid,
+			saferemove=saferemove,
 		}
 		items[name] = item
 		RAME.root:add(item)

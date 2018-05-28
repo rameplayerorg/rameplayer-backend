@@ -32,6 +32,7 @@ local function rest_info(item)
 		uri = item.uri,
 		autoPlayNext = item.autoPlayNext,
 		storage = item.container and item.container.id,
+		saferemove = item.saferemove,
 	}
 end
 
