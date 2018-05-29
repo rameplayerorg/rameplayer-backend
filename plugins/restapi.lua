@@ -194,19 +194,42 @@ end
 -- REST API: /disk/
 local DISK = { PUT = {} }
 
+-- used while recording:
+local last_disk_space_time = 0
+local last_disk_space = nil
+
 -- REST API: /disk/status/
 function DISK.PUT.status(ctx, reply)
 	local dirname = plpath.dirname(ctx.args.path)
 	local fstat = posix.stat(ctx.args.path)
 	local dstat = posix.stat(dirname)
-	local space = 0
+	local space = nil
+	local statusline = nil
+	local warn = nil
+	local err = nil
 	if RAME.recorder.enabled() then
-		space = RAME.get_disk_space(dirname)
+		if RAME.recorder.running() then
+			-- check disk space less often (while recording)
+			local time = cqueues.monotime()
+			if time > last_disk_space_time + 15 or last_disk_space == nil then
+				last_disk_space_time = time
+				last_disk_space = RAME.get_disk_space(dirname)
+			end
+			space = last_disk_space
+		else
+			space = RAME.get_disk_space(dirname)
+		end
+		statusline = RAME.recorder.last_statusline
+		warn = RAME.recorder.last_warning
+		err = RAME.recorder.last_error
 	end
 	return 200, {
 		space=space,
 		file=fstat,
 		dir=dstat,
+		info=statusline,
+		warn=warn,
+		error=err,
 	}
 end
 

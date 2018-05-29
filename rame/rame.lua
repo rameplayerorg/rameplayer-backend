@@ -55,6 +55,9 @@ local RAME = {
 		running = push.property(false, "Streaming / recording in progress"),
 		streaming = push.property(false, "Streaming in progress"),
 		recording = push.property(false, "Recording in progress"),
+		last_statusline,
+		last_warning,
+		last_error,
 	},
 	localui = {
 		states = {

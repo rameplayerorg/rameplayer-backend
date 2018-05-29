@@ -87,6 +87,7 @@ local function write_script(data)
 	posix.chmod(SCRIPT_PATH, "rwxrwxrwx")
 end
 
+
 -- Starts bmd-streamer
 local function start_process(cfg)
 	RAME.recorder.running(true)
@@ -164,18 +165,113 @@ local function start_process(cfg)
 				table.insert(cmd, "" .. cfg.fpsDivider)
 			end
 
-			RAME.log.debug('cmd:', table.unpack(cmd))
-			Plugin.process = process.spawn(table.unpack(cmd))
+			--RAME.log.debug('cmd:', table.unpack(cmd))
+			--Plugin.process = process.spawn(table.unpack(cmd))
 
-			-- wait until process is terminated
-			local status = Plugin.process:wait()
-			RAME.log.info(('bmd-streamer terminated: %d'):format(status))
+			RAME.recorder.last_statusline = nil
+			RAME.recorder.last_warning = nil
+			RAME.recorder.last_error = nil
+
+			local out, process = process.popen_err(table.unpack(cmd))
+			if out ~= nil and process ~= nil then
+				Plugin.process = process
+				local start_time = cqueues.monotime()
+				local read_buf = ""
+				local finished = false
+				local encoder_started = false
+				local scheduled_stop = 0
+				repeat
+					-- split buffered read of stderr data to lines
+					local line_sep = '[\r\n]'  -- accept both \r,\n for endline
+					local line = nil
+					local stop_reading = false
+					local data, errmsg, errnum
+					repeat
+						data, errmsg, errnum = out:read(30)
+						if data == nil and errnum == posix.EAGAIN then
+							cqueues.poll(out)
+						elseif data == nil or #data == 0 then
+							finished = true
+							stop_reading = true
+							line = read_buf -- last line w/o endline
+						else
+							local nlpos = data:find(line_sep)
+							if nlpos == nil then
+								-- add to buffer, keep reading more
+								read_buf = read_buf .. data
+							else
+								-- line = prev.buffer and current data up to newline
+								line = read_buf .. data:sub(1, nlpos - 1)
+								-- rest of current data is buffered for next line
+								read_buf = data:sub(nlpos + 1)
+								stop_reading = true
+							end
+						end
+					until stop_reading
+
+					-- process a single line
+					--print("# "..line)  -- for debug
+
+					local rec_time = cqueues.monotime() - start_time
+
+					-- don't send initial lines as status
+					if rec_time > 5 or line:find("frame=") then
+						RAME.recorder.last_statusline = line
+					end
+					
+					if rec_time > 5 then
+						if line:find("error writing MPEG TS: Resource temporarily unavailable") then
+							-- "write errors" may happen at start, but should not come later
+							RAME.recorder.last_warning = "Write error (USB drive may be too slow)"
+						elseif (line:find("Error parsing") or line:find("Error applying")) then
+							RAME.recorder.last_warning = "Data error (USB drive may be too slow)"
+						elseif line:find("AAC bitstream not in ADTS format") then
+							RAME.recorder.last_warning = "Audio error (USB drive may be too slow)"
+						end
+					end
+
+					if not encoder_started then
+						if line:find("ffmpeg") or line:find("frame=") or line:find("configuring and starting encoder") then
+							encoder_started = true
+						elseif rec_time > 8 then
+							RAME.recorder.last_error = "Encoder doesn't seem to start"
+						end
+					end
+
+					if line:find("No space left on device") then
+						RAME.recorder.last_warning = "Out of disk space!"
+						finished = true
+					end
+
+					if line:find("error writing MPEG TS: Broken pipe") or line:find("stopping encoder") then
+						RAME.recorder.last_error = "Encoder stopped unexpectedly"
+						finished = true
+					end
+
+				until finished
+				out:close()
+
+				---- wait until process is terminated
+				--local status = Plugin.process:wait()
+				--RAME.log.info(('bmd-streamer terminated: %d'):format(status))
+				RAME.log.info("Recording/streaming ended")
+			else
+				RAME.log.error("Can't start bmd-streamer process")
+			end
+
 			RAME.recorder.running(false)
 			RAME.recorder.recording(false)
 			RAME.recorder.streaming(false)
 			Plugin.recording = false
 			Plugin.streaming = false
 			Plugin.process = nil
+
+			-- clear only after a while
+			-- otherwise the UI will miss the last notifications
+			-- (todo: should refine this to be more robust)
+			cqueues.poll(5.0)
+			RAME.recorder.last_error = nil
+			RAME.recorder.last_warning = nil
 		end
 
 		if cfg.recorderEnabled then
@@ -184,7 +280,7 @@ local function start_process(cfg)
 			-- make sure mountpoint is remounted ro after stopping recording
 			RAME.remounter:wrap(mountpoint, run)
 		else
-			run()
+			run()  -- just streaming
 		end
 	end)
 
