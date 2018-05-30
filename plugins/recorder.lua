@@ -256,13 +256,13 @@ local function start_process(cfg)
 
 					if line:find("No space left on device") then
 						RAME.recorder.last_warning = "Out of disk space!"
-						RAME.recorder.log.warn("Out of disk space while recording")
+						RAME.log.warn("Out of disk space while recording")
 						finished = true
 					end
 
 					if not Plugin.stopping and (line:find("error writing MPEG TS: Broken pipe") or line:find("stopping encoder")) then
 						RAME.recorder.last_error = "Encoder stopped unexpectedly"
-						RAME.recorder.log.warn(RAME.recorder.last_error)
+						RAME.log.warn(RAME.recorder.last_error)
 						finished = true
 					end
 
