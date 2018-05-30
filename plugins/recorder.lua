@@ -176,7 +176,8 @@ local function start_process(cfg)
 				table.insert(cmd, "" .. cfg.fpsDivider)
 			end
 
-			--RAME.log.debug('cmd:', table.unpack(cmd))
+			RAME.log.info("start streaming/recording")
+			RAME.log.debug('cmd:', table.unpack(cmd))
 			--Plugin.process = process.spawn(table.unpack(cmd))
 
 			RAME.recorder.last_statusline = nil
@@ -229,8 +230,8 @@ local function start_process(cfg)
 					if rec_time > 5 or line:find("frame=") then
 						RAME.recorder.last_statusline = line
 					end
-					
-					if rec_time > 5 then
+
+					if rec_time > 15 then
 						if line:find("error writing MPEG TS: Resource temporarily unavailable") then
 							-- "write errors" may happen at start, but should not come later
 							RAME.recorder.last_warning = "Write error (USB drive may be too slow)"
