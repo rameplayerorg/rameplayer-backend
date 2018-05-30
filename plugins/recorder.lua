@@ -36,6 +36,7 @@ local Plugin = {}
 Plugin.settings = nil
 Plugin.streaming = false
 Plugin.recording = false
+Plugin.stopping = false
 
 -- REST API: /recorder/
 local RECORDER = { GET = {}, PUT = {} }
@@ -88,8 +89,18 @@ local function write_script(data)
 end
 
 
+local function stop_process()
+	Plugin.stopping = true
+	RAME.log.debug('stop streaming/recording')
+	if Plugin.process then
+		Plugin.process:kill(15)
+	end
+	Plugin.process = nil
+end
+
 -- Starts bmd-streamer
 local function start_process(cfg)
+	Plugin.stopping = false
 	RAME.recorder.running(true)
 	if cfg.recorderEnabled then
 		Plugin.recording = true
@@ -108,7 +119,7 @@ local function start_process(cfg)
 			local cmd = {
 				BMD_STREAMER,
 				"-S", cfg.input,
-				"--syslog",
+				-- "--syslog", -- we want stderr instead
 				"--firmware-dir", FIRMWARE_PATH,
 				"--exec", SCRIPT_PATH,
 			}
@@ -223,28 +234,35 @@ local function start_process(cfg)
 						if line:find("error writing MPEG TS: Resource temporarily unavailable") then
 							-- "write errors" may happen at start, but should not come later
 							RAME.recorder.last_warning = "Write error (USB drive may be too slow)"
+							RAME.log.warn(RAME.recorder.last_warning)
 						elseif (line:find("Error parsing") or line:find("Error applying")) then
 							RAME.recorder.last_warning = "Data error (USB drive may be too slow)"
+							RAME.log.warn(RAME.recorder.last_warning)
 						elseif line:find("AAC bitstream not in ADTS format") then
 							RAME.recorder.last_warning = "Audio error (USB drive may be too slow)"
+							RAME.log.warn(RAME.recorder.last_warning)
 						end
 					end
 
 					if not encoder_started then
 						if line:find("ffmpeg") or line:find("frame=") or line:find("configuring and starting encoder") then
 							encoder_started = true
+							RAME.log.info("Encoder started")
 						elseif rec_time > 8 then
 							RAME.recorder.last_error = "Encoder doesn't seem to start"
+							RAME.log.warn(RAME.recorder.last_error)
 						end
 					end
 
 					if line:find("No space left on device") then
 						RAME.recorder.last_warning = "Out of disk space!"
+						RAME.recorder.log.warn("Out of disk space while recording")
 						finished = true
 					end
 
-					if line:find("error writing MPEG TS: Broken pipe") or line:find("stopping encoder") then
+					if not Plugin.stopping and (line:find("error writing MPEG TS: Broken pipe") or line:find("stopping encoder")) then
 						RAME.recorder.last_error = "Encoder stopped unexpectedly"
+						RAME.recorder.log.warn(RAME.recorder.last_error)
 						finished = true
 					end
 
@@ -259,12 +277,13 @@ local function start_process(cfg)
 				RAME.log.error("Can't start bmd-streamer process")
 			end
 
+			stop_process()
+
 			RAME.recorder.running(false)
 			RAME.recorder.recording(false)
 			RAME.recorder.streaming(false)
 			Plugin.recording = false
 			Plugin.streaming = false
-			Plugin.process = nil
 
 			-- clear only after a while
 			-- otherwise the UI will miss the last notifications
@@ -272,6 +291,7 @@ local function start_process(cfg)
 			cqueues.poll(5.0)
 			RAME.recorder.last_error = nil
 			RAME.recorder.last_warning = nil
+			Plugin.stopping = false
 		end
 
 		if cfg.recorderEnabled then
@@ -340,8 +360,7 @@ end
 
 function RECORDER.GET.stop(ctx, reply)
 	if Plugin.process then
-		RAME.log.debug('stop streaming/recording')
-		Plugin.process:kill(15)
+		stop_process()
 		return 200, {}
 	end
 	return 500, { error = "bmd-streamer was not running" }
