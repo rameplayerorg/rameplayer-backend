@@ -126,10 +126,10 @@ local function start_process(cfg)
 
 			if cfg.recorderEnabled then
 				table.insert(cmd, "-z")
-				if tonumber(cfg.avgVideoBitrate) > 3500 then
-					table.insert(cmd, "1024")
+				if tonumber(cfg.avgVideoBitrate) > 3000 then
+					table.insert(cmd, "8192")
 				else
-					table.insert(cmd, "512")
+					table.insert(cmd, "4096")
 				end
 			end
 
