@@ -1,6 +1,7 @@
 -- Must be safe version of cjson-lib for error handling
 local json = require 'cjson.safe'
 local plpath = require 'pl.path'
+local pldir = require 'pl.dir'
 local plutils = require 'pl.utils'
 local cqueues = require 'cqueues'
 local posix = require 'posix'
@@ -310,10 +311,20 @@ local function start_process(cfg)
 	return RAME.recorder.running()
 end
 
+local function check_firmware_binaries()
+	if not plpath.isdir(FIRMWARE_PATH) or
+	  #pldir.getfiles(FIRMWARE_PATH, "*.bin") == 0 then
+		local errmsg = "Recorder firmware binaries are missing"
+		RAME.recorder.last_error = errmsg
+		RAME.log.error(errmsg)
+	end
+end
+
 -- udev script calls GET /recorder/enable when device is plugged in
 function RECORDER.GET.enable()
 	RAME.recorder.enabled(true)
 	RAME.log.info('Recorder device connected')
+	check_firmware_binaries()
 	return 200, {}
 end
 
@@ -373,6 +384,7 @@ function Plugin.init()
 
 	if RAME.recorder.enabled() then
 		RAME.log.info('Recorder device detected')
+		check_firmware_binaries()
 	else
 		RAME.log.info('Recorder device not detected')
 	end
