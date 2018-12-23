@@ -257,6 +257,7 @@ function RAME:action(command, item_id, pos)
 		self.player.__itemrepeat = (command == "repeatplay")
 		self.player.__autoplay = (command == "autoplay") or parent.autoPlayNext
 		self.player.__playing = true
+		if parent and parent.shufflePlay then parent:refresh_shuffle_order() end
 		if pos then
 			if pos < 0 then
 				self.player.__wait = -pos
@@ -447,7 +448,8 @@ function RAME.load_playlists(item, bootmedia)
 		RAME.root:add(pitem)
 		if name == "autoplay" and #pitem.items > 0
 		   and (bootmedia or RAME.user_settings.autoplayUsb) then
-			RAME:action("autoplay", pitem.items[1].id)
+			--RAME:action("autoplay", pitem.items[1].id)
+			RAME:action("autoplay", pitem.get_first_play_item_id())
 		end
 	end
 end

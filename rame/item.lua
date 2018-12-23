@@ -90,6 +90,9 @@ function Item:add(item)
 	if not item then return end
 	if item.parent then item.parent:del(item) end
 	table.insert(self.items, item)
+	if self.shufflePlay then
+		self:refresh_shuffle_order()
+	end
 	self:touch()
 	item.parent = self
 end
@@ -100,7 +103,31 @@ function Item:del(item)
 	if idx then
 		table.remove(self.items, idx)
 		item.parent = nil
+		if self.shufflePlay then
+			self:refresh_shuffle_order()
+		end
 		self:touch()
+	end
+end
+
+function Item:get_first_play_item_id()
+	if not self.items or #self.items < 1 then return nil end
+	if self.shufflePlay then
+		return self.items[self.shuffle_order[1]].id
+	end
+	return self.items[1].id
+end
+
+function Item:refresh_shuffle_order()
+	if type(self.items) ~= "table" then return end
+	if not self.shufflePlay then return end
+	self.shuffle_order = {}
+	for a = 1, #self.items do
+		self.shuffle_order[a] = a
+	end
+	for i = #self.shuffle_order, 2, -1 do
+		local j = math.random(i)
+		self.shuffle_order[i], self.shuffle_order[j] = self.shuffle_order[j], self.shuffle_order[i]
 	end
 end
 
@@ -185,11 +212,15 @@ function Item:load_playlists(lists, save_func)
 			title = list.title or "unknown",
 			["repeat"] = list["repeat"],
 			autoPlayNext = list.autoPlayNext,
+			shufflePlay = list.shufflePlay or false,
 			editable = true,
 			items = {}
 		}
 		for _, c in pairs(list.items or {}) do
 			item:add(Item.new { id = c.id, title = c.title, uri = c.uri, editable = true })
+		end
+		if item.shufflePlay then
+			item:refresh_shuffle_order()
 		end
 		self:add_playlist(item)
 	end
@@ -214,6 +245,7 @@ function Item:save_playlists()
 				title = pitem.title,
 				["repeat"] = pitem["repeat"],
 				autoPlayNext = pitem.autoPlayNext,
+				shufflePlay = pitem.shufflePlay or false,
 				items = list,
 			})
 		end
@@ -244,11 +276,20 @@ function Item:navigate(backwards, with_dirs)
 	local ndx = tablex.find(parent.items, self)
 	if not ndx then return self, true end
 
+	if parent.shufflePlay then
+		-- make ndx index in the shuffle instead of actual list order
+		ndx = tablex.find(parent.shuffle_order, ndx)
+	end
+
 	for i = 1, #parent.items do
 		ndx = ndx + inc
 		if ndx < 1 then ndx, wrapped = #parent.items, true
 		elseif ndx > #parent.items then ndx, wrapped = 1, true end
-		item = parent.items[ndx]
+		if parent.shufflePlay then
+			item = parent.items[parent.shuffle_order[ndx]]
+		else
+			item = parent.items[ndx]
+		end
 		if with_dirs or (item.uri and (item.type == "regular" or item.type == "chapter")) then
 			return item, wrapped
 		end

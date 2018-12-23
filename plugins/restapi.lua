@@ -31,6 +31,7 @@ local function rest_info(item)
 		height = item.height,
 		uri = item.uri,
 		autoPlayNext = item.autoPlayNext,
+		shufflePlay = item.shufflePlay or false,
 		storage = item.container and item.container.id,
 		saferemove = item.saferemove,
 	}
@@ -74,6 +75,7 @@ function LISTS.POST(ctx, reply)
 			editable = true,
 			["repeat"] = ctx.args["repeat"],
 			autoPlayNext = ctx.args.autoPlayNext,
+			shufflePlay = ctx.args.shufflePlay or false,
 			items = {}
 		}
 		for _, c in pairs(ctx.args.items) do
@@ -129,6 +131,7 @@ function LISTS.PUT(ctx, reply)
 		end
 		item["repeat"] = ctx.args["repeat"]
 		item.autoPlayNext = ctx.args.autoPlayNext
+		item.shufflePlay = ctx.args.shufflePlay or false
 		if item.title ~= ctx.args.title or item.container ~= storage then
 			if item.container then item.container:del_playlist(item) end
 			item.title = ctx.args.title
