@@ -449,7 +449,7 @@ function RAME.load_playlists(item, bootmedia)
 		if name == "autoplay" and #pitem.items > 0
 		   and (bootmedia or RAME.user_settings.autoplayUsb) then
 			--RAME:action("autoplay", pitem.items[1].id)
-			RAME:action("autoplay", pitem.get_first_play_item_id())
+			RAME:action("autoplay", pitem:get_first_play_item_id())
 		end
 	end
 end
