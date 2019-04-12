@@ -247,8 +247,14 @@ function SETTINGS.GET.system(ctx, reply)
 		end
 	end
 
-	local ntp_server = plfile.read("/etc/ntp.conf")
-	if ntp_server then conf.ntpServerAddress = ntp_server:match("server ([^\n]+)") end
+	local ntp_conf = plfile.read("/etc/ntp.conf")
+	if ntp_conf then
+		local servers = nil
+		for w in string.gmatch(ntp_conf, "server ([^\n]+)") do
+			servers = (servers and servers.."," or "") .. w
+		end
+		conf.ntpServerAddress = servers
+	end
 
 	conf.dateAndTimeInUTC = os.date("!%Y-%m-%d %T")
 
@@ -535,10 +541,15 @@ function SETTINGS.POST.system(ctx, reply)
 
 	-- optional
 	if args.ntpServerAddress then
-		local ntp_server = plfile.read("/etc/ntp.conf")
-		local str = "server "..args.ntpServerAddress.."\n"
-		if ntp_server and ntp_server ~= str then
-			if not plfile.write("/etc/ntp.conf", str) then
+		local ntp_conf = plfile.read("/etc/ntp.conf")
+		local new_conf = ""
+		print("DEBUG: ", args.ntpServerAddress)
+		for _,w in pairs(plutils.split(args.ntpServerAddress, ',')) do
+			new_conf = new_conf .. "server "..w.."\n"
+		end
+
+		if ntp_conf ~= new_conf then
+			if not plfile.write("/etc/ntp.conf", new_conf) then
 				RAME.log.error("File write error: ".."/etc/ntp.conf")
 				return 500, { error="File write error: ".."/etc/ntp.conf" }
 			end
