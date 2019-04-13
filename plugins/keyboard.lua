@@ -28,10 +28,19 @@ function Plugin.main()
 	local factory_reset_seq_actions = { "menu", "stop", "ok" }
 	local factory_reset_seq_pos = 1
 	local factory_reset_seq_time = 0
+	local hold_pause = false
+
 	kbd:grab(true)
+
 	while true do
 		cqueues.poll(kbd)
 		local timestamp, eventType, eventCode, value = kbd:read()
+
+		if actions[eventCode] == "pause" then
+			if value == 1 then hold_pause = true
+			elseif value == 0 then hold_pause = false end
+		end
+
 		if value ~= 0 and actions[eventCode] then
 			local rerouted_key = false
 
@@ -39,13 +48,21 @@ function Plugin.main()
 			--       how different controls are made for RAME.player.control
 			if RAME.config.second_display and actions[eventCode] == "play" then
 				if RAME.localui.state() == RAME.localui.states.FILE_BROWSER then
-					RAME.localui.button_play(true)
+					if hold_pause then 
+						RAME.localui.button_repeatplay(true)
+					else
+						RAME.localui.button_play(true)
+					end
 					rerouted_key = true
 				end
 			end
 
 			if not rerouted_key then
-				RAME:action(actions[eventCode])
+				if RAME.player.status() == "stopped" and hold_pause and actions[eventCode] == "play" then
+					RAME:action("repeatplay")
+				else
+					RAME:action(actions[eventCode])
+				end
 			end
 		end
 

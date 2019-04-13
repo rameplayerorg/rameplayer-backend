@@ -382,15 +382,20 @@ local function update_local_ui_file_browser(out)
 		end
 	end
 
-	if RAME.localui.button_play() then
+	if RAME.localui.button_play() or RAME.localui.button_repeatplay() then
 		local playable = ctx.cursor_item and (ctx.cursor_item.type =="regular" or ctx.cursor_item.type == "chapter")
 		if status == "stopped" and playable then
 			RAME.player.cursor(ctx.cursor_item.id)
-			RAME:action("play")
+			if RAME.localui.button_play() then
+				RAME:action("play")
+			elseif RAME.localui.button_repeatplay() then
+				RAME:action("repeatplay")
+			end
 		elseif status == "paused" and playable and ctx.cursor_item == rame_player_cursor_item then
 			RAME:action("play")
 		end
 		RAME.localui.button_play(false)
+		RAME.localui.button_repeatplay(false)
 	end
 
 	if RAME.localui.button_ok() then
@@ -447,17 +452,18 @@ function Plugin.main()
 	RAME.recorder.streaming:push_to(update)
 	RAME.remounter.rw_mount_count:push_to(update)
 
-	--S[1..7]:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering), 6(waiting), 7(memcard), 8(folder), 9(playlist), A(recording), B(streaming)
+	--S[0..9,A-C]:0(no space), 1(empty), 2(play), 3(pause), 4(stopped), 5(buffering), 6(waiting), 7(memcard), 8(folder), 9(playlist), A(recording), B(streaming), C(repeatplay)
 	--T:a,b
 	--X[1..7]:text
 	--P[1..8]:0-1000[,AARRGGBB] -- above which row:progress,color
 	--V:0(disabled), 1(enabled) -- video cloning
 	--O[1..7]:AARRGGBB[,AARRGGBB] -- set fg/bg color
 	local statmap = {
-		playing = 2,
-		paused = 3,
-		buffering = 5,
-		waiting = 6,
+		playing = '2',
+		paused = '3',
+		buffering = '5',
+		waiting = '6',
+		repeatplay = 'C',
 	}
 	local vidmap = {
 		playing = 1,
@@ -481,7 +487,7 @@ function Plugin.main()
 
 		local status = RAME.player.status()
 		local reboot_required = RAME.system.reboot_required()
-		local play_status_id = statmap[status] or 0
+		local play_status_id = statmap[status] or nil
 		local local_ui_state = RAME.localui.state()
 		local video_enabled = vidmap[status] or 0
 		local turn_off_menu = false
@@ -539,8 +545,12 @@ function Plugin.main()
 			goto update_done
 		end
 
-		if play_status_id > 0 then
-			out:write(("S:%d\n"):format(play_status_id))
+		if status == "playing" and RAME.player.__itemrepeat then
+			play_status_id = statmap.repeatplay
+		end
+
+		if play_status_id ~= nil then
+			out:write(("S:%c\n"):format(play_status_id:byte(1)))
 		end
 
 		if recording or streaming then
@@ -641,7 +651,7 @@ function Plugin.main()
 				-- don't show time when we're still buffering
 				out:write("X7:\n") -- empty last row
 			end
-		elseif play_status_id > 0 then
+		elseif play_status_id ~= nil then
 			-- Default status for 2 last rows: filename, status icon and play time info
 			local position = RAME.player.position()
 			local duration = RAME.player.duration()

@@ -71,6 +71,7 @@ local RAME = {
 		rotary_delta = push.property(0, "Rotary delta"), -- when not directly to headphone volume
 		button_ok = push.property(false, "OK button"),
 		button_play = push.property(false, "Rerouted Play button"),
+		button_repeatplay = push.property(false, "Rerouted Repeat-Play"),
 	},
 	cluster = {
 		controller = push.property(false, "Cluster controller text"),
