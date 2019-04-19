@@ -46,18 +46,188 @@ local ipv4_masks = {
 local ipv4_masks_rev = revtable(ipv4_masks)
 
 -- supported (selection) resolutions on RPi
+local rpi_resolution_string_match_to_hdmigroup = {
+	-- rpi_resolutions keys are matched with these keys:
+	rameAuto = "hdmi_group=0", -- "rameAutodetect"
+	rameCEA = "hdmi_group=1", -- all "rameCEA..." entries
+	rameDMT = "hdmi_group=2", -- all "rameDMT..." entries
+}
 local rpi_resolutions = {
 	rameAutodetect = "#hdmi_mode=autodetect",
-	rame720p50 = "hdmi_mode=19",
-	rame720p60 = "hdmi_mode=4",
-	rame1080i50 = "hdmi_mode=20",
-	rame1080i60 = "hdmi_mode=5",
-	rame1080p50 = "hdmi_mode=31",
-	rame1080p60 = "hdmi_mode=16",
-	rameAnalogPAL = "sdtv_mode=2 #Normal PAL",
-	rameAnalogNTSC = "sdtv_mode=0 #Normal NTSC",
+	-- Analog modes:
+	rameAnalogNTSC            = "sdtv_mode=0 #Normal NTSC",
+	rameAnalogNTSCJapan       = "sdtv_mode=1 #NTSC Japan",
+	rameAnalogPAL             = "sdtv_mode=2 #Normal PAL",
+	rameAnalogPALBrazil       = "sdtv_mode=3 #PAL Brazil",
+	rameAnalogNTSCProgressive = "sdtv_mode=16 #Progressive NTSC",
+	rameAnalogPALProgressive  = "sdtv_mode=18 #Progressive PAL",
+	-- "Legacy" rame resolution fields, upgraded to rameCEA* when found: (CEA modes in hdmi_group=1):
+	rame720p50  = "hdmi_mode=19",  --upgraded when found
+	rame720p60  = "hdmi_mode=4",   --upgraded when found
+	rame1080i50 = "hdmi_mode=20", --upgraded when found
+	rame1080i60 = "hdmi_mode=5",  --upgraded when found
+	rame1080p50 = "hdmi_mode=31", --upgraded when found
+	rame1080p60 = "hdmi_mode=16", --upgraded when found
+	-- postfixes: w=16:9 for modes which are usually 4:3,
+	--            pq=quad pixels, pd=double pixels, rb=reduced blanking
+	rameCEA1_VGA640x480 = "hdmi_mode=1 #CEA",
+	rameCEA2_480p60     = "hdmi_mode=2 #CEA",
+	rameCEA3_480p60w    = "hdmi_mode=3 #CEA",
+	rameCEA4_720p60     = "hdmi_mode=4 #CEA",
+	rameCEA5_1080i60    = "hdmi_mode=5 #CEA",
+	rameCEA6_480i60     = "hdmi_mode=6 #CEA",
+	rameCEA7_480i60w    = "hdmi_mode=7 #CEA",
+	rameCEA8_240p60     = "hdmi_mode=8 #CEA",
+	rameCEA9_240p60w    = "hdmi_mode=9 #CEA",
+	rameCEA10_480i60pq  = "hdmi_mode=10 #CEA",
+	rameCEA11_480i60pqw = "hdmi_mode=11 #CEA",
+	rameCEA12_240p60pq  = "hdmi_mode=12 #CEA",
+	rameCEA13_240p60pqw = "hdmi_mode=13 #CEA",
+	rameCEA14_480p60pd  = "hdmi_mode=14 #CEA",
+	rameCEA15_480p60pdw = "hdmi_mode=15 #CEA",
+	rameCEA16_1080p60   = "hdmi_mode=16 #CEA",
+	rameCEA17_576p50    = "hdmi_mode=17 #CEA",
+	rameCEA18_576p50w   = "hdmi_mode=18 #CEA",
+	rameCEA19_720p50    = "hdmi_mode=19 #CEA",
+	rameCEA20_1080i50   = "hdmi_mode=20 #CEA",
+	rameCEA21_576i50    = "hdmi_mode=21 #CEA",
+	rameCEA22_576i50w   = "hdmi_mode=22 #CEA",
+	rameCEA23_288p50    = "hdmi_mode=23 #CEA",
+	rameCEA24_288p50w   = "hdmi_mode=24 #CEA",
+	rameCEA25_576i50pq  = "hdmi_mode=25 #CEA",
+	rameCEA26_576i50pqw = "hdmi_mode=26 #CEA",
+	rameCEA27_288p50pq  = "hdmi_mode=27 #CEA",
+	rameCEA28_288p50pqw = "hdmi_mode=28 #CEA",
+	rameCEA29_576p50pd  = "hdmi_mode=29 #CEA",
+	rameCEA30_576p50pdw = "hdmi_mode=30 #CEA",
+	rameCEA31_1080p50   = "hdmi_mode=31 #CEA",
+	rameCEA32_1080p24   = "hdmi_mode=32 #CEA",
+	rameCEA33_1080p25   = "hdmi_mode=33 #CEA",
+	rameCEA34_1080p30   = "hdmi_mode=34 #CEA",
+	rameCEA35_480p60pq  = "hdmi_mode=35 #CEA",
+	rameCEA36_480p60pqw = "hdmi_mode=36 #CEA",
+	rameCEA37_576p50pq  = "hdmi_mode=37 #CEA",
+	rameCEA38_576p50pqw = "hdmi_mode=38 #CEA",
+	rameCEA39_1080i50rb = "hdmi_mode=39 #CEA",
+	rameCEA40_1080i100  = "hdmi_mode=40 #CEA",
+	rameCEA41_720p100   = "hdmi_mode=41 #CEA",
+	rameCEA42_576p100   = "hdmi_mode=42 #CEA",
+	rameCEA43_576p100w  = "hdmi_mode=43 #CEA",
+	rameCEA44_576i100   = "hdmi_mode=44 #CEA",
+	rameCEA45_576i100w  = "hdmi_mode=45 #CEA",
+	rameCEA46_1080i120  = "hdmi_mode=46 #CEA",
+	rameCEA47_720p120   = "hdmi_mode=47 #CEA",
+	rameCEA48_480p120   = "hdmi_mode=48 #CEA",
+	rameCEA49_480p120w  = "hdmi_mode=49 #CEA",
+	rameCEA50_480i120   = "hdmi_mode=50 #CEA",
+	rameCEA51_480i120w  = "hdmi_mode=51 #CEA",
+	rameCEA52_576p200   = "hdmi_mode=52 #CEA",
+	rameCEA53_576p200w  = "hdmi_mode=53 #CEA",
+	rameCEA54_576i200   = "hdmi_mode=54 #CEA",
+	rameCEA55_576i200w  = "hdmi_mode=55 #CEA",
+	rameCEA56_480p240   = "hdmi_mode=56 #CEA",
+	rameCEA57_480p240w  = "hdmi_mode=57 #CEA",
+	rameCEA58_480i240   = "hdmi_mode=58 #CEA",
+	rameCEA59_480i240w  = "hdmi_mode=59 #CEA",
+	-- DMT modes: (hdmi_group=2)
+	-- postfixes: rb=reduced blanking
+	rameDMT1_640x350x85         = "hdmi_mode=1 #DMT",
+	rameDMT2_640x400x85         = "hdmi_mode=2 #DMT",
+	rameDMT3_720x400x85         = "hdmi_mode=3 #DMT",
+	rameDMT4_640x480x60         = "hdmi_mode=4 #DMT",
+	rameDMT5_640x480x72         = "hdmi_mode=5 #DMT",
+	rameDMT6_640x480x75         = "hdmi_mode=6 #DMT",
+	rameDMT7_640x480x85         = "hdmi_mode=7 #DMT",
+	rameDMT8_800x600x56         = "hdmi_mode=8 #DMT",
+	rameDMT9_800x600x60         = "hdmi_mode=9 #DMT",
+	rameDMT10_800x600x72        = "hdmi_mode=10 #DMT",
+	rameDMT11_800x600x75        = "hdmi_mode=11 #DMT",
+	rameDMT12_800x600x85        = "hdmi_mode=12 #DMT",
+	rameDMT13_800x600x120       = "hdmi_mode=13 #DMT",
+	rameDMT14_848x480x60        = "hdmi_mode=14 #DMT",
+	--rameDMT15_1024x768x43       = "hdmi_mode=15 #DMT", -- not RPi compatible
+	rameDMT16_1024x768x60       = "hdmi_mode=16 #DMT",
+	rameDMT17_1024x768x70       = "hdmi_mode=17 #DMT",
+	rameDMT18_1024x768x75       = "hdmi_mode=18 #DMT",
+	rameDMT19_1024x768x85       = "hdmi_mode=19 #DMT",
+	rameDMT20_1024x768x120      = "hdmi_mode=20 #DMT",
+	rameDMT21_1152x864x75       = "hdmi_mode=21 #DMT",
+	rameDMT22_1280x768rb        = "hdmi_mode=22 #DMT",
+	rameDMT23_1280x768x60       = "hdmi_mode=23 #DMT",
+	rameDMT24_1280x768x75       = "hdmi_mode=24 #DMT",
+	rameDMT25_1280x768x85       = "hdmi_mode=25 #DMT",
+	rameDMT26_1280x768x120rb    = "hdmi_mode=26 #DMT",
+	rameDMT27_1280x800rb        = "hdmi_mode=27 #DMT",
+	rameDMT28_1280x800x60       = "hdmi_mode=28 #DMT",
+	rameDMT29_1280x800x75       = "hdmi_mode=29 #DMT",
+	rameDMT30_1280x800x85       = "hdmi_mode=30 #DMT",
+	rameDMT31_1280x800x120rb    = "hdmi_mode=31 #DMT",
+	rameDMT32_1280x960x60       = "hdmi_mode=32 #DMT",
+	rameDMT33_1280x960x85       = "hdmi_mode=33 #DMT",
+	--rameDMT34_1280x960x120rb    = "hdmi_mode=34 #DMT", -- >pixel clock limit
+	rameDMT35_1280x1024x60      = "hdmi_mode=35 #DMT",
+	rameDMT36_1280x1024x75      = "hdmi_mode=36 #DMT",
+	rameDMT37_1280x1024x85      = "hdmi_mode=37 #DMT",
+	--rameDMT38_1280x1024x120rb   = "hdmi_mode=38 #DMT", -- >pixel clock limit
+	rameDMT39_1360x768x60       = "hdmi_mode=39 #DMT",
+	rameDMT40_1360x768x120rb    = "hdmi_mode=40 #DMT",
+	rameDMT41_1400x1050rb       = "hdmi_mode=41 #DMT",
+	rameDMT42_1400x1050x60      = "hdmi_mode=42 #DMT",
+	rameDMT43_1400x1050x75      = "hdmi_mode=43 #DMT",
+	rameDMT44_1400x1050x85      = "hdmi_mode=44 #DMT",
+	--rameDMT45_1400x1050x120rb   = "hdmi_mode=45 #DMT", -- >pixel clock limit
+	rameDMT46_1440x900rb        = "hdmi_mode=46 #DMT",
+	rameDMT47_1440x900x60       = "hdmi_mode=47 #DMT",
+	rameDMT48_1440x900x75       = "hdmi_mode=48 #DMT",
+	rameDMT49_1440x900x85       = "hdmi_mode=49 #DMT",
+	--rameDMT50_1440x900x120rb    = "hdmi_mode=50 #DMT", -- >pixel clock limit
+	rameDMT51_1600x1200x60      = "hdmi_mode=51 #DMT",
+	rameDMT52_1600x1200x65      = "hdmi_mode=52 #DMT",
+	--rameDMT53_1600x1200x70      = "hdmi_mode=53 #DMT", -- >pixel clock limit
+	--rameDMT54_1600x1200x75      = "hdmi_mode=54 #DMT", -- >pixel clock limit
+	--rameDMT55_1600x1200x85      = "hdmi_mode=55 #DMT", -- >pixel clock limit
+	--rameDMT56_1600x1200x120rb   = "hdmi_mode=56 #DMT", -- >pixel clock limit
+	rameDMT57_1680x1050rb       = "hdmi_mode=57 #DMT",
+	rameDMT58_1680x1050x60      = "hdmi_mode=58 #DMT",
+	--rameDMT59_1680x1050x75      = "hdmi_mode=59 #DMT", -- >pixel clock limit
+	--rameDMT60_1680x1050x85      = "hdmi_mode=60 #DMT", -- >pixel clock limit
+	--rameDMT61_1680x1050x120rb   = "hdmi_mode=61 #DMT", -- >pixel clock limit
+	--rameDMT62_1792x1344x60      = "hdmi_mode=62 #DMT", -- >pixel clock limit
+	--rameDMT63_1792x1344x75      = "hdmi_mode=63 #DMT", -- >pixel clock limit
+	--rameDMT64_1792x1344x120rb   = "hdmi_mode=64 #DMT", -- >pixel clock limit
+	--rameDMT65_1856x1392x60      = "hdmi_mode=65 #DMT", -- >pixel clock limit
+	--rameDMT66_1856x1392x75      = "hdmi_mode=66 #DMT", -- >pixel clock limit
+	--rameDMT67_1856x1392x120rb   = "hdmi_mode=67 #DMT", -- >pixel clock limit
+	rameDMT68_1920x1200rb       = "hdmi_mode=68 #DMT",
+	--rameDMT69_1920x1200x60    = "hdmi_mode=69 #DMT", -- >pixel clock limit
+	--rameDMT70_1920x1200x75    = "hdmi_mode=70 #DMT", -- >pixel clock limit
+	--rameDMT71_1920x1200x85    = "hdmi_mode=71 #DMT", -- >pixel clock limit
+	--rameDMT72_1920x1200x120rb = "hdmi_mode=72 #DMT", -- >pixel clock limit
+	--rameDMT73_1920x1440x60    = "hdmi_mode=73 #DMT", -- >pixel clock limit
+	--rameDMT74_1920x1440x75    = "hdmi_mode=74 #DMT", -- >pixel clock limit
+	--rameDMT75_1920x1440x120rb = "hdmi_mode=75 #DMT", -- >pixel clock limit
+	--rameDMT76_2560x1600rb     = "hdmi_mode=76 #DMT", -- >pixel clock limit
+	--rameDMT77_2560x1600x60    = "hdmi_mode=77 #DMT", -- >pixel clock limit
+	--rameDMT78_2560x1600x75    = "hdmi_mode=78 #DMT", -- >pixel clock limit
+	--rameDMT79_2560x1600x85    = "hdmi_mode=79 #DMT", -- >pixel clock limit
+	--rameDMT80_2560x1600x120rb = "hdmi_mode=80 #DMT", -- >pixel clock limit
+	rameDMT81_1366x768x60     = "hdmi_mode=81 #DMT",
+	rameDMT82_1920x1080x60    = "hdmi_mode=82 #DMT", -- 1080p
+	rameDMT83_1600x900rb      = "hdmi_mode=83 #DMT",
+	--rameDMT84_2048x1152rb     = "hdmi_mode=84 #DMT", -- >pixel clock limit
+	rameDMT85_1280x720x60     = "hdmi_mode=85 #DMT", -- 720p
+	rameDMT86_1366x768rb      = "hdmi_mode=86 #DMT",
+	rameDMT87_custom = "hdmi_mode=87 #DMT", -- put raw hdmi_timings to user/config.txt on SD-card
 }
 local rpi_resolutions_rev = revtable(rpi_resolutions)
+local rpi_resolutionfield_update = {
+	rame720p50  = rpi_resolutions.rameCEA19_720p50,
+	rame720p60  = rpi_resolutions.rameCEA4_720p60,
+	rame1080i50 = rpi_resolutions.rameCEA20_1080i50,
+	rame1080i60 = rpi_resolutions.rameCEA5_1080i60,
+	rame1080p50 = rpi_resolutions.rameCEA31_1080p50,
+	rame1080p60 = rpi_resolutions.rameCEA16_1080p60,
+}
 
 -- supported displayRotation on RPi
 local rpi_display_rotation = {
@@ -198,6 +368,9 @@ function SETTINGS.GET.system(ctx, reply)
 	local usercfg = plutils.readlines(RAME.config.settings_path..ramecfg_txt)
 	for _, val in ipairs(usercfg or {}) do
 		if val ~= "" and rpi_resolutions_rev[val] then
+			if rpi_resolutionfield_update[rpi_resolutions_rev[val]] then
+				val = rpi_resolutionfield_update[rpi_resolutions_rev[val]]
+			end
 			conf.resolution = rpi_resolutions_rev[val]
 		end
 		if rpi_display_rotation_rev[val] then
@@ -292,16 +465,29 @@ function SETTINGS.POST.system(ctx, reply)
 	})
 	if err then return err, msg end
 
+
+	if args.resolution ~= "" and rpi_resolutionfield_update[args.resolution] then
+		local oldresolution = args.resolution
+		args.resolution = rpi_resolutions_rev[rpi_resolutionfield_update[args.resolution]]
+	end
+
 	--
 	-- RPi PARAMS RESOLUTION AND DISPLAY-ROTATION
 	--
-	table.insert(rpi_conf, "# NOTE: This file is auto-updated")
-	table.insert(rpi_conf, "hdmi_group=1")
+	table.insert(rpi_conf, "# NOTE: This file is auto-updated, don't edit!\n"
+	                     .."#       (place customizations in SD card to user/config.txt)")
+	--table.insert(rpi_conf, "hdmi_group=1")
+	for resmatcher,hdmiline in pairs(rpi_resolution_string_match_to_hdmigroup) do
+		if args.resolution:match(resmatcher) then
+			table.insert(rpi_conf, hdmiline)
+			break
+		end
+	end
 	table.insert(rpi_conf, rpi_resolutions[args.resolution])
 	table.insert(rpi_conf, rpi_display_rotation[args.displayRotation])
 
 	local old_config = plutils.readfile(RAME.config.settings_path..ramecfg_txt)
-	local new_config = table.concat(rpi_conf, "\n")
+	local new_config = table.concat(rpi_conf, "\n") .. "\n"
 	if old_config ~= new_config then
 		if not RAME.write_settings_file(ramecfg_txt, new_config) then
 			RAME.log.error("File write error: "..ramecfg_txt)
@@ -543,7 +729,6 @@ function SETTINGS.POST.system(ctx, reply)
 	if args.ntpServerAddress then
 		local ntp_conf = plfile.read("/etc/ntp.conf")
 		local new_conf = ""
-		print("DEBUG: ", args.ntpServerAddress)
 		for _,w in pairs(plutils.split(args.ntpServerAddress, ',')) do
 			new_conf = new_conf .. "server "..w.."\n"
 		end
