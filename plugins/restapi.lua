@@ -32,6 +32,15 @@ local function rest_info(item)
 		uri = item.uri,
 		autoPlayNext = item.autoPlayNext,
 		shufflePlay = item.shufflePlay or false,
+		scheduled = item.scheduled or false,
+		scheduledOnMon = item.scheduledOnMon or false,
+		scheduledOnTue = item.scheduledOnTue or false,
+		scheduledOnWed = item.scheduledOnWed or false,
+		scheduledOnThu = item.scheduledOnThu or false,
+		scheduledOnFri = item.scheduledOnFri or false,
+		scheduledOnSat = item.scheduledOnSat or false,
+		scheduledOnSun = item.scheduledOnSun or false,
+		scheduledTime = item.scheduledTime,
 		storage = item.container and item.container.id,
 		saferemove = item.saferemove,
 	}
@@ -76,6 +85,15 @@ function LISTS.POST(ctx, reply)
 			["repeat"] = ctx.args["repeat"],
 			autoPlayNext = ctx.args.autoPlayNext,
 			shufflePlay = ctx.args.shufflePlay or false,
+			scheduled = ctx.args.scheduled or false,
+			scheduledOnMon = ctx.args.scheduledOnMon or false,
+			scheduledOnTue = ctx.args.scheduledOnTue or false,
+			scheduledOnWed = ctx.args.scheduledOnWed or false,
+			scheduledOnThu = ctx.args.scheduledOnThu or false,
+			scheduledOnFri = ctx.args.scheduledOnFri or false,
+			scheduledOnSat = ctx.args.scheduledOnSat or false,
+			scheduledOnSun = ctx.args.scheduledOnSun or false,
+			scheduledTime = ctx.args.scheduledTime,
 			items = {}
 		}
 		for _, c in pairs(ctx.args.items) do
@@ -121,7 +139,7 @@ function LISTS.PUT(ctx, reply)
 	if item.type ~= "playlist" or not item.editable then return 405 end
 
 	if #ctx.paths == ctx.path_pos then
-		-- Edit list
+		-- PUT /lists/ID -- Edit list
 		local storage
 		if ctx.args.storage then
 			-- root item id to store the playlist in
@@ -132,6 +150,15 @@ function LISTS.PUT(ctx, reply)
 		item["repeat"] = ctx.args["repeat"]
 		item.autoPlayNext = ctx.args.autoPlayNext
 		item.shufflePlay = ctx.args.shufflePlay or false
+		item.scheduled = ctx.args.scheduled or false
+		item.scheduledOnMon = ctx.args.scheduledOnMon or false
+		item.scheduledOnTue = ctx.args.scheduledOnTue or false
+		item.scheduledOnWed = ctx.args.scheduledOnWed or false
+		item.scheduledOnThu = ctx.args.scheduledOnThu or false
+		item.scheduledOnFri = ctx.args.scheduledOnFri or false
+		item.scheduledOnSat = ctx.args.scheduledOnSat or false
+		item.scheduledOnSun = ctx.args.scheduledOnSun or false
+		item.scheduledTime = ctx.args.scheduledTime
 		if item.title ~= ctx.args.title or item.container ~= storage then
 			if item.container then item.container:del_playlist(item) end
 			item.title = ctx.args.title
@@ -140,7 +167,7 @@ function LISTS.PUT(ctx, reply)
 			item:touch()
 		end
 	elseif #ctx.paths == ctx.path_pos+2 and ctx.paths[ctx.path_pos+1] == "items" then
-		-- Edit list item
+		-- PUT /lists/listID/items/itemID -- Edit list item (move)
 		local cid = ctx.paths[ctx.path_pos+2]
 		local child = Item.find(cid)
 		if child == nil then return 404 end
@@ -165,6 +192,7 @@ function LISTS.DELETE(ctx, reply)
 	if item == nil then return 404 end
 	if not item.editable then return 405 end
 
+	-- DELETE /lists/targetID -- Delete list
 	if #ctx.paths == ctx.path_pos then
 		item:unlink()
 	elseif #ctx.paths == ctx.path_pos+1 and ctx.paths[ctx.path_pos+1] == "items" then
