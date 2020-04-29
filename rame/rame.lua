@@ -167,6 +167,12 @@ function RAME:hook(hook, ...)
 	return ret
 end
 
+function RAME:reset_player_schedule()
+	self.player.__resume_command = nil
+	self.player.__resume_itemid = nil
+	self.player.__scheduled_itemid = nil
+end
+
 -- commands:
 --   autoplay with item_id
 --   set_cursor with item_id
@@ -194,8 +200,32 @@ function RAME:action(command, item_id, pos)
 		return 400
 	end
 
+	if command == "scheduledplay" then
+		-- Keep the original item id to be resumed in case we are
+		-- interrupting earlier scheduled item
+		if not self.player.__resume_command then
+			local command = self.player.command()
+			if command ~= "autoplay" and command ~= "repeatplay" then
+				command = "stop"
+			end
+			self.player.__resume_command = command
+			self.player.__resume_itemid = self.player.cursor()
+		end
+		RAME.log.info(("Starting scheduled play, will resume item ID %s, cmd %s"):format(self.player.__resume_itemid, self.player.__resume_command))
+		if status ~= "stopped" then
+			self.player.__scheduled_itemid = item_id
+			self.player.command("autoplay")
+			if self.player.control and self.player.control.stop then
+				self.player.control.stop()
+			end
+			return 200
+		end
+		command = "autoplay"
+	end
+
 	if command == "stop" then
 		self.player.command("stop")
+		self:reset_player_schedule()
 		if status ~= "stopped" and self.player.control and self.player.control.stop then
 			self.player.control.stop()
 		end
@@ -454,9 +484,92 @@ function RAME.load_playlists(item, bootmedia)
 		RAME.root:add(pitem)
 		if name == "autoplay" and #pitem.items > 0
 		   and (bootmedia or RAME.user_settings.autoplayUsb) then
-			--RAME:action("autoplay", pitem.items[1].id)
 			RAME:action("autoplay", pitem:get_first_play_item_id())
 		end
+	end
+end
+
+local function parse_time(str)
+	if type(str) ~= "string" then return 0,0,0 end
+	local h,m,s = str:match("^(%d%d?):(%d%d):(%d%d)$")
+	if not s then
+		h, m = str:match("^(%d%d?):(%d%d)$")
+		s = "00"
+	end
+	if not h then return 0,0,0 end
+	return tonumber(h, 10), tonumber(m, 10), tonumber(s, 10)
+end
+
+function RAME.playlist_scheduler()
+	local self = RAME
+	local timerfd = require 'cqp.timerfd'
+	local timer = timerfd.new()
+	local weekdaymap = {
+		"scheduledOnSun",
+		"scheduledOnMon",
+		"scheduledOnTue",
+		"scheduledOnWed",
+		"scheduledOnThu",
+		"scheduledOnFri",
+		"scheduledOnSat",
+	}
+
+	RAME.log.debug("Scheduler started")
+	self.__scheduler_timer = timer
+	while next(Item.__all_scheduled) do
+		-- Find the next scheduled item if any
+		local now = os.time()
+		local next_item, next_time = nil, now + 10*24*60*60
+		for _, item in pairs(Item.__all_scheduled) do
+			local tm = os.date("*t", now)
+			-- Calculate next calendar time to play
+			local h, m, s = parse_time(item.scheduledTime)
+			for i = 0, 7 do
+				-- Calculate the scheduled localtime for i'th day
+				-- in that days daylight savings time setting.
+				tm.hour, tm.min, tm.sec, tm.isdst = h, m, s, nil
+				local playtime = os.time(tm)
+				if playtime > next_time then break end
+
+				-- As side effect 'tm' is updated with normalized
+				-- time. Check that the resulting time matches what
+				-- we asked. It differs if there was a DST change
+				-- and the time requested does not exist.
+				if tm.hour == h and tm.min == m and tm.sec == s and
+				   playtime > now and item[weekdaymap[tm.wday]] then
+					print("Matching", playtime, i, weekdaymap[tm.wday])
+					next_item = item
+					next_time = playtime
+					break
+				end
+
+				tm.day = tm.day + 1
+			end
+		end
+		if not next_item then break end
+
+		-- Wait until scheduled time or recalculation needed
+		-- Cancel is triggered by above 'reschedule' on item change,
+		-- and by the kernel on system time jump.
+		timer:set(next_time, nil, true)
+		RAME.log.debug(("Scheduled playlist %s (%s) in %d sec"):format(next_item.id, next_item.title, next_time - now))
+		local val, err, errno = timer:read()
+		if val and val > 0 then
+			-- Timer Triggered - time to play the item
+			RAME.log.debug(("SCHEDULE PLAY playlist %s (%s)"):format(next_item.id, next_item.title))
+			RAME:action("scheduledplay", next_item:get_first_play_item_id())
+		end
+	end
+	self.__scheduler_timer = nil
+	timer:close()
+	RAME.log.debug("Scheduler exited")
+end
+
+function RAME.reschedule()
+	if RAME.__scheduler_timer then
+		RAME.__scheduler_timer:cancel()
+	elseif next(Item.__all_scheduled) then
+		cqueues.running():wrap(RAME.playlist_scheduler)
 	end
 end
 
@@ -542,16 +655,33 @@ function RAME.main()
 		until not playing or self.player.__wait == nil
 
 		if playing then
+			local autoplay = (self.player.command() == "autoplay")
 			local wrapped = true
-			if item and (move_next or self.player.command() == "autoplay") then
+			if self.player.__scheduled_itemid then
+				-- Scheduled playlist interruption will override
+				-- next item
+				self.player.cursor(self.player.__scheduled_itemid)
+				self.player.__scheduled_itemid = nil
+				wrapped = false
+			elseif item and (move_next or autoplay) then
 				-- Move cursor to next item if playback stopped normally
 				-- or in autoplay mode and stop was not requested
 				item, wrapped = item:navigate()
-				self.player.cursor(item.id)
+				if wrapped and self.player.__resume_command then
+					-- Resume to interrupted playlist's item or stop state
+					-- after scheduled playlist finishes
+					self.player.cursor(self.player.__resume_itemid)
+					self.player.command(self.player.__resume_command)
+					self:reset_player_schedule()
+					autoplay, wrapped = true, false
+				else
+					self.player.cursor(item.id)
+				end
 			end
-			if self.player.command() ~= "autoplay" then
+			if not autoplay then
 				-- stop if not in autoplay mode
 				self.player.command("stop")
+				self:reset_player_schedule()
 			elseif wrapped and not move_next then
 				-- the last item of playlist failed to
 				-- play, add a brief wait to restart loop
@@ -627,5 +757,7 @@ RAME.log.level_func = {
 	ERROR   = RAME.log.error,
 }
 
+RAME.system.timezone:push_to(RAME.reschedule)
+Item.reschedule = RAME.reschedule
 
 return RAME

@@ -9,10 +9,15 @@ local Queue = require 'rame.queue'
 local Item = {
 	__scanner = Queue.new(),
 	__all_items = setmetatable({}, {__mode='v'}),
+	__all_scheduled = setmetatable({}, {__mode='v'}),
 	uri_helpers = UrlMatch.new(),
 	uri_scanners = UrlMatch.new(),
 }
 Item.__index = Item
+
+function Item.reschedule()
+	RAME.log.debug("Item.reschedule")
+end
 
 function Item.scanner()
 	while true do
@@ -66,6 +71,10 @@ function Item:touch(rescan)
 		if self.parent.container then
 			self.parent.container:queue_save()
 		end
+	end
+	if self.scheduled or Item.__all_scheduled[self.id] then
+		Item.__all_scheduled[self.id] = self.scheduled and self or nil
+		Item.reschedule()
 	end
 	if rescan and self.scanned == true then
 		-- Wait for modifications to settle until
@@ -173,6 +182,10 @@ function Item:unlink(forced)
 		end
 	end
 	Item.__all_items[self.id] = nil
+	if Item.__all_scheduled[self.id] then
+		Item.__all_scheduled[self.id] = nil
+		Item.reschedule()
+	end
 	if self.on_delete then self.on_delete() end
 	if self.watcher then self.watcher:destroy() end
 end
@@ -214,6 +227,7 @@ function Item:load_playlists(lists, save_func)
 			autoPlayNext = list.autoPlayNext,
 			shufflePlay = list.shufflePlay or false,
 			editable = true,
+			-- FIXME: restore scheduling info once REST API is stable
 			items = {}
 		}
 		for _, c in pairs(list.items or {}) do
@@ -246,6 +260,7 @@ function Item:save_playlists()
 				["repeat"] = pitem["repeat"],
 				autoPlayNext = pitem.autoPlayNext,
 				shufflePlay = pitem.shufflePlay or false,
+				-- FIXME: save scheduling info once REST API is stable
 				items = list,
 			})
 		end
