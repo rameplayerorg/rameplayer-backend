@@ -10,7 +10,7 @@ local Plugin = {
 	}
 }
 
-function Plugin.control.play(uri, itemrepeat, initpos)
+function Plugin.control.play(uri, mode, initpos)
 	local filename, chapter_id = RAME.resolve_uri(uri)
 	process.run("fbi", "-noverbose", "-autozoom", "-1", "-t", "1", filename)
 	RAME.player.status("playing")

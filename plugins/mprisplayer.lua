@@ -76,7 +76,7 @@ function Plugin.control.status_update()
 	Plugin.control.cond:signal()
 end
 
-function Plugin.control.omxplay(uri, itemrepeat, initpos, chstartpos, chendpos)
+function Plugin.control.omxplay(uri, command, initpos, chstartpos, chendpos)
 	local adev = RAME.config.omxplayer_audio_out
 
 	-- FIXME: omxplayer does not support 'both' with alsa at the moment
@@ -95,8 +95,8 @@ function Plugin.control.omxplay(uri, itemrepeat, initpos, chstartpos, chendpos)
 		Plugin.live = true
 	end
 	Plugin.stopped = nil
-	Plugin.itemrepeat = itemrepeat
-	if itemrepeat then
+	Plugin.itemrepeat = (command == "repeatplay")
+	if Plugin.itemrepeat then
 		table.insert(cmd, "--loop")
 	end
 	if initpos then
@@ -125,7 +125,7 @@ function Plugin.control.omxplay(uri, itemrepeat, initpos, chstartpos, chendpos)
 	Plugin.live = nil
 	local chapter_done = Plugin.chapter_ended
 	Plugin.chapter_ended = nil
-	return status == 0 or chapter_done or (itemrepeat and Plugin.stopped)
+	return status == 0 or chapter_done or (Plugin.itemrepeat and Plugin.stopped)
 end
 
 function Plugin.control.vlcplay(uri)

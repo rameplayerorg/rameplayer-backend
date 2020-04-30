@@ -315,7 +315,7 @@ function RAME.rest.status(ctx, reply)
 		state = RAME.player.status(),
 		position = RAME.player.position(),
 		duration = RAME.player.duration(),
-		["repeat"] = RAME.player.__itemrepeat and -1 or nil,
+		["repeat"] = (RAME.player.command() == "repeatplay") and -1 or nil,
 		cursor = {
 			id = item and item.id,
 			name = item and (item.filename or item.uri),

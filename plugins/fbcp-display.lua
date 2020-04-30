@@ -417,6 +417,7 @@ function Plugin.main()
 
 	RAME.player.position:push_to(update)
 	RAME.player.duration:push_to(update)
+	RAME.player.command:push_to(update)
 	RAME.player.status:push_to(update)
 	RAME.player.cursor:push_to(update)
 	RAME.cluster.controller:push_to(update)
@@ -523,7 +524,7 @@ function Plugin.main()
 			goto update_done
 		end
 
-		if status == "playing" and RAME.player.__itemrepeat then
+		if status == "playing" and RAME.player.command() == "repeatplay" then
 			play_status_id = statmap.repeatplay
 		end
 

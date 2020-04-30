@@ -47,6 +47,7 @@ local RAME = {
 	},
 	player = {
 		status   = push.property("stopped", "Playback status"),
+		command  = push.property("stop", "Active playback command"),
 		cursor   = push.property("", "Active media"),
 		position = push.property(0, "Active media play position"),
 		duration = push.property(0, "Active media duration"),
@@ -194,8 +195,7 @@ function RAME:action(command, item_id, pos)
 	end
 
 	if command == "stop" then
-		self.player.__playing = false
-		self.player.__autoplay = false
+		self.player.command("stop")
 		if status ~= "stopped" and self.player.control and self.player.control.stop then
 			self.player.control.stop()
 		end
@@ -210,7 +210,7 @@ function RAME:action(command, item_id, pos)
 	end
 
 	if command == "menu" then
-		if self.player.__playing then
+		if self.player.command() ~= "stop" then
 			self.localui.state((self.localui.state() + 1) % self.localui.states._COUNT)
 		else -- not playing:
 			local state, new_state = self.localui.state()
@@ -255,11 +255,14 @@ function RAME:action(command, item_id, pos)
 	if command == "repeatplay" or command == "autoplay" or command == "play" then
 		local item = Item.find(RAME.player.cursor())
 		local parent = item and item.parent or {}
+		if command == "play" and parent.autoPlayNext then
+			command = "autoplay"
+		end
+
 		RAME.log.info("Player: sending " .. command .. " command, cursor " .. self.player.cursor())
-		self.player.__itemrepeat = (command == "repeatplay")
-		self.player.__autoplay = (command == "autoplay") or parent.autoPlayNext
-		self.player.__playing = true
-		if parent and parent.shufflePlay then parent:refresh_shuffle_order() end
+		self.player.command(command)
+
+		if parent.shufflePlay then parent:refresh_shuffle_order() end
 		if pos then
 			if pos < 0 then
 				self.player.__wait = -pos
@@ -302,6 +305,7 @@ function RAME.wait_controls.pause()
 end
 
 function RAME.wait_controls.stop()
+	RAME.player.__wait = nil
 	RAME.wait_controls.cond:signal()
 end
 
@@ -472,7 +476,7 @@ function RAME.main()
 
 		-- item or idle url to play?
 		local uri, control
-		local playing = item and self.player.__playing
+		local playing = item and self.player.command() ~= "stop"
 		if playing then
 			uri = item.uri
 			control = RAME.players:resolve(uri)
@@ -485,29 +489,36 @@ function RAME.main()
 			self.player.status("stopped")
 		end
 
-		-- main play loop of item
+		-- Main item playback loop. This plays the "idle player" once
+		-- if in "stopped" state. If in real playback mode, this will
+		-- optionall start with "waiting" state, or go to "buffering"
+		-- and then "playing" state. To loop is needed when the item
+		-- is seeked to negative offset and the playback will go to
+		-- again to "waiting" mode.
 		repeat
-			if self.player.__playing and self.player.__wait then
+			if self.player.command() ~= "stop" and self.player.__wait then
 				self.player.status("waiting")
 				self.player.control = self.wait_controls
-				while self.player.__playing and self.player.__wait > 0 do
+				while self.player.__wait and self.player.__wait > 0 do
 					self.player.position(-self.player.__wait)
-					local d = math.min(0.1, self.player.__wait)
-					cqueues.poll(self.wait_controls.cond, d)
-					if self.player.status() == "waiting" then
+					local d = 0.1
+					if self.player.status() ~= "paused" then
+						d = math.min(d, self.player.__wait)
 						self.player.__wait = self.player.__wait - d
 					end
+					cqueues.poll(self.wait_controls.cond, d)
 				end
 				self.player.control = nil
-				self.player.__wait = nil
 
 				-- stopped while waiting?
-				if not self.player.__playing then
+				if self.player.__wait == nil then
 					control = self.null_controls
 					move_next = false
+					break
 				end
+				self.player.__wait = nil
 			end
-			if self.player.__playing then
+			if self.player.command() ~= "stop" then
 				self.player.status("buffering")
 			end
 
@@ -525,23 +536,22 @@ function RAME.main()
 			end
 			self.player.control = control
 			self.player.__initpos = nil
-			move_next = RAME.player.control.play(uri, self.player.__itemrepeat, initpos, chstartpos, chendpos)
+			move_next = RAME.player.control.play(uri, self.player.command(), initpos, chstartpos, chendpos)
 			self.player.control = nil
 			RAME.log.info("Stopped", uri)
 		until not playing or self.player.__wait == nil
 
 		if playing then
 			local wrapped = true
-			if item and (move_next or (self.player.__playing and self.player.__autoplay)) then
+			if item and (move_next or self.player.command() == "autoplay") then
 				-- Move cursor to next item if playback stopped normally
 				-- or in autoplay mode and stop was not requested
 				item, wrapped = item:navigate()
 				self.player.cursor(item.id)
 			end
-			if not self.player.__autoplay then
+			if self.player.command() ~= "autoplay" then
 				-- stop if not in autoplay mode
-				self.player.__playing = false
-				self.player.__itemrepeat = false
+				self.player.command("stop")
 			elseif wrapped and not move_next then
 				-- the last item of playlist failed to
 				-- play, add a brief wait to restart loop
