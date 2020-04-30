@@ -10,22 +10,6 @@ local Plugin = {}
 
 local INFODISPLAY_ROW_COUNT = 7
 
-local function get_localui_tz()
-	local ts = os.time()
-	local utcdate   = os.date("!*t", ts)
-	local localdate = os.date( "*t", ts)
-	localdate.isdst = false
-	local tzoffset = os.difftime(os.time(localdate), os.time(utcdate))
-	local tznfo = "UTC "
-	if tzoffset ~= 0 then
-		local h, m = math.modf(tzoffset / 3600)
-		tznfo = ("UTC%+.4d "):format(h * 100 + m * 60)
-	end
-	--print(tznfo, localdate["hour"], localdate["min"], localdate["sec"], cqueues.monotime())
-	--return ("%s %02d:%02d:%02d"):format(tznfo, localdate["hour"], localdate["min"], localdate["sec"])
-	return tznfo
-end
-
 function Plugin.active()
 	if not plpath.isfile(fbcputil) then
 		return nil, fbcputil.." not found"
@@ -475,11 +459,10 @@ function Plugin.main()
 	local hold_volume_display_until_time = 0
 	local last_displayed_filename = ""
 	local last_displayed_notifyinfo = ""
-	local tznfo = 0
-	local sched_update_tznfo_time = cqueues.monotime()
 	local max_cond_wait = 60
-	local tz_update_check_interval = 30*60
 	local prev_local_ui_state = nil
+
+	RAME.system.timezone:push_to(function(val) out:write(("$:TZ=:%s\n"):format(val)) end)
 
 	while true do
 		local monotime = cqueues.monotime()
@@ -504,11 +487,6 @@ function Plugin.main()
 			out:write("O6:FFAA2200\nS:6\nV:0\n")
 			out:write("X1:\nX2:\nX3:\nX4:\nX5:--- REBOOTING ---\nX6:Please wait...\nX7:\n")
 			goto update_done -- skip normal update logic
-		end
-
-		if monotime >= sched_update_tznfo_time then
-			tznfo = get_localui_tz()
-			sched_update_tznfo_time = monotime + tz_update_check_interval
 		end
 
 		if local_ui_state ~= prev_local_ui_state then
@@ -564,14 +542,9 @@ function Plugin.main()
 		else
 			out:write("S1:0\n")
 		end
-		hostname = RAME.system.hostname() or nil
-		if hostname then
-			out:write(("X1:%s\n"):format(hostname))
-		end
+		out:write(("X1:%s\n"):format(RAME.system.hostname() or ""))
 		out:write(("X2:IP %s\n"):format(RAME.system.ip()))
-
-		out:write(("C3:%s\n"):format(tznfo))
-
+		out:write(("C3:UTC%z %T\n"))
 		out:write(("X4:%s\n"):format(RAME.version.short()))
 
 		cluster_controller = RAME.cluster.controller()

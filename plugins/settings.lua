@@ -1,6 +1,7 @@
 -- Must be safe version of cjson-lib for errohandling
 local json = require 'cjson.safe'
 local lfs = require 'lfs'
+local posix = require 'posix'
 local plfile = require 'pl.file'
 local plutils = require 'pl.utils'
 local plconfig = require "pl.config"
@@ -11,9 +12,9 @@ local RAME = require 'rame.rame'
 local ramecfg_txt = "ramecfg.txt"
 local user_settings_json = "user_settings.json"
 local system_settings_json = "system_settings.json"
-local timezone = ''
 local timezone_path = "/usr/share/zoneinfo/"
-local timezones = nil
+
+local timezones_list, timezones_map = {}, {}
 
 local function revtable(tbl)
 	local rev={}
@@ -279,7 +280,7 @@ local function entries(e)
 end
 
 -- returns true if given name is valid timezone
-function is_valid_tz(name)
+local function is_valid_tz(name)
 	return name:sub(1,1) ~= '.' and
 		name ~= 'right' and
 		name ~= 'posixrules' and
@@ -287,29 +288,31 @@ function is_valid_tz(name)
 end
 
 -- returns table of timezones
-function read_timezones(path, prefix)
-	prefix = prefix or ''
-	local l = {}
-	if plpath.exists(path) == false then
-		RAME.log.error(("Timezone path not found: %s"):format(path))
-		return l
-	end
+local function scan_timezones(tzmap, tzlist, path, prefix)
 	for file in lfs.dir(path) do
 		if is_valid_tz(file) then
 			local f = path .. '/' .. file
 			local attr = lfs.attributes(f)
 			if attr.mode == 'directory' then
-				local sub = read_timezones(f, file .. '/')
-				for _, v in ipairs(sub) do
-					table.insert(l, v)
-				end
+				scan_timezones(tzmap, tzlist, f, file .. '/')
 			else
-				table.insert(l, prefix .. file)
+				local tz = prefix .. file
+				table.insert(tzlist, tz)
+				tzmap[tz] = true
 			end
 		end
 	end
-	table.sort(l)
-	return l
+	return tzmap, tzlist
+end
+
+local function read_timezones()
+	if not plpath.exists(timezone_path) then return end
+	timezones_map, timezones_list = scan_timezones({}, {}, timezone_path, "")
+	table.sort(timezones_list)
+	local tz = posix.readlink("/etc/localtime")
+	if tz and tz:sub(1, #timezone_path) == timezone_path then
+		RAME.system.timezone(tz:sub(#timezone_path+1))
+	end
 end
 
 -- REST API: /settings/
@@ -430,17 +433,8 @@ function SETTINGS.GET.system(ctx, reply)
 	end
 
 	conf.dateAndTimeInUTC = os.date("!%Y-%m-%d %T")
-
-	-- read current timezone, stripping newline
-	local tz = plutils.readfile("/etc/timezone") or ''
-	timezone = tz:sub(1, -2)
-	conf.timezone = timezone
-
-	-- cache timezones
-	if timezones == nil then
-		timezones = read_timezones(timezone_path)
-	end
-	conf.timezones = timezones
+	conf.timezone = RAME.system.timezone()
+	conf.timezones = timezones_list
 
 	return 200, conf
 end
@@ -462,6 +456,7 @@ function SETTINGS.POST.system(ctx, reply)
 		hostname = {validate=check_hostname, optional=true},
 		ntpServerAddress = {typeof="string", optional=true},
 		dateAndTimeInUTC = {typeof="string", optional=true},
+		timezone = {typeof="string", choices=timezones_map, optional=true}
 	})
 	if err then return err, msg end
 
@@ -756,19 +751,13 @@ function SETTINGS.POST.system(ctx, reply)
 	--
 	-- TIMEZONE
 	--
+	local timezone = RAME.system.timezone()
 	if args.timezone and timezone ~= args.timezone then
 		RAME.log.info("prev. timezone: " .. timezone)
 		RAME.log.info("Setting timezone: " .. args.timezone)
-		if not plfile.write("/etc/timezone", args.timezone .. "\n") then
-			RAME.log.error("File write error: ".."/etc/timezone")
-			return 500, { error="File write error: ".."/etc/timezone" }
-		end
-		local tz_path = "/usr/share/zoneinfo/" .. args.timezone
-		process.run("ln", "-sf", tz_path, "/etc/localtime")
-		if RAME.config.second_display then
-			RAME.system.reboot_required(true)
-		end
-		timezone = args.timezone
+		RAME.system.timezone(args.timezone)
+		plfile.delete("/etc/timezone")
+		posix.link("/usr/share/zoneinfo/" .. args.timezone, "/etc/localtime", true)
 		commit = true
 	end
 
@@ -805,6 +794,9 @@ function Plugin.init()
 	if RAME.check_fields(conf, system_settings_fields) == nil then
 		RAME.system_settings = conf
 	end
+
+	RAME.system.timezone:push_to(function(tz) posix.setenv("TZ", ":"..tz) end)
+	read_timezones()
 
 	ok, conf = SETTINGS.GET.system()
 	if ok == 200 then activate_config(conf) end

@@ -43,6 +43,7 @@ local RAME = {
 		audio_mono_out = push.property(false, "Downmix audio to mono"),
 		rebooting_flag = push.property(false, "Imminent reboot notification flag"),
 		media_mount = push.property(nil, "Media mount event"),
+		timezone = push.property("UTC", "Timezone"),
 	},
 	player = {
 		status   = push.property("stopped", "Playback status"),
