@@ -229,7 +229,7 @@ function Item:load_playlists(lists, save_func)
 			editable = true,
 			scheduled = list.scheduled or false,
 			scheduledMonSun = list.scheduledMonSun or { false, false, false, false, false, false, false },
-			scheduledTime = item.scheduledTime or 0,
+			scheduledTime = list.scheduledTime or 0,
 			items = {}
 		}
 		for _, c in pairs(list.items or {}) do

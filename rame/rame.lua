@@ -489,30 +489,10 @@ function RAME.load_playlists(item, bootmedia)
 	end
 end
 
-local function parse_time(str)
-	if type(str) ~= "string" then return 0,0,0 end
-	local h,m,s = str:match("^(%d%d?):(%d%d):(%d%d)$")
-	if not s then
-		h, m = str:match("^(%d%d?):(%d%d)$")
-		s = "00"
-	end
-	if not h then return 0,0,0 end
-	return tonumber(h, 10), tonumber(m, 10), tonumber(s, 10)
-end
-
 function RAME.playlist_scheduler()
 	local self = RAME
 	local timerfd = require 'cqp.timerfd'
 	local timer = timerfd.new()
-	local weekdaymap = {
-		"scheduledOnSun",
-		"scheduledOnMon",
-		"scheduledOnTue",
-		"scheduledOnWed",
-		"scheduledOnThu",
-		"scheduledOnFri",
-		"scheduledOnSat",
-	}
 
 	RAME.log.debug("Scheduler started")
 	self.__scheduler_timer = timer
@@ -523,7 +503,8 @@ function RAME.playlist_scheduler()
 		for _, item in pairs(Item.__all_scheduled) do
 			local tm = os.date("*t", now)
 			-- Calculate next calendar time to play
-			local h, m, s = parse_time(item.scheduledTime)
+			local secs = item.scheduledTime
+			local h, m, s = secs // 3600, (secs // 60) % 60, secs % 60
 			for i = 0, 7 do
 				-- Calculate the scheduled localtime for i'th day
 				-- in that days daylight savings time setting.
@@ -536,8 +517,7 @@ function RAME.playlist_scheduler()
 				-- we asked. It differs if there was a DST change
 				-- and the time requested does not exist.
 				if tm.hour == h and tm.min == m and tm.sec == s and
-				   playtime > now and item[weekdaymap[tm.wday]] then
-					print("Matching", playtime, i, weekdaymap[tm.wday])
+				   playtime > now and item.scheduledMonSun[1+((tm.wday+5) % 7)] then
 					next_item = item
 					next_time = playtime
 					break
@@ -558,6 +538,9 @@ function RAME.playlist_scheduler()
 			-- Timer Triggered - time to play the item
 			RAME.log.debug(("SCHEDULE PLAY playlist %s (%s)"):format(next_item.id, next_item.title))
 			RAME:action("scheduledplay", next_item:get_first_play_item_id())
+		else
+			-- Cancelled, aggregate potentual further wakeups
+			cqueues.poll(0.01)
 		end
 	end
 	self.__scheduler_timer = nil
