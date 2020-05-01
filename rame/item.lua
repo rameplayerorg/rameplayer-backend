@@ -122,6 +122,7 @@ end
 function Item:get_first_play_item_id()
 	if not self.items or #self.items < 1 then return nil end
 	if self.shufflePlay then
+		item:refresh_shuffle_order()
 		return self.items[self.shuffle_order[1]].id
 	end
 	return self.items[1].id

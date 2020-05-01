@@ -213,11 +213,6 @@ function RAME:action(command, item_id, pos)
 		end
 		RAME.log.info(("Starting scheduled play, will resume item ID %s, cmd %s"):format(self.player.__resume_itemid, self.player.__resume_command))
 		if status ~= "stopped" then
-			local item = Item.find(item_id)
-			if item and item.parent and item.parent.shufflePlay then
-				item.parent:refresh_shuffle_order()
-			end
-
 			self.player.__scheduled_itemid = item_id
 			self.player.command("autoplay")
 			if self.player.control and self.player.control.stop then
