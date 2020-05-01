@@ -650,7 +650,8 @@ function RAME.main()
 				-- Move cursor to next item if playback stopped normally
 				-- or in autoplay mode and stop was not requested
 				item, wrapped = item:navigate()
-				if wrapped and self.player.__resume_command then
+				if wrapped and self.player.__resume_command
+				   and not (item.parent and item.parent.autoPlayNext) then
 					-- Resume to interrupted playlist's item or stop state
 					-- after scheduled playlist finishes
 					self.player.cursor(self.player.__resume_itemid)
