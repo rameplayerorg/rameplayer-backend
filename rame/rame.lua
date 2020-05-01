@@ -170,7 +170,7 @@ end
 function RAME:reset_player_schedule()
 	self.player.__resume_command = nil
 	self.player.__resume_itemid = nil
-	self.player.__scheduled_itemid = nil
+	self.player.__scheduled_listid = nil
 end
 
 -- commands:
@@ -213,7 +213,7 @@ function RAME:action(command, item_id, pos)
 		end
 		RAME.log.info(("Starting scheduled play, will resume item ID %s, cmd %s"):format(self.player.__resume_itemid, self.player.__resume_command))
 		if status ~= "stopped" then
-			self.player.__scheduled_itemid = item_id
+			self.player.__scheduled_listid = item_id
 			self.player.command("autoplay")
 			if self.player.control and self.player.control.stop then
 				self.player.control.stop()
@@ -499,7 +499,7 @@ function RAME.playlist_scheduler()
 	while next(Item.__all_scheduled) do
 		-- Find the next scheduled item if any
 		local now = os.time()
-		local next_item, next_time = nil, now + 10*24*60*60
+		local next_list, next_time = nil, now + 10*24*60*60
 		for _, item in pairs(Item.__all_scheduled) do
 			local tm = os.date("*t", now)
 			-- Calculate next calendar time to play
@@ -518,7 +518,7 @@ function RAME.playlist_scheduler()
 				-- and the time requested does not exist.
 				if tm.hour == h and tm.min == m and tm.sec == s and
 				   playtime > now and item.scheduledMonSun[1+((tm.wday+5) % 7)] then
-					next_item = item
+					next_list = item
 					next_time = playtime
 					break
 				end
@@ -526,18 +526,18 @@ function RAME.playlist_scheduler()
 				tm.day = tm.day + 1
 			end
 		end
-		if not next_item then break end
+		if not next_list then break end
 
 		-- Wait until scheduled time or recalculation needed
 		-- Cancel is triggered by above 'reschedule' on item change,
 		-- and by the kernel on system time jump.
 		timer:set(next_time, nil, true)
-		RAME.log.debug(("Scheduled playlist %s (%s) in %d sec"):format(next_item.id, next_item.title, next_time - now))
+		RAME.log.debug(("Scheduled playlist %s (%s) in %d sec"):format(next_list.id, next_list.title, next_time - now))
 		local val, err, errno = timer:read()
 		if val and val > 0 then
 			-- Timer Triggered - time to play the item
-			RAME.log.debug(("SCHEDULE PLAY playlist %s (%s)"):format(next_item.id, next_item.title))
-			RAME:action("scheduledplay", next_item:get_first_play_item_id())
+			RAME.log.debug(("SCHEDULE PLAY playlist %s (%s)"):format(next_list.id, next_list.title))
+			RAME:action("scheduledplay", next_list.id)
 		else
 			-- Cancelled, aggregate potentual further wakeups
 			cqueues.poll(0.01)
@@ -640,11 +640,21 @@ function RAME.main()
 		if playing then
 			local autoplay = (self.player.command() == "autoplay")
 			local wrapped = true
-			if self.player.__scheduled_itemid then
-				-- Scheduled playlist interruption will override
-				-- next item
-				self.player.cursor(self.player.__scheduled_itemid)
-				self.player.__scheduled_itemid = nil
+			if self.player.__scheduled_listid then
+				-- Scheduled playlist interruption
+				item = Item.find(self.player.__scheduled_listid)
+				item = item and item:get_first_play_item_id()
+				self.player.__scheduled_listid = nil
+				if item then
+					-- Start scheduled playlist
+					self.player.cursor(item)
+				else
+					-- Scheduled list was empty, resume what was interrupted
+					self.player.cursor(self.player.__resume_itemid or "")
+					self.player.command(self.player.__resume_command or "stop")
+					self:reset_player_schedule()
+					autoplay = true
+				end
 				wrapped = false
 			elseif item and (move_next or autoplay) then
 				-- Move cursor to next item if playback stopped normally
@@ -654,8 +664,8 @@ function RAME.main()
 				   and not (item.parent and item.parent.autoPlayNext) then
 					-- Resume to interrupted playlist's item or stop state
 					-- after scheduled playlist finishes
-					self.player.cursor(self.player.__resume_itemid)
-					self.player.command(self.player.__resume_command)
+					self.player.cursor(self.player.__resume_itemid or "")
+					self.player.command(self.player.__resume_command or "stop")
 					self:reset_player_schedule()
 					autoplay, wrapped = true, false
 				else
