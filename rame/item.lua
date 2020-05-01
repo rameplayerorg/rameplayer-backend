@@ -227,7 +227,9 @@ function Item:load_playlists(lists, save_func)
 			autoPlayNext = list.autoPlayNext,
 			shufflePlay = list.shufflePlay or false,
 			editable = true,
-			-- FIXME: restore scheduling info once REST API is stable
+			scheduled = list.scheduled or false,
+			scheduledMonSun = list.scheduledMonSun or { false, false, false, false, false, false, false },
+			scheduledTime = item.scheduledTime or 0,
 			items = {}
 		}
 		for _, c in pairs(list.items or {}) do
@@ -260,7 +262,9 @@ function Item:save_playlists()
 				["repeat"] = pitem["repeat"],
 				autoPlayNext = pitem.autoPlayNext,
 				shufflePlay = pitem.shufflePlay or false,
-				-- FIXME: save scheduling info once REST API is stable
+				scheduled = pitem.scheduled or false,
+				scheduledMonSun = pitem.scheduledMonSun or { false, false, false, false, false, false, false },
+				scheduledTime = pitem.scheduledTime or 0,
 				items = list,
 			})
 		end

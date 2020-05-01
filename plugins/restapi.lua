@@ -33,14 +33,8 @@ local function rest_info(item)
 		autoPlayNext = item.autoPlayNext,
 		shufflePlay = item.shufflePlay or false,
 		scheduled = item.scheduled or false,
-		scheduledOnMon = item.scheduledOnMon or false,
-		scheduledOnTue = item.scheduledOnTue or false,
-		scheduledOnWed = item.scheduledOnWed or false,
-		scheduledOnThu = item.scheduledOnThu or false,
-		scheduledOnFri = item.scheduledOnFri or false,
-		scheduledOnSat = item.scheduledOnSat or false,
-		scheduledOnSun = item.scheduledOnSun or false,
-		scheduledTime = item.scheduledTime,
+		scheduledMonSun = item.scheduledMonSun or { false, false, false, false, false, false, false },
+		scheduledTime = item.scheduledTime or 0,
 		storage = item.container and item.container.id,
 		saferemove = item.saferemove,
 	}
@@ -86,14 +80,8 @@ function LISTS.POST(ctx, reply)
 			autoPlayNext = ctx.args.autoPlayNext,
 			shufflePlay = ctx.args.shufflePlay or false,
 			scheduled = ctx.args.scheduled or false,
-			scheduledOnMon = ctx.args.scheduledOnMon or false,
-			scheduledOnTue = ctx.args.scheduledOnTue or false,
-			scheduledOnWed = ctx.args.scheduledOnWed or false,
-			scheduledOnThu = ctx.args.scheduledOnThu or false,
-			scheduledOnFri = ctx.args.scheduledOnFri or false,
-			scheduledOnSat = ctx.args.scheduledOnSat or false,
-			scheduledOnSun = ctx.args.scheduledOnSun or false,
-			scheduledTime = ctx.args.scheduledTime,
+			scheduledMonSun = ctx.args.scheduledMonSun or { false, false, false, false, false, false, false },
+			scheduledTime = ctx.args.scheduledTime or 0,
 			items = {}
 		}
 		for _, c in pairs(ctx.args.items) do
@@ -151,13 +139,7 @@ function LISTS.PUT(ctx, reply)
 		item.autoPlayNext = ctx.args.autoPlayNext
 		item.shufflePlay = ctx.args.shufflePlay or false
 		item.scheduled = ctx.args.scheduled or false
-		item.scheduledOnMon = ctx.args.scheduledOnMon or false
-		item.scheduledOnTue = ctx.args.scheduledOnTue or false
-		item.scheduledOnWed = ctx.args.scheduledOnWed or false
-		item.scheduledOnThu = ctx.args.scheduledOnThu or false
-		item.scheduledOnFri = ctx.args.scheduledOnFri or false
-		item.scheduledOnSat = ctx.args.scheduledOnSat or false
-		item.scheduledOnSun = ctx.args.scheduledOnSun or false
+		item.scheduledMonSun = ctx.args.scheduledMonSun or { false, false, false, false, false, false, false }
 		item.scheduledTime = ctx.args.scheduledTime
 		if item.title ~= ctx.args.title or item.container ~= storage then
 			if item.container then item.container:del_playlist(item) end
