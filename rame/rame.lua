@@ -220,7 +220,14 @@ function RAME:action(command, item_id, pos)
 			end
 			return 200
 		end
-		command = "autoplay"
+		local item = Item.find(item_id)
+		if item then
+			command = "autoplay"
+			item_id = item:get_first_play_item_id()
+		else
+			command = "stop"
+			item_id = nil
+		end
 	end
 
 	if command == "stop" then
